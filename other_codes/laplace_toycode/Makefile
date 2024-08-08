@@ -1,6 +1,6 @@
 .phony: all clean
 
-PROGS := laplace scalar_advection
+PROGS := laplace scalar_advection euler_test
 
 all: $(PROGS)
 
@@ -19,11 +19,14 @@ ifeq ($(compiler_brand), GNU)
 else ifeq ($(compiler_brand), ifort)
 	FFLAGS ?= -warn all -O2 -stand f08 -assume realloc-lhs -fpp
 else ifeq ($(compiler_brand), nvfortran)
-	FFLAGS ?= -Wall -acc=gpu -fast -Mpreprocess -static-nvidia -g -Minfo=accel
+	FFLAGS ?= -Wall -acc=gpu -fast -Mpreprocess -static-nvidia -g # -Minfo=accel
 endif
 
 $(addsuffix $(PROGS),.o): m_blockgrid.o m_config.o
 $(PROGS): m_blockgrid.o m_config.o
+
+euler_test.o: m_euler.o
+euler_test: m_euler.o
 
 # How to get .o object files from .f90 source files
 %.o: %.f90

@@ -78,10 +78,10 @@ contains
     type(block_grid_t), intent(inout) :: bg
     real(dp), intent(in)              :: dt
 
-    call forward_euler(bg, bg%bx, bg%ilo, bg%ihi, bg%n_vars, bg%n_blocks, dt, bg%uu, 0, &
-         1, [0], [1.0_dp], 1)
-    call forward_euler(bg, bg%bx, bg%ilo, bg%ihi, bg%n_vars, bg%n_blocks, dt, bg%uu, 1, &
-         2, [0, 1], [0.5_dp, 0.5_dp], 0)
+    call forward_euler(bg, bg%bx, bg%ilo, bg%ihi, bg%n_vars, bg%n_blocks, &
+         dt, bg%uu, 0, 1, [0], [1.0_dp], 1)
+    call forward_euler(bg, bg%bx, bg%ilo, bg%ihi, bg%n_vars, bg%n_blocks, &
+         0.5_dp*dt, bg%uu, 1, 2, [0, 1], [0.5_dp, 0.5_dp], 0)
   end subroutine advance_heuns_method
 
   subroutine set_initial_conditions()
@@ -128,7 +128,7 @@ contains
 
     inv_dr = 1/bg%dr
 
-    !$acc parallel loop private(fx, fy, tmp)
+    !$acc parallel loop private(fx, fy, tmp, m)
     do n = 1, n_blocks
        !$acc loop
        do j = 1, bx(2)
