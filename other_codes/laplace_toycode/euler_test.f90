@@ -86,19 +86,9 @@ program euler_test
 
 contains
 
-  subroutine to_primitive(n_values, n_vars, u)
-    integer, intent(in)     :: n_values, n_vars
-    real(dp), intent(inout) :: u(n_vars, n_values)
-    integer                 :: n, idim
-
-    do n = 1, n_values
-       call to_primitive_single(n_vars, u(:, n))
-    end do
-  end subroutine to_primitive
-
-  subroutine to_primitive_single(n_vars, u)
-    integer, intent(in)     :: n_vars
-    real(dp), intent(inout) :: u(n_vars)
+  pure subroutine to_primitive(u)
+    !$acc routine seq
+    real(dp), intent(inout) :: u(n_vars_euler)
     integer :: idim
 
     u(ix_momx) = u(ix_momx)/u(ix_rho)
@@ -107,69 +97,57 @@ contains
     u(ix_e) = (euler_gamma-1.0_dp) * (u(ix_e) - &
          0.5_dp * u(ix_rho)* (u(ix_momx)**2 + u(ix_momy)**2))
 
-  end subroutine to_primitive_single
+  end subroutine to_primitive
 
-  subroutine to_conservative(n_values, n_vars, u)
-    integer, intent(in)     :: n_values, n_vars
-    real(dp), intent(inout) :: u(n_vars, n_values)
-    integer                 :: n
-
-    do n = 1, n_values
-       call to_conservative_single(n_vars, u(:, n))
-    end do
-  end subroutine to_conservative
-
-  subroutine to_conservative_single(n_vars, u)
-    integer, intent(in)     :: n_vars
-    real(dp), intent(inout) :: u(n_vars)
+  pure subroutine to_conservative(u)
+    !$acc routine seq
+    real(dp), intent(inout) :: u(n_vars_euler)
 
     ! Compute energy from pressure and kinetic energy
     u(ix_e) = u(ix_e) * inv_gamma_m1 + &
-         0.5_dp * u(ix_rho) * sum(u(ix_mom(:))**2)
+         0.5_dp * u(ix_rho) * (u(ix_momx)**2 + u(ix_momy)**2)
 
     ! Compute momentum from density and velocity components
     u(ix_momx) = u(ix_rho) * u(ix_momx)
     u(ix_momy) = u(ix_rho) * u(ix_momy)
-  end subroutine to_conservative_single
+  end subroutine to_conservative
 
-  subroutine muscl_flux_euler(u, flux_dim, flux)
+  subroutine muscl_flux_euler_prim(u, flux_dim, flux)
     !$acc routine seq
-    real(dp), intent(inout) :: u(n_vars_euler, 5)
-    integer, intent(in)     :: flux_dim
-    real(dp), intent(out)   :: flux(n_vars_euler, 2)
-    real(dp)                :: uL(n_vars_euler), uR(n_vars_euler), wL, wR, wmax
-    real(dp)                :: flux_l(n_vars_euler), flux_r(n_vars_euler)
-    integer                 :: n
-
-    call to_primitive(5, n_vars_euler, u)
+    real(dp), intent(in)  :: u(5, n_vars_euler)
+    integer, intent(in)   :: flux_dim
+    real(dp), intent(out) :: flux(n_vars_euler, 2)
+    real(dp)              :: uL(n_vars_euler), uR(n_vars_euler), wL, wR, wmax
+    real(dp)              :: flux_l(n_vars_euler), flux_r(n_vars_euler)
 
     ! Construct uL, uR for first cell face
-    uL = u(:, 2) + 0.5_dp * vanleer(u(:, 2) - u(:, 1), u(:, 3) - u(:, 2))
-    uR = u(:, 3) - 0.5_dp * vanleer(u(:, 3) - u(:, 2), u(:, 4) - u(:, 3))
+    uL = u(2, :) + 0.5_dp * vanleer(u(2, :) - u(1, :), u(3, :) - u(2, :))
+    uR = u(3, :) - 0.5_dp * vanleer(u(3, :) - u(2, :), u(4, :) - u(3, :))
 
     call euler_flux(uL, flux_dim, flux_l, wL)
     call euler_flux(uR, flux_dim, flux_r, wR)
     wmax = max(wL, wR)
 
-    call to_conservative_single(n_vars_euler, uL)
-    call to_conservative_single(n_vars_euler, uR)
+    call to_conservative(uL)
+    call to_conservative(uR)
     flux(:, 1) = 0.5_dp * (flux_l + flux_r - wmax * (uR - uL))
 
     ! Construct uL, uR for second cell face
-    uL = u(:, 3) + 0.5_dp * vanleer(u(:, 3) - u(:, 2), u(:, 4) - u(:, 3))
-    uR = u(:, 4) - 0.5_dp * vanleer(u(:, 4) - u(:, 3), u(:, 5) - u(:, 4))
+    uL = u(3, :) + 0.5_dp * vanleer(u(3, :) - u(2, :), u(4, :) - u(3, :))
+    uR = u(4, :) - 0.5_dp * vanleer(u(4, :) - u(3, :), u(5, :) - u(4, :))
 
     call euler_flux(uL, flux_dim, flux_l, wL)
     call euler_flux(uR, flux_dim, flux_r, wR)
     wmax = max(wL, wR)
 
-    call to_conservative_single(n_vars_euler, uL)
-    call to_conservative_single(n_vars_euler, uR)
+    call to_conservative(uL)
+    call to_conservative(uR)
     flux(:, 2) = 0.5_dp * (flux_l + flux_r - wmax * (uR - uL))
 
-  end subroutine muscl_flux_euler
+  end subroutine muscl_flux_euler_prim
 
   subroutine euler_flux(u, flux_dim, flux, w)
+    !$acc routine seq
     real(dp), intent(in)  :: u(n_vars_euler)
     integer, intent(in)   :: flux_dim
     real(dp), intent(out) :: flux(n_vars_euler)
@@ -226,7 +204,9 @@ contains
        error stop "Unknown initial condition"
     end select
 
-    call to_conservative(4, n_vars_euler, u0)
+    do n = 1, 4
+       call to_conservative(u0(:, n))
+    end do
 
     !$acc parallel loop private(r, ix)
     do n = 1, bg%n_blocks
@@ -262,10 +242,11 @@ contains
     integer, intent(in)               :: s_prev(n_prev) !< Previous states
     real(dp), intent(in)              :: w_prev(n_prev) !< Weights of previous states
     integer, intent(in)               :: s_out          !< Output state
-    integer                           :: n, i, j, m, k, iv
+    integer                           :: n, i, j, m, iv
     real(dp)                          :: inv_dr(2)
     real(dp)                          :: fx(n_vars_euler, 2), fy(n_vars_euler, 2)
-    real(dp)                          :: tmp(n_vars_euler, 5)
+    real(dp)                          :: tmp(5, n_vars_euler), u(n_vars_euler)
+    real(dp)                          :: uprim(lo(1):hi(1), lo(2):hi(2), n_vars_euler)
 
     do n = 1, n_vars_euler
        call update_ghostcells(bg, i_vars_grid(n)+s_deriv)
@@ -273,47 +254,54 @@ contains
 
     inv_dr = 1/bg%dr
 
-    !$acc parallel loop private(fx, fy, tmp, m, k, iv)
+    !$acc parallel loop private(fx, fy, tmp, u, uprim, m, iv)
     do n = 1, n_blocks
+
+       !$acc loop
+       do j = lo(2), hi(2)
+          !$acc loop
+          do i = lo(1), hi(1)
+             ! Convert to primitive
+             u = uu(IX(i, j, n, i_vars_grid+s_deriv))
+             call to_primitive(u)
+             uprim(i, j, :) = u
+          end do
+       end do
+
        !$acc loop
        do j = 1, bx(2)
           !$acc loop
           do i = 1, bx(1)
-             tmp = transpose(uu(IX(i-2:i+2, j, n, i_vars_grid+s_deriv)))
-             call muscl_flux_euler(tmp, 1, fx)
+             ! Compute x and y fluxes
+             tmp = uprim(i-2:i+2, j, :)
+             call muscl_flux_euler_prim(tmp, 1, fx)
 
-             tmp = transpose(uu(IX(i, j-2:j+2, n, i_vars_grid+s_deriv)))
-             call muscl_flux_euler(tmp, 2, fy)
+             tmp = uprim(i, j-2:j+2, :)
+             call muscl_flux_euler_prim(tmp, 2, fy)
 
-             uu(IX(i, j, n, i_vars_grid+2)) = dt * ((fx(:, 1) - fx(:, 2)) * inv_dr(1) + &
+             ! Keep track of changes in variables
+             uu(IX(i, j, n, i_vars_grid+s_dvar)) = dt * &
+                  ((fx(:, 1) - fx(:, 2)) * inv_dr(1) + &
                   (fy(:, 1) - fy(:, 2)) * inv_dr(2))
           end do
        end do
 
        ! Set output state after computations are done, since s_out can be
-       ! equal to s_deriv
-       do m = 1, n_prev
-          !$acc loop
-          do iv = 1, n_vars_euler
-             !$acc loop
-             do j = 1, bx(2)
-                !$acc loop
-                do i = 1, bx(1)
-                   ! Add weighted previous states
-                   uu(IX(i, j, n, i_vars_grid(iv)+2)) = uu(IX(i, j, n, i_vars_grid(iv)+2)) + &
-                        uu(IX(i, j, n, i_vars_grid(iv)+s_prev(m))) * w_prev(m)
-                end do
-             end do
-          end do
-       end do
-
+       ! equal to s_deriv and s_prev
        !$acc loop
        do iv = 1, n_vars_euler
           !$acc loop
           do j = 1, bx(2)
              !$acc loop
              do i = 1, bx(1)
-                uu(IX(i, j, n, i_vars_grid(iv)+s_out)) = uu(IX(i, j, n, i_vars_grid(iv)+2))
+                do m = 1, n_prev
+                   ! Add weighted previous states
+                   uu(IX(i, j, n, i_vars_grid(iv)+s_dvar)) = &
+                        uu(IX(i, j, n, i_vars_grid(iv)+s_dvar)) + &
+                        uu(IX(i, j, n, i_vars_grid(iv)+s_prev(m))) * w_prev(m)
+                end do
+                uu(IX(i, j, n, i_vars_grid(iv)+s_out)) = &
+                     uu(IX(i, j, n, i_vars_grid(iv)+s_dvar))
              end do
           end do
        end do

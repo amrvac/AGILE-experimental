@@ -23,4 +23,6 @@ module m_euler
   integer, parameter :: i_e                       = 10
   integer, parameter :: i_vars_grid(n_vars_euler) = [i_rho, i_momx, i_momy, i_e]
 
+  integer, parameter :: s_dvar                    = 2
+
 end module m_euler
