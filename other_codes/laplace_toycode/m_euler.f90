@@ -16,13 +16,11 @@ module m_euler
   integer, parameter  :: ix_mom(2)    = [2, 3]
   integer, parameter  :: ix_e         = 4
 
-  integer, parameter :: n_variables               = 3 * n_vars_euler
+  integer, parameter :: n_variables               = 2 * n_vars_euler
   integer, parameter :: i_rho                     = 1
-  integer, parameter :: i_momx                    = 4
-  integer, parameter :: i_momy                    = 7
-  integer, parameter :: i_e                       = 10
+  integer, parameter :: i_momx                    = 3
+  integer, parameter :: i_momy                    = 5
+  integer, parameter :: i_e                       = 7
   integer, parameter :: i_vars_grid(n_vars_euler) = [i_rho, i_momx, i_momy, i_e]
-
-  integer, parameter :: s_dvar                    = 2
 
 end module m_euler

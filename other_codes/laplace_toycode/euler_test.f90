@@ -210,9 +210,8 @@ contains
 
     !$acc parallel loop private(r, ix)
     do n = 1, bg%n_blocks
-       !$acc loop
+       !$acc loop collapse(2)
        do j = 1, bg%bx(2)
-          !$acc loop
           do i = 1, bg%bx(1)
              ix = [i, j] + (bg%id_to_index(:, n) - 1) * bg%bx
              r = bg%dr * (ix - 0.5_dp)
@@ -247,6 +246,7 @@ contains
     real(dp)                          :: fx(n_vars_euler, 2), fy(n_vars_euler, 2)
     real(dp)                          :: tmp(5, n_vars_euler), u(n_vars_euler)
     real(dp)                          :: uprim(lo(1):hi(1), lo(2):hi(2), n_vars_euler)
+    real(dp)                          :: dvar(bx(1), bx(2), n_vars_euler)
 
     do n = 1, n_vars_euler
        call update_ghostcells(bg, i_vars_grid(n)+s_deriv)
@@ -254,12 +254,11 @@ contains
 
     inv_dr = 1/bg%dr
 
-    !$acc parallel loop private(fx, fy, tmp, u, uprim, m, iv)
+    !$acc parallel loop private(fx, fy, tmp, u, uprim, dvar, m, iv)
     do n = 1, n_blocks
 
-       !$acc loop
+       !$acc loop collapse(2)
        do j = lo(2), hi(2)
-          !$acc loop
           do i = lo(1), hi(1)
              ! Convert to primitive
              u = uu(IX(i, j, n, i_vars_grid+s_deriv))
@@ -268,9 +267,8 @@ contains
           end do
        end do
 
-       !$acc loop
+       !$acc loop collapse(2)
        do j = 1, bx(2)
-          !$acc loop
           do i = 1, bx(1)
              ! Compute x and y fluxes
              tmp = uprim(i-2:i+2, j, :)
@@ -280,7 +278,7 @@ contains
              call muscl_flux_euler_prim(tmp, 2, fy)
 
              ! Keep track of changes in variables
-             uu(IX(i, j, n, i_vars_grid+s_dvar)) = dt * &
+             dvar(i, j, :) = dt * &
                   ((fx(:, 1) - fx(:, 2)) * inv_dr(1) + &
                   (fy(:, 1) - fy(:, 2)) * inv_dr(2))
           end do
@@ -288,20 +286,16 @@ contains
 
        ! Set output state after computations are done, since s_out can be
        ! equal to s_deriv and s_prev
-       !$acc loop
+       !$acc loop collapse(3)
        do iv = 1, n_vars_euler
-          !$acc loop
           do j = 1, bx(2)
-             !$acc loop
              do i = 1, bx(1)
                 do m = 1, n_prev
                    ! Add weighted previous states
-                   uu(IX(i, j, n, i_vars_grid(iv)+s_dvar)) = &
-                        uu(IX(i, j, n, i_vars_grid(iv)+s_dvar)) + &
+                   dvar(i, j, iv) = dvar(i, j, iv) + &
                         uu(IX(i, j, n, i_vars_grid(iv)+s_prev(m))) * w_prev(m)
                 end do
-                uu(IX(i, j, n, i_vars_grid(iv)+s_out)) = &
-                     uu(IX(i, j, n, i_vars_grid(iv)+s_dvar))
+                uu(IX(i, j, n, i_vars_grid(iv)+s_out)) = dvar(i, j, iv)
              end do
           end do
        end do
