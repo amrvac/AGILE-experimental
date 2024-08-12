@@ -22,7 +22,7 @@ program euler_test
   real(dp)           :: dt = 1e-3_dp
   real(dp)           :: cfl_number     = 0.5_dp
 
-  integer            :: n
+  integer            :: n, n_steps_time_integrator
   integer            :: t_start, t_end, count_rate
   real(dp)           :: t_total, unknowns_per_ns
 
@@ -77,10 +77,12 @@ program euler_test
   end if
 
   t_total = (t_end - t_start)/real(count_rate, dp)
-  unknowns_per_ns = 1e-9_dp * n_iter/t_total * product(bg%nx)
+  n_steps_time_integrator = 2
+  unknowns_per_ns = 1e-9_dp * n_iter/t_total * product(bg%nx) * &
+       n_steps_time_integrator
 
   write(*, "(5(A6,' '),2(A8,' '),2A12)") "nx", "ny", "box_nx", "box_ny", &
-       "n_gc", "n_iter", "n_boxes", "t_total", "unknowns/ns"
+       "n_gc", "n_iter", "n_boxes", "t_total", "cells/ns"
   write(*, "(5(I6,' '),2(I8,' '),2F12.6)") bg%nx, bg%bx, bg%n_gc, &
        n_iter, bg%n_blocks, t_total, unknowns_per_ns
 
