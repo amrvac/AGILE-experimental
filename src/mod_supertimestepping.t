@@ -679,10 +679,11 @@ contains
         do iigrid=1,igridstail; igrid=igrids(iigrid);
           ^D&dxlevel(^D)=rnode(rpdx^D_,igrid);
           block=>ps(igrid)
-          call temp%sts_before_first_cycle(ixG^LL,ixG^LL,ps(igrid)%w,ps(igrid)%x)
-          if(.not. allocated(ps2(igrid)%w)) allocate(ps2(igrid)%w(ixG^T,1:nw))
-          if(.not. allocated(ps3(igrid)%w)) allocate(ps3(igrid)%w(ixG^T,1:nw))
-          if(.not. allocated(ps4(igrid)%w)) allocate(ps4(igrid)%w(ixG^T,1:nw))
+            call temp%sts_before_first_cycle(ixG^LL,ixG^LL,ps(igrid)%w,ps(igrid)%x)
+            ! opedit: all required bg levels must have been allocated in mod_initialize!!:
+          if(.not. associated(ps2(igrid)%w)) ps2(igrid)%w => bg(3)%w(:^D&,:,igrid)
+          if(.not. associated(ps3(igrid)%w)) ps3(igrid)%w => bg(4)%w(:^D&,:,igrid)
+          if(.not. associated(ps4(igrid)%w)) ps4(igrid)%w => bg(5)%w(:^D&,:,igrid)
           ps1(igrid)%w(ixG^T,1:nw)=ps(igrid)%w(ixG^T,1:nw)
           ps2(igrid)%w(ixG^T,1:nw)=ps(igrid)%w(ixG^T,1:nw)
         end do
@@ -692,11 +693,13 @@ contains
           ixGext^L=ixG^LL^LADD1;
           !$OMP PARALLEL DO PRIVATE(igrid)
           do iigrid=1,igridstail; igrid=igrids(iigrid);
-            if(.not. allocated(ps2(igrid)%w)) then
+            ! opedit: all required bg levels must have been allocated in mod_initialize!!:
+            if(.not. associated(ps2(igrid)%w)) then
               call alloc_state(igrid, ps2(igrid), ixG^LL, ixGext^L, .false.)
             end if
-            if(.not. allocated(ps3(igrid)%w)) allocate(ps3(igrid)%w(ixG^T,1:nw))
-            if(.not. allocated(ps4(igrid)%w)) allocate(ps4(igrid)%w(ixG^T,1:nw))
+            if(.not. associated(ps3(igrid)%w)) ps3(igrid)%w => bg(4)%w(:^D&,:,igrid)
+            if(.not. associated(ps4(igrid)%w)) ps4(igrid)%w => bg(5)%w(:^D&,:,igrid)
+            ! opedit: FIXME: will still need to deal with staggered grids on the bg level:
             ps1(igrid)%w=ps(igrid)%w
             ps2(igrid)%w=ps(igrid)%w
             ps1(igrid)%ws=ps(igrid)%ws
@@ -706,9 +709,9 @@ contains
         else
           !$OMP PARALLEL DO PRIVATE(igrid)
           do iigrid=1,igridstail; igrid=igrids(iigrid);
-            if(.not. allocated(ps2(igrid)%w)) allocate(ps2(igrid)%w(ixG^T,1:nw))
-            if(.not. allocated(ps3(igrid)%w)) allocate(ps3(igrid)%w(ixG^T,1:nw))
-            if(.not. allocated(ps4(igrid)%w)) allocate(ps4(igrid)%w(ixG^T,1:nw))
+            if(.not. associated(ps2(igrid)%w)) ps2(igrid)%w => bg(3)%w(:^D&,:,igrid)
+            if(.not. associated(ps3(igrid)%w)) ps3(igrid)%w => bg(4)%w(:^D&,:,igrid)
+            if(.not. associated(ps4(igrid)%w)) ps4(igrid)%w => bg(5)%w(:^D&,:,igrid)
             ps1(igrid)%w(ixG^T,1:nw)=ps(igrid)%w(ixG^T,1:nw)
             ps2(igrid)%w(ixG^T,1:nw)=ps(igrid)%w(ixG^T,1:nw)
           end do

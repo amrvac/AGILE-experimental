@@ -1264,11 +1264,12 @@ contains
   !> Quick check if particle is still in igrid
   logical function particle_in_igrid(ipart, igrid)
     use mod_global_parameters
+    use mod_forest, only: igrid_inuse
     integer, intent(in) :: igrid, ipart
     double precision    :: x(ndim), grid_rmin(ndim), grid_rmax(ndim)
 
     ! First check if the igrid is still there
-    if (.not. allocated(ps(igrid)%w)) then
+    if (.not. igrid_inuse(igrid,mype)) then
       particle_in_igrid = .false.
     else
       grid_rmin         = [ {rnode(rpxmin^D_,igrid)} ]

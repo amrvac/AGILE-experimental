@@ -3,6 +3,8 @@ module mod_nvtx
 use iso_c_binding
 implicit none
 
+#ifdef __NVCOMPILER
+
 integer,private :: col(7) = [ Z'0000ff00', Z'000000ff', Z'00ffff00', Z'00ff00ff', Z'0000ffff', Z'00ff0000', Z'00ffffff']
 character(len=256),private :: tempName
 
@@ -61,4 +63,17 @@ subroutine nvtxEndRange
   call nvtxRangePop
 end subroutine
 
+#else
+
+contains
+
+subroutine nvtxStartRange(name,id)
+  character(kind=c_char,len=*) :: name
+  integer, optional:: id
+end subroutine
+
+subroutine nvtxEndRange
+end subroutine
+
+#endif
 end module mod_nvtx
