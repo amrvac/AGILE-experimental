@@ -651,7 +651,8 @@ contains
         s%equi_vars=>ps(igrid)%equi_vars
       endif
       if(phys_trac) s%special_values=>ps(igrid)%special_values
-    end if
+   end if
+   !$acc update device(s)
   end subroutine alloc_state
   
   !> allocate memory to one-level coarser physical state of igrid node
