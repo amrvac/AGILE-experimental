@@ -277,28 +277,28 @@ contains
 
   end subroutine PPMlimiter
 
-  subroutine ppm_flatcd(ixI^L,ixO^L,ixL^L,ixR^L,w,d2w,drho,dp)
+  subroutine ppm_flatcd(ixI^L,ixO^L,ixL^L,ixR^L,w,d2w,drho,dp_flatcd)
     use mod_global_parameters
     use mod_physics, only: phys_gamma
 
     integer, intent(in)             :: ixI^L, ixO^L, ixL^L, ixR^L
     double precision, intent(in)    :: w(ixI^S, nw), d2w(ixG^T, 1:nwflux)
-    double precision, intent(inout) :: drho(ixG^T), dp(ixG^T)
+    double precision, intent(inout) :: drho(ixG^T), dp_flatcd(ixG^T)
 
     drho(ixO^S) = phys_gamma*abs(d2w(ixO^S, iw_rho))&
          /min(w(ixL^S, iw_rho), w(ixR^S, iw_rho))
-    dp(ixO^S) = abs(d2w(ixO^S, iw_e))/min(w(ixL^S, iw_e), w(ixR^S, iw_e))
+      dp_flatcd(ixO^S) = abs(d2w(ixO^S, iw_e))/min(w(ixL^S, iw_e), w(ixR^S, iw_e))
 
   end subroutine ppm_flatcd
 
-  subroutine ppm_flatsh(ixI^L,ixO^L,ixLL^L,ixL^L,ixR^L,ixRR^L,idims,w,drho,dp)
+  subroutine ppm_flatsh(ixI^L,ixO^L,ixLL^L,ixL^L,ixR^L,ixRR^L,idims,w,drho,dp_flatsh)
     use mod_global_parameters
     use mod_physics, only: phys_gamma
 
     integer, intent(in)             :: ixI^L, ixO^L, ixLL^L, ixL^L, ixR^L, ixRR^L
     integer, intent(in)             :: idims
     double precision, intent(in)    :: w(ixI^S, nw)
-    double precision, intent(inout) :: drho(ixI^S), dp(ixI^S)
+    double precision, intent(inout) :: drho(ixI^S), dp_flatsh(ixI^S)
 
     ! eq. B15, page 218, Mignone and Bodo 2005, ApJS (beta1)
     where (abs(w(ixRR^S, iw_e)-w(ixLL^S, iw_e))>smalldouble)
@@ -309,7 +309,7 @@ contains
     end where
 
     ! eq. 76, page 48, Miller and Colella 2002, JCoPh, adjusted
-    dp(ixO^S) = abs(w(ixR^S, iw_e)-w(ixL^S, iw_e))&
+    dp_flatsh(ixO^S) = abs(w(ixR^S, iw_e)-w(ixL^S, iw_e))&
          /(phys_gamma*(w(ixR^S, iw_e)+w(ixL^S, iw_e)))
 
   end subroutine ppm_flatsh
