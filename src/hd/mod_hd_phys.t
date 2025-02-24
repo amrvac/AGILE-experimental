@@ -1419,7 +1419,8 @@ contains
            if(trace_small_values) write(*,*) dsqrt(pth(ix^D)-bigdouble)
            write(*,*) "Saving status at the previous time step"
 #endif           
-           crash=.true.
+           ! FIXME crash command can't be used in pure subroutine
+           !crash=.true. 
          end if
       {enddo^D&\}
     end if
