@@ -288,7 +288,7 @@ contains
     use mod_comm_lib, only: mpistop
     use mod_hd_phys, only: hd_to_conserved_gpu
 
-    !$acc routine
+    !$acc routine seq
 
     integer, value, intent(in) :: ixI^L, ixL^L, ixR^L, idims, igrid
     double precision, intent(in) :: dxdim

@@ -363,7 +363,7 @@ contains
   !> Accordingly, the typelim here corresponds to one of limiter
   !> or one of gradient_limiter.
   subroutine dwlimiter2_gpu(dwC,ixI^L,ixC^L,idims,typelim,ldw,rdw,a2max)
-    !$acc routine
+    !$acc routine seq
 
     use mod_global_parameters
     use mod_comm_lib, only: mpistop
