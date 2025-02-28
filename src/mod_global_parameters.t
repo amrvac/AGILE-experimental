@@ -817,7 +817,8 @@ module mod_global_parameters
   type(state), pointer :: block
   !$acc declare create(block)
 
-  !$OMP THREADPRIVATE(block,dxlevel,b0i)
+  !!$OMP THREADPRIVATE(block,dxlevel,b0i)
+  !!$OMP THREADPRIVATE(dxlevel,b0i)
 
 contains
 
