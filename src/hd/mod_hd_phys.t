@@ -992,7 +992,8 @@ contains
   end subroutine hd_get_v
 
   !> Calculate cmax_idim = csound + abs(v_idim) within ixO^L
-  pure subroutine hd_get_cmax(w, x, ixI^L, ixO^L, idim, cmax)
+  !pure !FIXME
+  subroutine hd_get_cmax(w, x, ixI^L, ixO^L, idim, cmax)
     !$acc routine seq
     use mod_global_parameters
 !    use mod_dust, only: dust_get_cmax
@@ -1333,7 +1334,9 @@ contains
   
   !> Calculate the square of the thermal sound speed csound2 within ixO^L.
   !> csound2=gamma*p/rho
-  pure subroutine hd_get_csound2(w,x,ixI^L,ixO^L,csound2)
+  ! FIXME: Procedure "HD_GET_PTHERMAL" must be pure, because it is referenced in a pure subprogram.
+  !pure 
+  subroutine hd_get_csound2(w,x,ixI^L,ixO^L,csound2)
     !$acc routine seq
     use mod_global_parameters
     integer, intent(in)             :: ixI^L, ixO^L
@@ -1372,7 +1375,9 @@ contains
   end subroutine hd_get_csound2_gpu
   
   !> Calculate thermal pressure=(gamma-1)*(e-0.5*m**2/rho) within ixO^L
-  pure subroutine hd_get_pthermal(w, x, ixI^L, ixO^L, pth)
+  ! FIXME: A WRITE statement whose io-unit is an external-file-unit or *, is not allowed in pure subprogram "HD_GET_PTHERMAL".
+  !pure 
+  subroutine hd_get_pthermal(w, x, ixI^L, ixO^L, pth)
     use mod_global_parameters
     use mod_usr_methods, only: usr_set_pthermal
     use mod_small_values, only: trace_small_values
