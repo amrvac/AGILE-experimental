@@ -25,6 +25,6 @@ m_%.mod: m_%.F90 m_%.o
 
 # How to generate executables
 %: %.o
-	$(LINK) $(F90FLAGS) $^ -o $@ $(addprefix -L,$(LIB_DIRS)) $(addprefix -l,$(LIBS))
+	$(LINK) $^ -o $@ $(LDFLAGS) $(addprefix -L,$(LIB_DIRS)) $(addprefix -l,$(LIBS))
 
 
