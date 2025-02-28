@@ -553,7 +553,7 @@ contains
 
     ! fill ghost-cell values of sibling blocks and coarser neighbors in the same processor
 
-    !$OMP PARALLEL DO SCHEDULE(dynamic) PRIVATE(igrid,iib^D)
+    !!$OMP PARALLEL DO SCHEDULE(dynamic) PRIVATE(igrid,iib^D)
     !$acc parallel loop default(present) copyin(idphyb,ixS_srl_^L,ixR_srl_^L) private(igrid,iib^D,ineighbor,n_i^D,ixS^L,ixR^L,iw,ix^D) firstprivate(nwhead,nwtail)
     do iigrid=1,igridstail; igrid=igrids(iigrid);
        ^D&iib^D=idphyb(^D,igrid);
@@ -609,7 +609,7 @@ contains
       {end do\}
    end do
 
-    !$OMP END PARALLEL DO
+    !!$OMP END PARALLEL DO
 
     call MPI_WAITALL(irecv_c,recvrequest_c_sr,recvstatus_c_sr,ierrmpi)
     call MPI_WAITALL(isend_c,sendrequest_c_sr,sendstatus_c_sr,ierrmpi)
