@@ -146,7 +146,7 @@ contains
   subroutine dwlimiter2(dwC,ixI^L,ixC^L,idims,typelim,ldw,rdw,a2max)
 
     use mod_global_parameters
-    use mod_comm_lib, only: mpistop
+    use mod_comm_lib, only: mpistop, mpistop_gpu
 
     integer, value, intent(in) :: ixI^L, ixC^L, idims
     double precision, intent(in) :: dwC(ixI^S)
@@ -348,7 +348,11 @@ contains
         rdw(ixO^S)=rdw(ixO^S)*dwC(hxO^S)
        end if
     case default
+#ifdef _OPENACC
+       call mpistop_gpu()
+#else
        call mpistop("Error in dwLimiter: unknown limiter")
+#endif
     end select
 
   end subroutine dwlimiter2
@@ -366,7 +370,7 @@ contains
     !$acc routine seq
 
     use mod_global_parameters
-    use mod_comm_lib, only: mpistop
+    use mod_comm_lib, only: mpistop, mpistop_gpu
 
     integer, value, intent(in) :: ixI^L, ixC^L, idims
     double precision, intent(in) :: dwC(ixI^S)
@@ -580,7 +584,11 @@ contains
         rdw(ixO^S)=rdw(ixO^S)*dwC(hxO^S)
        end if
     case default
+#ifdef _OPENACC
+       call mpistop_gpu()
+#else
        call mpistop("Error in dwLimiter: unknown limiter")
+#endif
     end select
 
   end subroutine dwlimiter2_gpu

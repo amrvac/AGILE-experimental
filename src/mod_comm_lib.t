@@ -8,6 +8,7 @@ module mod_comm_lib
   public :: comm_finalize
   public :: init_comm_types
   public :: mpistop
+  public :: mpistop_gpu
 
 contains
 
@@ -205,7 +206,6 @@ contains
 
   !> Exit MPI-AMRVAC with an error message
   subroutine mpistop(message)
-    !$acc routine seq
     use mod_global_parameters
   
     character(len=*), intent(in) :: message !< The error message
@@ -222,5 +222,19 @@ contains
 #endif
   
   end subroutine mpistop
+
+  subroutine mpistop_gpu()
+    !acc routine seq nohost
+    use mod_global_parameters
+
+    integer                      :: ierrcode
+
+#ifdef _OPENACC
+    STOP
+#else
+    call MPI_ABORT(icomm, ierrcode, ierrmpi)
+#endif
+
+  end subroutine mpistop_gpu
   
 end module mod_comm_lib
