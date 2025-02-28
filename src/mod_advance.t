@@ -200,7 +200,8 @@ contains
     use mod_ghostcells_update
     use mod_fix_conserve
     use mod_physics
-    use mod_finite_volume_all, only: finite_volume_all, finite_volume_local
+    !use mod_finite_volume_all, only: finite_volume_all, finite_volume_local
+    use mod_finite_volume_all, only: finite_volume_local
 
     integer, intent(in)          :: idim^LIM
     integer :: ixO^L
