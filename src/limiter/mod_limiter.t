@@ -120,7 +120,8 @@ contains
   end function limiter_symmetric
 
   
-  elemental real(dp) function vanleer(a, b) result(phi)
+  !elemental 
+  real(dp) function vanleer(a, b) result(phi)
     !$acc routine seq
     real(dp), intent(in) :: a, b
     real(dp)             :: ab
