@@ -27,7 +27,6 @@ module mod_small_values
 contains
 
   subroutine small_values_error(wprim, x, ixI^L, ixO^L, w_flag, subname)
-    !$acc routine seq
     use mod_global_parameters
     integer, intent(in)          :: ixI^L, ixO^L
     double precision, intent(in) :: wprim(ixI^S, 1:nw)
