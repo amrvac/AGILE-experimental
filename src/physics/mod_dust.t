@@ -549,7 +549,8 @@ contains
       if (qsourcesplit .eqv. dust_source_split) then
         active = .true.
 
-        call phys_get_pthermal(wCT, x, ixI^L, ixO^L, ptherm)
+        ! AGILE: avoid pointer, call hd version diretly
+        call hd_get_pthermal(wCT, x, ixI^L, ixO^L, ptherm)
         do idir=1,ndir
           vgas(ixO^S,idir)=wCT(ixO^S,gas_mom(idir))/wCT(ixO^S,gas_rho_)
         end do
@@ -829,7 +830,8 @@ contains
     double precision                   :: alpha_T(ixI^S, 1:dust_n_species)
     integer                            :: n, idir
 
-    call phys_get_pthermal(w, x, ixI^L, ixO^L, ptherm)
+    ! AGILE: avoid pointer, call hd version diretly
+    call hd_get_pthermal(w, x, ixI^L, ixO^L, ptherm)
 
     vt2(ixO^S) = gas_vtherm_factor*ptherm(ixO^S)/w(ixO^S, gas_rho_)
 
@@ -913,7 +915,8 @@ contains
 
     if(dust_dtpar .le. 0) return
 
-    call phys_get_pthermal(w, x, ixI^L, ixO^L, ptherm)
+    ! AGILE: avoid pointer, call hd version diretly
+    call hd_get_pthermal(w, x, ixI^L, ixO^L, ptherm)
     do idir = 1, ndir
       vgas(ixO^S,idir)=w(ixO^S,gas_mom(idir))/w(ixO^S,gas_rho_)
     end do
