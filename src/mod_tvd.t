@@ -37,7 +37,7 @@ contains
 
   subroutine tvdlimit2(method,qdt,ixI^L,ixIC^L,ixO^L,idims,wL,wR,wnew,x,fC,dxs)
     !$acc routine seq
-    ! Limit the flow variables in wnew according to typetvd. 
+    ! Limit the flow variables in wnew according to typetvd.
     ! wroeC is based on wL and wR.
     ! If method=fs_tvd an extra adtdx**2*jumpC is added to phiC for 2nd order
     ! accuracy in time.
@@ -61,19 +61,19 @@ contains
     !-----------------------------------------------------------------------------
 
     hxO^L=ixO^L-kr(idims,^D);
-    ixCmax^D=ixOmax^D; ixCmin^D=hxOmin^D; 
+    ixCmax^D=ixOmax^D; ixCmin^D=hxOmin^D;
 
     jxC^L=ixC^L+kr(idims,^D);
     jxIC^L=ixIC^L+kr(idims,^D);
 
-    call phys_average(wL,wR,x,ixIC^L,idims,wroeC,workroe)
+    call hd_average(wL,wR,x,ixIC^L,idims,wroeC,workroe)
 
     dxinv=qdt/dxs
 
     ! A loop on characteristic variables to calculate the dissipative flux phiC.
     do il=1,nwflux
        !Calculate the jump in the il-th characteristic variable: L(wroe)*dw
-       call phys_get_eigenjump(wL,wR,wroeC,x,ixIC^L,il,idims,smallaC,adtdxC,jumpC,workroe)
+       call hd_get_eigenjump(wL,wR,wroeC,x,ixIC^L,il,idims,smallaC,adtdxC,jumpC,workroe)
 
        ! Normalize the eigenvalue "a" (and its limit "smalla" if needed):
        if (slab_uniform) then
@@ -93,7 +93,7 @@ contains
 
        !Add R(iw,il)*phiC(il) to each variable iw in wnew
        do iw=1,nwflux
-          call phys_rtimes(phiC,wroeC,ixC^L,iw,il,idims,rphiC,workroe)
+          call hd_rtimes(phiC,wroeC,ixC^L,iw,il,idims,rphiC,workroe)
 
           if (slab_uniform) then
              rphiC(ixC^S)=rphiC(ixC^S)*half

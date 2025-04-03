@@ -110,9 +110,9 @@ contains
 
   end subroutine average2
 
-  !> Calculate the il-th characteristic speed and the jump in the il-th 
-  !> characteristic variable in the idim direction within ixL. 
-  !> The eigenvalues and the L=R**(-1) matrix is calculated from wroe. 
+  !> Calculate the il-th characteristic speed and the jump in the il-th
+  !> characteristic variable in the idim direction within ixL.
+  !> The eigenvalues and the L=R**(-1) matrix is calculated from wroe.
   !> jump(il)=Sum_il L(il,iw)*(wR(iw)-wL(iw))
   subroutine hd_get_eigenjump(wL,wR,wroe,x,ix^L,il,idim,smalla,a,jump,workroe)
     !$acc routine
@@ -132,9 +132,9 @@ contains
   subroutine geteigenjump2(wL,wR,wroe,x,ix^L,il,idim,smalla,a,jump,&
        csound,dpperc2,dvperc)
 
-    ! Calculate the il-th characteristic speed and the jump in the il-th 
-    ! characteristic variable in the idim direction within ixL. 
-    ! The eigenvalues and the L=R**(-1) matrix is calculated from wroe. 
+    ! Calculate the il-th characteristic speed and the jump in the il-th
+    ! characteristic variable in the idim direction within ixL.
+    ! The eigenvalues and the L=R**(-1) matrix is calculated from wroe.
     ! jump(il)=Sum_il L(il,iw)*(wR(iw)-wL(iw))
 
     use mod_global_parameters
@@ -252,7 +252,7 @@ contains
     endif
 
     if (iw == rho_) then
-       if(shearwave)then 
+       if(shearwave)then
           rq(ix^S)=zero
        else
           rq(ix^S)=q(ix^S)
@@ -345,9 +345,9 @@ contains
 
   subroutine hd_get_eigenjump_iso(wL,wR,wroe,x,ix^L,il,idim,smalla,a,jump,workroe)
 
-    ! Calculate the il-th characteristic speed and the jump in the il-th 
-    ! characteristic variable in the idim direction within ixL. 
-    ! The eigenvalues and the L=R**(-1) matrix is calculated from wroe. 
+    ! Calculate the il-th characteristic speed and the jump in the il-th
+    ! characteristic variable in the idim direction within ixL.
+    ! The eigenvalues and the L=R**(-1) matrix is calculated from wroe.
     ! jump(il)=Sum_il L(il,iw)*(wR(iw)-wL(iw))
 
     use mod_global_parameters
@@ -364,9 +364,9 @@ contains
 
   subroutine geteigenjump2_iso(wL,wR,wroe,x,ix^L,il,idim,smalla,a,jump,csound)
 
-    ! Calculate the il-th characteristic speed and the jump in the il-th 
-    ! characteristic variable in the idim direction within ixL. 
-    ! The eigenvalues and the L=R**(-1) matrix is calculated from wroe. 
+    ! Calculate the il-th characteristic speed and the jump in the il-th
+    ! characteristic variable in the idim direction within ixL.
+    ! The eigenvalues and the L=R**(-1) matrix is calculated from wroe.
     ! jump(il)=Sum_il L(il,iw)*(wR(iw)-wL(iw))
 
     use mod_global_parameters
