@@ -28,9 +28,9 @@ contains
        shearW0_ = 3
        nworkroe = 3
 
-       phys_average => hd_average
-       phys_get_eigenjump => hd_get_eigenjump
-       phys_rtimes => hd_rtimes
+      !  phys_average => hd_average
+      !  phys_get_eigenjump => hd_get_eigenjump
+      !  phys_rtimes => hd_rtimes
     else
        ! Characteristic waves
        soundRW_ = 1
@@ -38,9 +38,9 @@ contains
        shearW0_ = 2
        nworkroe = 1
 
-       phys_average => hd_average_iso
-       phys_get_eigenjump => hd_get_eigenjump_iso
-       phys_rtimes => hd_rtimes_iso
+      !  phys_average => hd_average_iso
+      !  phys_get_eigenjump => hd_get_eigenjump_iso
+      !  phys_rtimes => hd_rtimes_iso
     end if
 
     allocate(entropycoef(nw))
@@ -115,7 +115,7 @@ contains
   !> The eigenvalues and the L=R**(-1) matrix is calculated from wroe.
   !> jump(il)=Sum_il L(il,iw)*(wR(iw)-wL(iw))
   subroutine hd_get_eigenjump(wL,wR,wroe,x,ix^L,il,idim,smalla,a,jump,workroe)
-    !$acc routine
+    !$acc routine seq
     use mod_global_parameters
 
     integer, intent(in) :: ix^L,il,idim
