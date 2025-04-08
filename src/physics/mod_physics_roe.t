@@ -4,9 +4,9 @@ module mod_physics_roe
   implicit none
   public
 
-  ! procedure(sub_average), pointer         :: phys_average => null()
-  ! procedure(sub_get_eigenjump), pointer   :: phys_get_eigenjump => null()
-  ! procedure(sub_rtimes), pointer          :: phys_rtimes => null()
+  procedure(sub_average), pointer         :: phys_average => null()
+  procedure(sub_get_eigenjump), pointer   :: phys_get_eigenjump => null()
+  procedure(sub_rtimes), pointer          :: phys_rtimes => null()
 
   integer :: nworkroe = -1
 
@@ -45,14 +45,14 @@ module mod_physics_roe
 contains
 
   subroutine phys_roe_check()
-    ! if (.not. associated(phys_average)) &
-    !      phys_average => dummy_roe_average
+    if (.not. associated(phys_average)) &
+         phys_average => dummy_roe_average
 
-    ! if (.not. associated(phys_get_eigenjump)) &
-    !      phys_get_eigenjump => dummy_roe_get_eigenjump
+    if (.not. associated(phys_get_eigenjump)) &
+         phys_get_eigenjump => dummy_roe_get_eigenjump
 
-    ! if (.not. associated(phys_rtimes)) &
-    !      phys_rtimes => dummy_roe_rtimes
+    if (.not. associated(phys_rtimes)) &
+         phys_rtimes => dummy_roe_rtimes
 
   end subroutine phys_roe_check
 
