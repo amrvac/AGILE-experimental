@@ -287,10 +287,9 @@ contains
   !> Determine the upwinded wLC(ixL) and wRC(ixR) from w.
   !> the wCT is only used when PPM is exploited.
   subroutine reconstruct_LR_gpu(ixI^L, ixL^L, ixR^L, idims, w, wLC, wRC, wLp, wRp, x, dxdim, igrid)
-    use mod_physics
     use mod_global_parameters
     use mod_limiter
-    use mod_comm_lib, only: mpistop
+    use mod_comm_lib, only: mpistop, mpistop_gpu
     use mod_hd_phys, only: hd_to_conserved_gpu
 
     !$acc routine seq
@@ -307,7 +306,6 @@ contains
 
     integer            :: jxR^L, ixC^L, jxC^L, iw
     double precision   :: ldw(ixI^S), rdw(ixI^S), dwC(ixI^S)
-!!!!$acc declare create(ldw, rdw, dwC)
     double precision   :: a2max
 
     select case (type_limiter(node(plevel_, igrid)))
@@ -338,7 +336,12 @@ contains
              case (3)
                 a2max = schmid_rad3}
              case default
+#ifdef _OPENACC
+                call mpistop_gpu()
+#else
                 call mpistop("idims is wrong in mod_limiter")
+#endif
+
              end select
           end if
 
