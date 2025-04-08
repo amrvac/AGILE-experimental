@@ -118,7 +118,6 @@ module mod_hd_phys
   !> Ionization fraction of H
   !> H_ion_fr = H+/(H+ + H)
   double precision, public, protected  :: H_ion_fr=1d0
-  !$acc declare copyin(H_ion_fr)
   !> Ionization fraction of He
   !> He_ion_fr = (He2+ + He+)/(He2+ + He+ + He)
   double precision, public, protected  :: He_ion_fr=1d0
@@ -136,7 +135,6 @@ module mod_hd_phys
   ! when eq state properly implemented everywhere
   ! and not anymore through units
   logical, public, protected :: eq_state_units = .true.
-  !$acc declare copyin(eq_state_units)
 
   !procedure(sub_get_pthermal), pointer :: hd_get_Rfactor   => null()
   ! Public methods
@@ -185,13 +183,13 @@ contains
 111    close(unitpar)
     end do
 
-#ifdef _OPENACC
+    ! every line should have !$acc normally but the preprocessor breaks this
+    ! when merging the lines
     !$acc update device(hd_energy, hd_n_tracer, hd_gamma, hd_adiab, &
     hd_dust, hd_thermal_conduction, hd_radiative_cooling, hd_viscosity, &
-    hd_gravity, He_abundance,H_ion_fr, He_ion_fr, He_ion_fr2, eq_state_units, &
+    hd_gravity, He_abundance, He_ion_fr, He_ion_fr2, &
     SI_unit, hd_particles, hd_rotating_frame, hd_trac, &
     hd_force_diagonal, hd_trac_type, hd_cak_force, hd_partial_ionization)
-#endif
 
   end subroutine hd_read_params
 
