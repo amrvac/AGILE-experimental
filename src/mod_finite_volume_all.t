@@ -66,7 +66,7 @@ contains
              bgb%w(ix1, n) = bgb%w(ix1, :, n) + qdt * &
                   ( (f(:, 1) - f(:, 2)) * inv_dr(1) )
        }
-       {^IFTWOD      
+       {^IFTWOD
              tmp = uprim(:, ix1-2:ix1+2, ix2)
              call tvdlf_flux_prim(tmp, 1, f)
              bgb%w(ix1, ix2, :, n) = bgb%w(ix1, ix2, :, n) &
@@ -87,7 +87,7 @@ contains
              call tvdlf_flux_prim(tmp, 2, f)
              bgb%w(ix1, ix2, ix3, :, n) = bgb%w(ix1, ix2, ix3, :, n) &
                   + qdt * (f(:, 1) - f(:, 2)) * inv_dr(2)
-             
+
              tmp = uprim(:, ix1, ix2, ix3-2:ix3+2)
              call tvdlf_flux_prim(tmp, 3, f)
              bgb%w(ix1, ix2, ix3, :, n) = bgb%w(ix1, ix2, ix3, :, n) &
@@ -106,10 +106,13 @@ contains
     real(dp), intent(out) :: flux(nw_euler, 2)
     real(dp)              :: uL(nw_euler), uR(nw_euler), wL, wR, wmax
     real(dp)              :: flux_l(nw_euler), flux_r(nw_euler)
+    integer               :: i
 
     ! Construct uL, uR for first cell face
-    uL = u(:, 2) + 0.5_dp * vanleer(u(:, 2) - u(:, 1), u(:, 3) - u(:, 2))
-    uR = u(:, 3) - 0.5_dp * vanleer(u(:, 3) - u(:, 2), u(:, 4) - u(:, 3))
+    do i = 1, nw_euler
+        uL(i) = u(i, 2) + 0.5_dp * vanleer(u(i, 2) - u(i, 1), u(i, 3) - u(i, 2))
+        uR(i) = u(i, 3) - 0.5_dp * vanleer(u(i, 3) - u(i, 2), u(i, 4) - u(i, 3))
+    end do
 
     call hd_flux_cell(uL, flux_dim, flux_l)
     call hd_flux_cell(uR, flux_dim, flux_r)
@@ -123,8 +126,10 @@ contains
     flux(:, 1) = 0.5_dp * ((flux_l + flux_r) - wmax * (uR - uL))
 
     ! Construct uL, uR for second cell face
-    uL = u(:, 3) + 0.5_dp * vanleer(u(:, 3) - u(:, 2), u(:, 4) - u(:, 3))
-    uR = u(:, 4) - 0.5_dp * vanleer(u(:, 4) - u(:, 3), u(:, 5) - u(:, 4))
+    do i = 1, nw_euler
+        uL(i) = u(i, 3) + 0.5_dp * vanleer(u(i, 3) - u(i, 2), u(i, 4) - u(i, 3))
+        uR(i) = u(i, 4) - 0.5_dp * vanleer(u(i, 4) - u(i, 3), u(i, 5) - u(i, 4))
+    end do
 
     call hd_flux_cell(uL, flux_dim, flux_l)
     call hd_flux_cell(uR, flux_dim, flux_r)
@@ -197,14 +202,14 @@ contains
 
 !        ! The flux calculation contracts by one in the idims direction it is applied.
 !        ! The limiter contracts the same directions by one more, so expand ixO by 2.
-!        ix^L=ixO^L; 
+!        ix^L=ixO^L;
 !        do idims = idims^LIM
-!           ix^L=ix^L^LADD2*kr(idims,^D); 
+!           ix^L=ix^L^LADD2*kr(idims,^D);
 !        end do
 !        if (ixI^L^LTix^L|.or.|.or.) &
 !             call mpistop("Error in fv : Nonconforming input limits")
 
-!        fC = 0.d0     
+!        fC = 0.d0
 !        fLC = 0.d0
 !        fRC = 0.d0
 
@@ -215,11 +220,11 @@ contains
 !        do idims = idims^LIM
 !           ! use interface value of w0 at idims
 
-!           hxO^L=ixO^L-kr(idims,^D); 
-!           kxCmin^D=ixImin^D;kxCmax^D=ixImax^D-kr(idims,^D); 
-!           kxR^L=kxC^L+kr(idims,^D); 
+!           hxO^L=ixO^L-kr(idims,^D);
+!           kxCmin^D=ixImin^D;kxCmax^D=ixImax^D-kr(idims,^D);
+!           kxR^L=kxC^L+kr(idims,^D);
 !           ! ixC is centered index in the idims direction from ixOmin-1/2 to ixOmax+1/2
-!           ixCmax^D=ixOmax^D;ixCmin^D=hxOmin^D; 
+!           ixCmax^D=ixOmax^D;ixCmin^D=hxOmin^D;
 
 !           ! wRp and wLp are defined at the same locations, and will correspond to
 !           ! the left and right reconstructed values at a cell face. Their indexing
@@ -267,7 +272,7 @@ contains
 
 !        dxinv = -qdt/dxs
 !        do idims = idims^LIM
-!           hxO^L=ixO^L-kr(idims,^D); 
+!           hxO^L=ixO^L-kr(idims,^D);
 !           fC(ixI^S, 1:nwflux, idims)=dxinv(idims)*fC(ixI^S, 1:nwflux, idims)
 
 !           bg(ib)%w(ixO^S, iwstart:nwflux, igrid) = bg(ib)%w(ixO^S, iwstart:nwflux, igrid) + &
@@ -307,9 +312,9 @@ contains
 
     select case (type_limiter(node(plevel_, igrid)))
     case default
-       jxR^L=ixR^L+kr(idims,^D); 
-       ixCmax^D=jxRmax^D;ixCmin^D=ixLmin^D-kr(idims,^D); 
-       jxC^L=ixC^L+kr(idims,^D); 
+       jxR^L=ixR^L+kr(idims,^D);
+       ixCmax^D=jxRmax^D;ixCmin^D=ixLmin^D-kr(idims,^D);
+       jxC^L=ixC^L+kr(idims,^D);
        do iw = 1, nwflux
           if (loglimit(iw)) then
              w(ixCmin^D:jxCmax^D, iw) = dlog10(w(ixCmin^D:jxCmax^D, iw))
