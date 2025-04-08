@@ -69,10 +69,10 @@ module mod_dust
 
   !> whether second order terms (relevant only when dust_n_species >=2) are included
   !> there are the terms  n2, ni2, d2 in Eqs 6,7,8 in amrvac 3.0 paper
-  logical :: dust_implicit_second_order = .true.  
+  logical :: dust_implicit_second_order = .true.
 
   !> whether fh is added for gas energy:  is only added in the impliict implementation, the explicit one was left as before
-  logical :: dust_backreaction_fh = .false.  
+  logical :: dust_backreaction_fh = .false.
 
 
   ! Public methods
@@ -143,7 +143,7 @@ contains
     namelist /dust_list/ dust_n_species, dust_min_rho, dust_method, &
          dust_K_lineardrag, dust_small_to_zero, dust_source_split, dust_temperature, &
          dust_temperature_type, dust_backreaction, dust_dtpar, gas_vtherm_factor, dust_stellar_luminosity,&
-         dust_implicit_second_order, dust_backreaction_fh 
+         dust_implicit_second_order, dust_backreaction_fh
 
     do n = 1, size(files)
       open(unitpar, file=trim(files(n)), status="old")
@@ -195,7 +195,7 @@ contains
 
   subroutine dust_check_w(ixI^L,ixO^L,w,flag)
     use mod_global_parameters
-    
+
     integer, intent(in)         :: ixI^L,ixO^L
     double precision, intent(in):: w(ixI^S,1:nw)
     logical, intent(inout)      :: flag(ixI^S,1:nw)
@@ -463,7 +463,7 @@ contains
   !> Returns dust temperature (in K), either as constant or based on equ. 5.41,
   !> 5.42 and 5.44 from Tielens (2005)
   !>
-  !> Note that this calculation assumes cgs!!!! 
+  !> Note that this calculation assumes cgs!!!!
   !>
   !> It takes as input the stellar luminosity in solar units in 'stellar' case
   !> or a fixed dust input temperature in Kelvin when 'constant' or does case 'ism'
@@ -549,8 +549,10 @@ contains
       if (qsourcesplit .eqv. dust_source_split) then
         active = .true.
 
-        ! AGILE: avoid pointer, call hd version diretly
-        call hd_get_pthermal(wCT, x, ixI^L, ixO^L, ptherm)
+        ! AGILE: have to avoid pointer, want to call hd version directly
+        ! however that results in a circular dependency between mod_hd_phys and mod_dust,
+        ! so commenting this out as dust is not used anyway
+        !call hd_get_pthermal(wCT, x, ixI^L, ixO^L, ptherm)
         do idir=1,ndir
           vgas(ixO^S,idir)=wCT(ixO^S,gas_mom(idir))/wCT(ixO^S,gas_rho_)
         end do
@@ -640,7 +642,7 @@ contains
                 w(ixO^S, gas_e_) = w(ixO^S, gas_e_) + alpha(ixO^S, idir,n) * ( - &
                 w(ixO^S,dust_rho(n)) * (w(ixO^S, gas_mom(idir))**2/w(ixO^S,gas_rho_)))
               endwhere
-            else  
+            else
               w(ixO^S, gas_e_) = w(ixO^S, gas_e_) + vgas(ixO^S, idir)  &
                  * tmp(ixO^S)
             end if
@@ -672,7 +674,7 @@ contains
     end do
     !$OMP END PARALLEL DO
 
-   end subroutine dust_implicit_update 
+   end subroutine dust_implicit_update
 
   subroutine dust_advance_implicit_grid(ixI^L, ixO^L, w, wout, x, dtfactor,qdt)
     use mod_global_parameters
@@ -702,11 +704,11 @@ contains
       tmp2(ixO^S) = 0d0
       do n = 1, dust_n_species
         tmp2(ixO^S) = tmp2(ixO^S) +  alpha(ixO^S, idir,n) * &
-          (w(ixO^S,gas_rho_) + w(ixO^S,dust_rho(n))) 
+          (w(ixO^S,gas_rho_) + w(ixO^S,dust_rho(n)))
 
       enddo
       ! store D in tmp
-      tmp(ixO^S) = 1d0 + tmp2(ixO^S) * qdt 
+      tmp(ixO^S) = 1d0 + tmp2(ixO^S) * qdt
       if(dust_implicit_second_order) then
         ! d2 from Eq 6
         tmp2(ixO^S) = 0d0
@@ -716,7 +718,7 @@ contains
                  (w(ixO^S,gas_rho_) + w(ixO^S,dust_rho(n))+w(ixO^S,dust_rho(m)))
           enddo
         enddo
-        ! multiplied at the end by rho_gas 
+        ! multiplied at the end by rho_gas
         tmp(ixO^S) = tmp(ixO^S) + w(ixO^S,gas_rho_)*tmp2(ixO^S) * (qdt**2)
       endif
 
@@ -728,16 +730,16 @@ contains
             w(ixO^S,dust_rho(n)) * w(ixO^S, gas_mom(idir)) - &
             w(ixO^S,gas_rho_) * w(ixO^S, dust_mom(idir, n))) * qdt
 
-        if(dust_implicit_second_order) then 
-          ! ni2 from eq 7 
+        if(dust_implicit_second_order) then
+          ! ni2 from eq 7
           tmp3(ixO^S) = 0d0
           do m = n+1, dust_n_species
               tmp3(ixO^S) = tmp3(ixO^S) +  alpha(ixO^S, idir,n) * alpha(ixO^S, idir,m) * &
               ( w(ixO^S,dust_rho(n)) * (w(ixO^S, dust_mom(idir, n)) +  w(ixO^S, gas_mom(idir))) - &
-                (w(ixO^S,gas_rho_) + w(ixO^S,dust_rho(m))) * w(ixO^S, dust_mom(idir, n)) )  
+                (w(ixO^S,gas_rho_) + w(ixO^S,dust_rho(m))) * w(ixO^S, dust_mom(idir, n)) )
           enddo
-          ! tmp3 multiplied at the end by rho_gas 
-          tmp2(ixO^S) = tmp2(ixO^S) + tmp3(ixO^S) * w(ixO^S,gas_rho_)* (qdt**2) 
+          ! tmp3 multiplied at the end by rho_gas
+          tmp2(ixO^S) = tmp2(ixO^S) + tmp3(ixO^S) * w(ixO^S,gas_rho_)* (qdt**2)
         endif
         tmp2(ixO^S) = tmp2(ixO^S)/tmp(ixO^S)
         wout(ixO^S, dust_mom(idir,n)) = w(ixO^S, dust_mom(idir,n)) + tmp2(ixO^S)
@@ -745,25 +747,25 @@ contains
 
       if (dust_backreaction) then
         tmp2(ixO^S) = 0d0
-        !n1 from eq 8 
+        !n1 from eq 8
         do n = 1, dust_n_species
           tmp2(ixO^S) = tmp2(ixO^S) + alpha(ixO^S, idir,n) * &
               (w(ixO^S,gas_rho_) * w(ixO^S, dust_mom(idir,n)) - &
               w(ixO^S,dust_rho(n)) * w(ixO^S, gas_mom(idir)))
 
         enddo
-        tmp2(ixO^S) = qdt *  tmp2(ixO^S) 
-        if(dust_implicit_second_order) then 
-          !n2 from eq 8 
+        tmp2(ixO^S) = qdt *  tmp2(ixO^S)
+        if(dust_implicit_second_order) then
+          !n2 from eq 8
           tmp3(ixO^S) = 0d0
           do n = 1, dust_n_species
             do m = n+1, dust_n_species
                tmp3(ixO^S) = tmp3(ixO^S) + alpha(ixO^S, idir,n) * alpha(ixO^S, idir,m) * &
                     (w(ixO^S,gas_rho_) * (w(ixO^S, dust_mom(idir, n)) + w(ixO^S, dust_mom(idir, m))) - &
-                    (w(ixO^S,dust_rho(n)) + w(ixO^S,dust_rho(m)))* w(ixO^S, gas_mom(idir)))  
+                    (w(ixO^S,dust_rho(n)) + w(ixO^S,dust_rho(m)))* w(ixO^S, gas_mom(idir)))
             enddo
           enddo
-          ! tmp3 multiplied at the end by rho_gas 
+          ! tmp3 multiplied at the end by rho_gas
           tmp2(ixO^S) = tmp2(ixO^S) + (qdt**2)*tmp3(ixO^S)* w(ixO^S,gas_rho_)
         endif
         ! store in tmp2 contribution to momentum
@@ -773,7 +775,7 @@ contains
 
         ! kinetic energy update
          if (gas_e_ > 0) then
-          if(dust_backreaction_fh) then 
+          if(dust_backreaction_fh) then
             ! add work done by coll terms + FrictionalHeating
             tmp2(ixO^S) = 0d0
             do n = 1, dust_n_species
@@ -786,19 +788,19 @@ contains
               tmp2(ixO^S) = tmp2(ixO^S) + alpha(ixO^S, idir,n) * &
                 (w(ixO^S,gas_rho_) * tmp3(ixO^S) - &
                 w(ixO^S,dust_rho(n)) * (w(ixO^S, gas_mom(idir))**2/w(ixO^S,gas_rho_)))
-  
+
             enddo
-            tmp2(ixO^S) = qdt *  tmp2(ixO^S) 
+            tmp2(ixO^S) = qdt *  tmp2(ixO^S)
             if(dust_implicit_second_order) then
               tmp3(ixO^S) = 0d0
               do n = 1, dust_n_species
                 do m = n+1, dust_n_species
                     tmp3(ixO^S) = tmp3(ixO^S) + alpha(ixO^S, idir,n) * alpha(ixO^S, idir,m) * &
                       (w(ixO^S,gas_rho_) * (w(ixO^S, dust_mom(idir, n))**2/w(ixO^S,dust_rho(n)) + w(ixO^S, dust_mom(idir,m))**2/w(ixO^S,dust_rho(m))) - &
-                      (w(ixO^S,dust_rho(n)) + w(ixO^S,dust_rho(m)))* w(ixO^S, gas_mom(idir))**2/w(ixO^S,gas_rho_))  
+                      (w(ixO^S,dust_rho(n)) + w(ixO^S,dust_rho(m)))* w(ixO^S, gas_mom(idir))**2/w(ixO^S,gas_rho_))
                 enddo
               enddo
-              ! tmp3 multiplied at the end by rho_gas 
+              ! tmp3 multiplied at the end by rho_gas
               tmp2(ixO^S) = tmp2(ixO^S) + (qdt**2)*tmp3(ixO^S)* w(ixO^S,gas_rho_)
             endif
             wout(ixO^S, gas_e_) = wout(ixO^S, gas_e_) + 0.5d0 * tmp2(ixO^S) / tmp(ixO^S)
@@ -810,7 +812,7 @@ contains
          end if
       end if
     end do !1..ndir
-        
+
 
   end subroutine dust_advance_implicit_grid
 
@@ -831,7 +833,7 @@ contains
     integer                            :: n, idir
 
     ! AGILE: avoid pointer, call hd version diretly
-    call hd_get_pthermal(w, x, ixI^L, ixO^L, ptherm)
+    ! call hd_get_pthermal(w, x, ixI^L, ixO^L, ptherm)
 
     vt2(ixO^S) = gas_vtherm_factor*ptherm(ixO^S)/w(ixO^S, gas_rho_)
 
@@ -916,7 +918,7 @@ contains
     if(dust_dtpar .le. 0) return
 
     ! AGILE: avoid pointer, call hd version diretly
-    call hd_get_pthermal(w, x, ixI^L, ixO^L, ptherm)
+    ! call hd_get_pthermal(w, x, ixI^L, ixO^L, ptherm)
     do idir = 1, ndir
       vgas(ixO^S,idir)=w(ixO^S,gas_mom(idir))/w(ixO^S,gas_rho_)
     end do

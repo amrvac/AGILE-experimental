@@ -12,6 +12,9 @@ module mod_hd_roe
   integer :: shearW0_ = -1
 
   public :: hd_roe_init
+  public :: hd_average
+  public :: hd_get_eigenjump
+  public :: hd_rtimes
 
 contains
 

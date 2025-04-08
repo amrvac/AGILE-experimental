@@ -163,6 +163,7 @@ module mod_hd_phys
   public :: hd_get_cmax_prim_cell
   public :: hd_to_primitive_cell
   public :: hd_to_conservative_cell
+  public :: hd_get_rho
 
 contains
 
@@ -1443,7 +1444,8 @@ contains
 
     double precision :: R(ixI^S)
 
-    call hd_get_Rfactor(w,x,ixI^L,ixO^L,R)
+    ! AGILE: avoid pointer
+    call Rfactor_from_constant_ionization(w,x,ixI^L,ixO^L,R)
     call hd_get_pthermal(w, x, ixI^L, ixO^L, res)
     res(ixO^S)=res(ixO^S)/(R(ixO^S)*w(ixO^S,rho_))
   end subroutine hd_get_temperature_from_etot
@@ -1458,7 +1460,8 @@ contains
 
     double precision :: R(ixI^S)
 
-    call hd_get_Rfactor(w,x,ixI^L,ixO^L,R)
+    ! AGILE: avoid pointer
+    call Rfactor_from_constant_ionization(w,x,ixI^L,ixO^L,R)
     res(ixO^S) = (hd_gamma - 1.0d0) * w(ixO^S, e_)/(w(ixO^S,rho_)*R(ixO^S))
   end subroutine hd_get_temperature_from_eint
 
