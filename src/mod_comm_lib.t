@@ -224,7 +224,7 @@ contains
   end subroutine mpistop
 
   subroutine mpistop_gpu()
-    !acc routine seq nohost
+    !$acc routine seq
     use mod_global_parameters
 
     integer                      :: ierrcode

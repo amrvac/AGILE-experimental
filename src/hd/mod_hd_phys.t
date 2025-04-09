@@ -880,7 +880,7 @@ contains
     double precision, intent(in)    :: x(ixI^S, 1:ndim)
     integer                         :: idir, ix^D
 
-    !$acc parallel loop collapse(ndim)
+    !$acc loop collapse(ndim)
     {^D& do ix^DB=ixOmin^DB,ixOmax^DB\}
     ! Compute pressure
     w(ix^D, e_) = (hd_gamma - 1.0d0) * (w(ix^D, e_) - &
