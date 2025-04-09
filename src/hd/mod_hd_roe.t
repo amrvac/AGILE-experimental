@@ -12,9 +12,6 @@ module mod_hd_roe
   integer :: shearW0_ = -1
 
   public :: hd_roe_init
-  public :: hd_average
-  public :: hd_get_eigenjump
-  public :: hd_rtimes
 
 contains
 
@@ -31,9 +28,9 @@ contains
        shearW0_ = 3
        nworkroe = 3
 
-      !  phys_average => hd_average
-      !  phys_get_eigenjump => hd_get_eigenjump
-      !  phys_rtimes => hd_rtimes
+       phys_average => hd_average
+       phys_get_eigenjump => hd_get_eigenjump
+       phys_rtimes => hd_rtimes
     else
        ! Characteristic waves
        soundRW_ = 1
@@ -41,9 +38,9 @@ contains
        shearW0_ = 2
        nworkroe = 1
 
-      !  phys_average => hd_average_iso
-      !  phys_get_eigenjump => hd_get_eigenjump_iso
-      !  phys_rtimes => hd_rtimes_iso
+       phys_average => hd_average_iso
+       phys_get_eigenjump => hd_get_eigenjump_iso
+       phys_rtimes => hd_rtimes_iso
     end if
 
     allocate(entropycoef(nw))

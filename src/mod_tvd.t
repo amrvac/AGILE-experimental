@@ -65,16 +65,14 @@ contains
     jxC^L=ixC^L+kr(idims,^D);
     jxIC^L=ixIC^L+kr(idims,^D);
 
-    ! ToDo: Avoid circular dependency with mod_hd_roe
-   !  call hd_average(wL,wR,x,ixIC^L,idims,wroeC,workroe)
+    call phys_average(wL,wR,x,ixIC^L,idims,wroeC,workroe)
 
     dxinv=qdt/dxs
 
     ! A loop on characteristic variables to calculate the dissipative flux phiC.
     do il=1,nwflux
        !Calculate the jump in the il-th characteristic variable: L(wroe)*dw
-       ! ToDo: Avoid circular dependency with mod_hd_roe
-      !  call hd_get_eigenjump(wL,wR,wroeC,x,ixIC^L,il,idims,smallaC,adtdxC,jumpC,workroe)
+       call phys_get_eigenjump(wL,wR,wroeC,x,ixIC^L,il,idims,smallaC,adtdxC,jumpC,workroe)
 
        ! Normalize the eigenvalue "a" (and its limit "smalla" if needed):
        if (slab_uniform) then
@@ -94,8 +92,7 @@ contains
 
        !Add R(iw,il)*phiC(il) to each variable iw in wnew
        do iw=1,nwflux
-          ! ToDo: Avoid circular dependency with mod_hd_roe
-         !  call hd_rtimes(phiC,wroeC,ixC^L,iw,il,idims,rphiC,workroe)
+          call phys_rtimes(phiC,wroeC,ixC^L,iw,il,idims,rphiC,workroe)
 
           if (slab_uniform) then
              rphiC(ixC^S)=rphiC(ixC^S)*half

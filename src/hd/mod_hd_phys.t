@@ -118,6 +118,7 @@ module mod_hd_phys
   !> Ionization fraction of H
   !> H_ion_fr = H+/(H+ + H)
   double precision, public, protected  :: H_ion_fr=1d0
+  !$acc declare copyin(H_ion_fr)
   !> Ionization fraction of He
   !> He_ion_fr = (He2+ + He+)/(He2+ + He+ + He)
   double precision, public, protected  :: He_ion_fr=1d0
@@ -135,8 +136,9 @@ module mod_hd_phys
   ! when eq state properly implemented everywhere
   ! and not anymore through units
   logical, public, protected :: eq_state_units = .true.
+  !$acc declare copyin(eq_state_units)
 
-  !procedure(sub_get_pthermal), pointer :: hd_get_Rfactor   => null()
+  procedure(sub_get_pthermal), pointer :: hd_get_Rfactor   => null()
   ! Public methods
   public :: hd_phys_init
   public :: hd_kin_en
@@ -161,7 +163,6 @@ module mod_hd_phys
   public :: hd_get_cmax_prim_cell
   public :: hd_to_primitive_cell
   public :: hd_to_conservative_cell
-  public :: hd_get_rho
 
 contains
 
@@ -187,7 +188,7 @@ contains
     ! when merging the lines
     !$acc update device(hd_energy, hd_n_tracer, hd_gamma, hd_adiab, &
     hd_dust, hd_thermal_conduction, hd_radiative_cooling, hd_viscosity, &
-    hd_gravity, He_abundance, He_ion_fr, He_ion_fr2, &
+    hd_gravity, He_abundance,H_ion_fr, He_ion_fr, He_ion_fr2, eq_state_units, &
     SI_unit, hd_particles, hd_rotating_frame, hd_trac, &
     hd_force_diagonal, hd_trac_type, hd_cak_force, hd_partial_ionization)
 
@@ -215,8 +216,7 @@ contains
   subroutine hd_phys_init()
     use mod_global_parameters
     use mod_thermal_conduction
-    ! TODO: more to include from rad cooling
-    use mod_radiative_cooling, only: radiative_cooling_init_params, radiative_cooling_init
+    use mod_radiative_cooling
     use mod_dust, only: dust_init
     use mod_viscosity, only: viscosity_init
     use mod_gravity, only: gravity_init
@@ -295,27 +295,27 @@ contains
     end if
     !$acc update device(e_,p_)
 
-!    phys_get_dt              => hd_get_dt
-!!    phys_get_cmax            => hd_get_cmax
-!    phys_get_cmax            => hd_get_cmax_gpu
-!    phys_get_a2max           => hd_get_a2max
-!    phys_get_tcutoff         => hd_get_tcutoff
-!!    phys_get_cbounds         => hd_get_cbounds
-!    phys_get_cbounds         => hd_get_cbounds_gpu
-!!    phys_get_flux            => hd_get_flux
-!    phys_get_flux            => hd_get_flux_gpu
-!    phys_add_source_geom     => hd_add_source_geom
-!    phys_add_source          => hd_add_source
-!!    phys_to_conserved        => hd_to_conserved
-!    phys_to_conserved        => hd_to_conserved_gpu
-!!    phys_to_primitive        => hd_to_primitive
-!    phys_to_primitive        => hd_to_primitive_gpu
-!    phys_check_params        => hd_check_params
-!    phys_check_w             => hd_check_w
-!    phys_get_pthermal        => hd_get_pthermal
-!    phys_get_v               => hd_get_v
-!    phys_write_info          => hd_write_info
-!    phys_handle_small_values => hd_handle_small_values
+    phys_get_dt              => hd_get_dt
+!    phys_get_cmax            => hd_get_cmax
+    phys_get_cmax            => hd_get_cmax_gpu
+    phys_get_a2max           => hd_get_a2max
+    phys_get_tcutoff         => hd_get_tcutoff
+!    phys_get_cbounds         => hd_get_cbounds
+    phys_get_cbounds         => hd_get_cbounds_gpu
+!    phys_get_flux            => hd_get_flux
+    phys_get_flux            => hd_get_flux_gpu
+    phys_add_source_geom     => hd_add_source_geom
+    phys_add_source          => hd_add_source
+!    phys_to_conserved        => hd_to_conserved
+    phys_to_conserved        => hd_to_conserved_gpu
+!    phys_to_primitive        => hd_to_primitive
+    phys_to_primitive        => hd_to_primitive_gpu
+    phys_check_params        => hd_check_params
+    phys_check_w             => hd_check_w
+    phys_get_pthermal        => hd_get_pthermal
+    phys_get_v               => hd_get_v
+    phys_write_info          => hd_write_info
+    phys_handle_small_values => hd_handle_small_values
 
     ! Whether diagonal ghost cells are required for the physics
     phys_req_diagonal = .false.
@@ -362,14 +362,14 @@ contains
     end if
 
     ! choose Rfactor in ideal gas law
-  !  if(hd_partial_ionization) then
-  !    hd_get_Rfactor=>Rfactor_from_temperature_ionization
-  !    phys_update_temperature => hd_update_temperature
-  !  else if(associated(usr_Rfactor)) then
-  !    hd_get_Rfactor=>usr_Rfactor
-  !  else
-  !    hd_get_Rfactor=>Rfactor_from_constant_ionization
-  !  end if
+    if(hd_partial_ionization) then
+      hd_get_Rfactor=>Rfactor_from_temperature_ionization
+      phys_update_temperature => hd_update_temperature
+    else if(associated(usr_Rfactor)) then
+      hd_get_Rfactor=>usr_Rfactor
+    else
+      hd_get_Rfactor=>Rfactor_from_constant_ionization
+    end if
 
     ! initialize thermal conduction module
     if (hd_thermal_conduction) then
@@ -398,16 +398,16 @@ contains
       call radiative_cooling_init_params(hd_gamma,He_abundance)
       allocate(rc_fl)
       call radiative_cooling_init(rc_fl,rc_params_read)
-!      rc_fl%get_rho => hd_get_rho
-!      rc_fl%get_pthermal => hd_get_pthermal
-!      rc_fl%get_var_Rfactor => hd_get_Rfactor
+      rc_fl%get_rho => hd_get_rho
+      rc_fl%get_pthermal => hd_get_pthermal
+      rc_fl%get_var_Rfactor => hd_get_Rfactor
       rc_fl%e_ = e_
       rc_fl%Tcoff_ = Tcoff_
     end if
     allocate(te_fl_hd)
-!    te_fl_hd%get_rho=> hd_get_rho
-!    te_fl_hd%get_pthermal=> hd_get_pthermal
-!    te_fl_hd%get_var_Rfactor => hd_get_Rfactor
+    te_fl_hd%get_rho=> hd_get_rho
+    te_fl_hd%get_pthermal=> hd_get_pthermal
+    te_fl_hd%get_var_Rfactor => hd_get_Rfactor
 {^IFTHREED
     phys_te_images => hd_te_images
 }
@@ -661,13 +661,13 @@ contains
 111     close(unitpar)
       end do
 
-      !fl%ncool=ncool
-      !fl%coolcurve=coolcurve
-      !fl%coolmethod=coolmethod
-      !fl%tlow=tlow
-      !fl%Tfix=Tfix
-      !fl%rc_split=rc_split
-      !fl%cfrac=cfrac
+      fl%ncool=ncool
+      fl%coolcurve=coolcurve
+      fl%coolmethod=coolmethod
+      fl%tlow=tlow
+      fl%Tfix=Tfix
+      fl%rc_split=rc_split
+      fl%cfrac=cfrac
     end subroutine rc_params_read
 
     subroutine hd_check_params
@@ -1442,8 +1442,7 @@ contains
 
     double precision :: R(ixI^S)
 
-    ! AGILE: avoid pointer
-    call Rfactor_from_constant_ionization(w,x,ixI^L,ixO^L,R)
+    call hd_get_Rfactor(w,x,ixI^L,ixO^L,R)
     call hd_get_pthermal(w, x, ixI^L, ixO^L, res)
     res(ixO^S)=res(ixO^S)/(R(ixO^S)*w(ixO^S,rho_))
   end subroutine hd_get_temperature_from_etot
@@ -1458,8 +1457,7 @@ contains
 
     double precision :: R(ixI^S)
 
-    ! AGILE: avoid pointer
-    call Rfactor_from_constant_ionization(w,x,ixI^L,ixO^L,R)
+    call hd_get_Rfactor(w,x,ixI^L,ixO^L,R)
     res(ixO^S) = (hd_gamma - 1.0d0) * w(ixO^S, e_)/(w(ixO^S,rho_)*R(ixO^S))
   end subroutine hd_get_temperature_from_eint
 

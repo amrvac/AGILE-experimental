@@ -50,12 +50,11 @@ module mod_radiative_cooling
 
     ! these are to be set directly
     logical :: has_equi = .false.
-    ! AGILE: cannot use pointers, calling the HD versions instead of the pointers
-   !  procedure (get_subr1), pointer, nopass :: get_rho => null()
-   !  procedure (get_subr1), pointer, nopass :: get_rho_equi => null()
-   !  procedure (get_subr1), pointer, nopass :: get_pthermal => null()
-   !  procedure (get_subr1), pointer, nopass :: get_pthermal_equi => null()
-   !  procedure (get_subr1), pointer, nopass :: get_var_Rfactor => null()
+    procedure (get_subr1), pointer, nopass :: get_rho => null()
+    procedure (get_subr1), pointer, nopass :: get_rho_equi => null()
+    procedure (get_subr1), pointer, nopass :: get_pthermal => null()
+    procedure (get_subr1), pointer, nopass :: get_pthermal_equi => null()
+    procedure (get_subr1), pointer, nopass :: get_var_Rfactor => null()
 
     !> Index of the energy density
     integer              :: e_
@@ -1236,10 +1235,9 @@ module mod_radiative_cooling
       ! Limit timestep to avoid cooling problems when using explicit cooling
       !
       if(fl%coolmethod == 'explicit1') then
-        ! ToDo: Avoid circular dependency with mod_hd_phys
-        ! call hd_get_pthermal(w,x,ixI^L,ixO^L,pth)
-        ! call hd_get_rho(w,x,ixI^L,ixO^L,rho)
-        ! call Rfactor_from_constant_ionization(w,x,ixI^L,ixO^L,Rfactor)
+        call fl%get_pthermal(w,x,ixI^L,ixO^L,pth)
+        call fl%get_rho(w,x,ixI^L,ixO^L,rho)
+        call fl%get_var_Rfactor(w,x,ixI^L,ixO^L,Rfactor)
         Te(ixO^S)=pth(ixO^S)/(rho(ixO^S)*Rfactor(ixO^S))
         {do ix^DB = ixO^LIM^DB\}
           !  Determine explicit cooling
@@ -1281,10 +1279,9 @@ module mod_radiative_cooling
       double precision :: L1,Te(ixI^S),Rfactor(ixI^S)
       integer :: ix^D
 
-      ! ToDo: Avoid circular dependency with mod_hd_phys
-      ! call hd_get_pthermal(w,x,ixI^L,ixO^L,pth)
-      ! call hd_get_rho(w,x,ixI^L,ixO^L,rho)
-      ! call Rfactor_from_constant_ionization(w,x,ixI^L,ixO^L,Rfactor)
+      call fl%get_pthermal(w,x,ixI^L,ixO^L,pth)
+      call fl%get_rho(w,x,ixI^L,ixO^L,rho)
+      call fl%get_var_Rfactor(w,x,ixI^L,ixO^L,Rfactor)
       Te(ixO^S)=pth(ixO^S)/(rho(ixO^S)*Rfactor(ixO^S))
 
       {do ix^DB = ixO^LIM^DB\}
@@ -1326,14 +1323,13 @@ module mod_radiative_cooling
          call mpistop("Subroutine getvar_cooling_exact needs the exact cooling method")
       end if
 
-      ! ToDo: Avoid circular dependency with mod_hd_phys
-      ! call hd_get_pthermal(wCT, x, ixI^L, ixO^L, pth)
-      ! call hd_get_rho(wCT, x, ixI^L, ixO^L, rho)
-      ! call Rfactor_from_constant_ionization(wCT,x,ixI^L,ixO^L,Rfactor)
+      call fl%get_pthermal(wCT, x, ixI^L, ixO^L, pth)
+      call fl%get_rho(wCT, x, ixI^L, ixO^L, rho)
+      call fl%get_var_Rfactor(wCT,x,ixI^L,ixO^L,Rfactor)
       Te(ixO^S)=pth(ixO^S)/(rho(ixO^S)*Rfactor(ixO^S))
 
-      ! call hd_get_pthermal(w, x, ixI^L, ixO^L, pnew)
-      ! call hd_get_rho(w, x, ixI^L, ixO^L, rhonew)
+      call fl%get_pthermal(w, x, ixI^L, ixO^L, pnew)
+      call fl%get_rho(w, x, ixI^L, ixO^L, rhonew)
 
       fact=fl%lref*qdt/fl%tref
 
@@ -1424,10 +1420,9 @@ module mod_radiative_cooling
       double precision :: etherm(ixI^S), rho(ixI^S), Rfactor(ixI^S),emin
       integer :: ix^D
 
-      ! ToDo: Avoid circular dependency with mod_hd_phys
-      ! call hd_get_pthermal(w,x,ixI^L,ixO^L,etherm)
-      ! call hd_get_rho(w,x,ixI^L,ixO^L,rho)
-      ! call Rfactor_from_constant_ionization(wCT,x,ixI^L,ixO^L,Rfactor)
+      call fl%get_pthermal(w,x,ixI^L,ixO^L,etherm)
+      call fl%get_rho(w,x,ixI^L,ixO^L,rho)
+      call fl%get_var_Rfactor(wCT,x,ixI^L,ixO^L,Rfactor)
       {do ix^DB = ixO^LIM^DB\}
          emin = rho(ix^D)*fl%tlow*Rfactor(ix^D)
          if(etherm(ix^D) < emin) then
@@ -1455,10 +1450,9 @@ module mod_radiative_cooling
       double precision :: de, emax,fact
       integer :: ix^D
 
-      ! ToDo: Avoid circular dependency with mod_hd_phys
-      ! call hd_get_pthermal_equi(wCT,x,ixI^L,ixO^L,pth)
-      ! call hd_get_rho_equi(wCT,x,ixI^L,ixO^L,rho)
-      ! call Rfactor_from_constant_ionization(wCT,x,ixI^L,ixO^L,Rfactor)
+      call fl%get_pthermal_equi(wCT,x,ixI^L,ixO^L,pth)
+      call fl%get_rho_equi(wCT,x,ixI^L,ixO^L,rho)
+      call fl%get_var_Rfactor(wCT,x,ixI^L,ixO^L,Rfactor)
       Te(ixO^S)=pth(ixO^S)/(rho(ixO^S)*Rfactor(ixO^S))
 
       res=0d0
@@ -1549,11 +1543,10 @@ module mod_radiative_cooling
       double precision :: emin, Lmax
       integer :: ix^D
 
-      ! ToDo: Avoid circular dependency with mod_hd_phys
-      ! call hd_get_pthermal(wCT,x,ixI^L,ixO^L,pth)
-      ! call hd_get_pthermal(w,x,ixI^L,ixO^L,pnew)
-      ! call hd_get_rho(wCT,x,ixI^L,ixO^L,rho)
-      ! call Rfactor_from_constant_ionization(wCT,x,ixI^L,ixO^L,Rfactor)
+      call fl%get_pthermal(wCT,x,ixI^L,ixO^L,pth)
+      call fl%get_pthermal(w,x,ixI^L,ixO^L,pnew)
+      call fl%get_rho(wCT,x,ixI^L,ixO^L,rho)
+      call fl%get_var_Rfactor(wCT,x,ixI^L,ixO^L,Rfactor)
       Te(ixO^S)=pth(ixO^S)/(rho(ixO^S)*Rfactor(ixO^S))
 
       {do ix^DB = ixO^LIM^DB\}
@@ -1612,11 +1605,10 @@ module mod_radiative_cooling
       integer :: idt,ndtstep
       integer :: ix^D
 
-      ! ToDo: Avoid circular dependency with mod_hd_phys
-      ! call hd_get_pthermal(wCT,x,ixI^L,ixO^L,pth)
-      ! call hd_get_pthermal(w,x,ixI^L,ixO^L,pnew)
-      ! call hd_get_rho(wCT,x,ixI^L,ixO^L,rho)
-      ! call Rfactor_from_constant_ionization(wCT,x,ixI^L,ixO^L,Rfactor)
+      call fl%get_pthermal(wCT,x,ixI^L,ixO^L,pth)
+      call fl%get_pthermal(w,x,ixI^L,ixO^L,pnew)
+      call fl%get_rho(wCT,x,ixI^L,ixO^L,rho)
+      call fl%get_var_Rfactor(wCT,x,ixI^L,ixO^L,Rfactor)
       Te(ixO^S)=pth(ixO^S)/(rho(ixO^S)*Rfactor(ixO^S))
 
       {do ix^DB = ixO^LIM^DB\}
@@ -1711,11 +1703,10 @@ module mod_radiative_cooling
       double precision :: pth(ixI^S),pnew(ixI^S),rho(ixI^S),Rfactor(ixI^S),Te(ixI^S)
       integer :: ix^D
 
-      ! ToDo: Avoid circular dependency with mod_hd_phys
-      ! call hd_get_pthermal(wCT,x,ixI^L,ixO^L,pth)
-      ! call hd_get_pthermal(w,x,ixI^L,ixO^L,pnew)
-      ! call hd_get_rho(wCT,x,ixI^L,ixO^L,rho)
-      ! call Rfactor_from_constant_ionization(wCT,x,ixI^L,ixO^L,Rfactor)
+      call fl%get_pthermal(wCT,x,ixI^L,ixO^L,pth)
+      call fl%get_pthermal(w,x,ixI^L,ixO^L,pnew)
+      call fl%get_rho(wCT,x,ixI^L,ixO^L,rho)
+      call fl%get_var_Rfactor(wCT,x,ixI^L,ixO^L,Rfactor)
       Te(ixO^S)=pth(ixO^S)/(rho(ixO^S)*Rfactor(ixO^S))
 
       {do ix^DB = ixO^LIM^DB\}
@@ -1781,11 +1772,10 @@ module mod_radiative_cooling
       double precision, parameter :: e_error = 1.0D-6
       integer :: ix^D, j
 
-      ! ToDo: Avoid circular dependency with mod_hd_phys
-      ! call hd_get_pthermal(wCT,x,ixI^L,ixO^L,pth)
-      ! call hd_get_pthermal(w,x,ixI^L,ixO^L,pnew)
-      ! call hd_get_rho(wCT,x,ixI^L,ixO^L,rho)
-      ! call Rfactor_from_constant_ionization(wCT,x,ixI^L,ixO^L,Rfactor)
+      call fl%get_pthermal(wCT,x,ixI^L,ixO^L,pth)
+      call fl%get_pthermal(w,x,ixI^L,ixO^L,pnew)
+      call fl%get_rho(wCT,x,ixI^L,ixO^L,rho)
+      call fl%get_var_Rfactor(wCT,x,ixI^L,ixO^L,Rfactor)
       Te(ixO^S)=pth(ixO^S)/(rho(ixO^S)*Rfactor(ixO^S))
 
       {do ix^DB = ixO^LIM^DB\}
@@ -1851,18 +1841,17 @@ module mod_radiative_cooling
       double precision :: de, emax
       integer :: ix^D
 
-      ! ToDo: Avoid circular dependency with mod_hd_phys
-      ! call hd_get_rho(wCT,x,ixI^L,ixO^L,rho)
-      ! call Rfactor_from_constant_ionization(wCT,x,ixI^L,ixO^L,Rfactor)
+      call fl%get_rho(wCT,x,ixI^L,ixO^L,rho)
+      call fl%get_var_Rfactor(wCT,x,ixI^L,ixO^L,Rfactor)
       if(phys_equi_pe) then
         ! need pressure splitting
-        ! call hd_get_pthermal(wCT,x,ixI^L,ixO^L,Te)
+        call fl%get_pthermal(wCT,x,ixI^L,ixO^L,Te)
         Te(ixO^S)=Te(ixO^S)/(rho(ixO^S)*Rfactor(ixO^S))
       else
         Te(ixO^S)=wCTprim(ixO^S,iw_e)/(rho(ixO^S)*Rfactor(ixO^S))
       end if
-      ! call hd_get_pthermal(w,x,ixI^L,ixO^L,pnew)
-      ! call hd_get_rho(w,x,ixI^L,ixO^L,rhonew)
+      call fl%get_pthermal(w,x,ixI^L,ixO^L,pnew)
+      call fl%get_rho(w,x,ixI^L,ixO^L,rhonew)
 
       fact = fl%lref*qdt/fl%tref
 
