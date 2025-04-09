@@ -36,15 +36,15 @@ module mod_radiative_cooling
   !> inverse of the adiabatic index minus 1
   double precision, private :: invgam
 
-!   abstract interface
-!     subroutine get_subr1(w,x,ixI^L,ixO^L,res)
-!       use mod_global_parameters
-!       integer, intent(in)          :: ixI^L, ixO^L
-!       double precision, intent(in) :: w(ixI^S,nw)
-!       double precision, intent(in) :: x(ixI^S,1:ndim)
-!       double precision, intent(out):: res(ixI^S)
-!     end subroutine get_subr1
-!   end interface
+  interface
+    subroutine get_subr1(w,x,ixI^L,ixO^L,res)
+      use mod_global_parameters
+      integer, intent(in)          :: ixI^L, ixO^L
+      double precision, intent(in) :: w(ixI^S,nw)
+      double precision, intent(in) :: x(ixI^S,1:ndim)
+      double precision, intent(out):: res(ixI^S)
+    end subroutine get_subr1
+  end interface
 
   type rc_fluid
 
