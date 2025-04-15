@@ -45,5 +45,5 @@
  /
 
  &hd_list
-  hd_gravity = .true.
+  hd_gravity = .false.
  /
