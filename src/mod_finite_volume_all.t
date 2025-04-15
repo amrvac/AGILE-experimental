@@ -35,8 +35,9 @@ contains
     double precision, dimension(ixI^S, 1:nwflux, 1:ndim)  :: fC ! not yet provided
     double precision, dimension(ixI^S, sdim:3)            :: fE ! not yet provided
     ! .. local ..
-    integer                :: n, iigrid, ix^D
+    integer                :: n, iigrid, ix^D, idim
     double precision       :: uprim(nw, ixI^S)
+    double precision       :: gravity_field
     real(dp)               :: tmp(nw_euler,5)
     real(dp)               :: f(nw_euler, 2)
     real(dp)               :: inv_dr(ndim)
@@ -78,6 +79,7 @@ contains
              call muscl_flux_euler_prim(tmp, 2, f, typelim)
              bgb%w(ix1, ix2, :, n) = bgb%w(ix1, ix2, :, n) &
                   + qdt * (f(:, 1) - f(:, 2)) * inv_dr(2)
+
        }
        {^IFTHREED
              tmp = uprim(:, ix1-2:ix1+2, ix2, ix3)
@@ -96,7 +98,18 @@ contains
                   + qdt * (f(:, 1) - f(:, 2)) * inv_dr(3)
        }
 
+
        {^D& end do \}
+
+       do idim = 1, ndim
+          {^D& do ix^DB=ixOmin^DB,ixOmax^DB \}
+             {^IFTWOD      
+               call set_local_gravity(idim,ps(n)%x(ix1,ix2,1:ndim),gravity_field))
+               bgb%w(ix1,ix2,iw_mom(idim),n)=bgb%w(ix1,ix2,iw_mom(idim),n)+qdt*gravity_field*bga%w(ix1,ix2,iw_mom(idim),n)
+              }
+          {^D& end do \}
+       enddo
+
     end do
 
   end subroutine finite_volume_local
@@ -131,6 +144,22 @@ contains
     \}
 
   end subroutine to_conservative
+
+{^IFTWOD
+  subroutine set_local_gravity(idim,x(1:ndim), gravity_field)
+    !$acc routine seq
+    integer, intent(in)   :: idim
+    real(dp), intent(in)  :: x(ndim)
+    real(dp), intent(out) :: gravity_field
+
+    if (idim==1) then
+       gravity_field=0.0d0
+    else
+       gravity_field=-1.0d0
+    end if
+    
+  end subroutine set_local_gravity
+}
 
   subroutine muscl_flux_euler_prim(u, flux_dim, flux, typelim)
     !$acc routine seq
