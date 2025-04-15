@@ -105,7 +105,8 @@ contains
           {^D& do ix^DB=ixOmin^DB,ixOmax^DB \}
              {^IFTWOD      
                call set_local_gravity(idim,ps(n)%x(ix1,ix2,1:ndim),gravity_field)
-               bgb%w(ix1,ix2,iw_mom(idim),n)=bgb%w(ix1,ix2,iw_mom(idim),n)+qdt*gravity_field*bga%w(ix1,ix2,iw_mom(idim),n)
+               bgb%w(ix1,ix2,iw_mom(idim),n)=bgb%w(ix1,ix2,iw_mom(idim),n)+qdt*gravity_field*bga%w(ix1,ix2,iw_rho,n)
+               bgb%w(ix1,ix2,iw_e,n)=bgb%w(ix1,ix2,iw_e,n)+qdt*gravity_field*bga%w(ix1,ix2,iw_mom(idim),n)
               }
           {^D& end do \}
        enddo
