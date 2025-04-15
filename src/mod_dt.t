@@ -27,7 +27,7 @@ contains
     double precision :: a2max_mype(ndim), tco_mype, tco_global, Tmax_mype, T_peak
     double precision :: trac_alfa, trac_dmax, trac_tau, T_bott, cmax
     double precision :: dxinv(1:ndim), courantmaxtots, cmaxtot
-    double precision :: maxgrav
+    double precision :: max_grav
 
     integer, parameter :: niter_print = 2000
 
