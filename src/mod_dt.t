@@ -27,6 +27,7 @@ contains
     double precision :: a2max_mype(ndim), tco_mype, tco_global, Tmax_mype, T_peak
     double precision :: trac_alfa, trac_dmax, trac_tau, T_bott, cmax
     double precision :: dxinv(1:ndim), courantmaxtots, cmaxtot
+    double precision :: maxgrav
 
     integer, parameter :: niter_print = 2000
 
@@ -62,6 +63,12 @@ contains
              {^D& end do\}
           
           dtmin_mype  = min(dtmin_mype,courantpar / courantmaxtots)
+
+          ! specific to 2D RT test with fixed and constant external gravity of unit magnitude
+          do idims = 1, ndim
+             max_grav = 1.0d0
+             dtmin_mype = min(dtmin_mype, 1.0d0 / sqrt(max_grav * dxinv(idims)))
+          end do
 
 #else
 
