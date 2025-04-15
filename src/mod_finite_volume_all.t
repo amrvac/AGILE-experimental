@@ -104,7 +104,7 @@ contains
        do idim = 1, ndim
           {^D& do ix^DB=ixOmin^DB,ixOmax^DB \}
              {^IFTWOD      
-               call set_local_gravity(idim,ps(n)%x(ix1,ix2,1:ndim),gravity_field))
+               call set_local_gravity(idim,ps(n)%x(ix1,ix2,1:ndim),gravity_field)
                bgb%w(ix1,ix2,iw_mom(idim),n)=bgb%w(ix1,ix2,iw_mom(idim),n)+qdt*gravity_field*bga%w(ix1,ix2,iw_mom(idim),n)
               }
           {^D& end do \}
@@ -146,10 +146,10 @@ contains
   end subroutine to_conservative
 
 {^IFTWOD
-  subroutine set_local_gravity(idim,x(1:ndim), gravity_field)
+  subroutine set_local_gravity(idim,x, gravity_field)
     !$acc routine seq
     integer, intent(in)   :: idim
-    real(dp), intent(in)  :: x(ndim)
+    real(dp), intent(in)  :: x(1:ndim)
     real(dp), intent(out) :: gravity_field
 
     if (idim==1) then
