@@ -64,7 +64,7 @@ contains
           
           dtmin_mype  = min(dtmin_mype,courantpar / courantmaxtots)
 
-          ! specific to 2D RT test with fixed and constant external gravity of unit magnitude
+          ! specific to RT test with fixed and constant external gravity of unit magnitude
           do idims = 1, ndim
              max_grav = 1.0d0
              dtmin_mype = min(dtmin_mype, 1.0d0 / sqrt(max_grav * dxinv(idims)))
