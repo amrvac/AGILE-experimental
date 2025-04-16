@@ -42,6 +42,7 @@ contains
     real(dp)               :: f(nw_euler, 2)
     real(dp)               :: inv_dr(ndim)
     integer                :: typelim
+    real(dp)               :: xloc(ndim)
     !-----------------------------------------------------------------------------
 
     !$acc parallel loop, private(n, uprim, inv_dr) firstprivate(ixI^L, ixO^L) present(bga, bgb, bga%w, bgb%w)
@@ -62,10 +63,10 @@ contains
          !$acc loop  
          do ix1=ixImin1,ixImax1
            do ix2=ixOmin2-2,ixOmin2-1
-             uprim(iw_rho,ix1,ix2)=uprim(iw_rho,ix1,ixOmin2)
-             uprim(iw_e,ix1,ix2)=uprim(iw_e,ix1,ixOmin2)
-             uprim(iw_mom(1),ix1,ix2)=-uprim(iw_mom(1),ix1,ixOmin2)
-             uprim(iw_mom(2),ix1,ix2)=-uprim(iw_mom(2),ix1,ixOmin2)
+             uprim(iw_rho,ix1,ix2)=uprim(iw_rho,ix1,2*ixOmin2-ix2-1)
+             uprim(iw_e,ix1,ix2)=uprim(iw_e,ix1,2*ixOmin2-ix2-1)
+             uprim(iw_mom(1),ix1,ix2)=uprim(iw_mom(1),ix1,2*ixOmin2-ix2-1)
+             uprim(iw_mom(2),ix1,ix2)=-uprim(iw_mom(2),ix1,2*ixOmin2-ix2-1)
            end do
          end do
        endif
@@ -73,10 +74,10 @@ contains
          !$acc loop  
          do ix1=ixImin1,ixImax1
            do ix2=ixOmax2+1,ixOmax2+2
-             uprim(iw_rho,ix1,ix2)=uprim(iw_rho,ix1,ixOmax2)
-             uprim(iw_e,ix1,ix2)=uprim(iw_e,ix1,ixOmax2)
-             uprim(iw_mom(1),ix1,ix2)=-uprim(iw_mom(1),ix1,ixOmax2)
-             uprim(iw_mom(2),ix1,ix2)=-uprim(iw_mom(2),ix1,ixOmax2)
+             uprim(iw_rho,ix1,ix2)=uprim(iw_rho,ix1,2*ixOmax2-ix2+1)
+             uprim(iw_e,ix1,ix2)=uprim(iw_e,ix1,2*ixOmax2-ix2+1)
+             uprim(iw_mom(1),ix1,ix2)=uprim(iw_mom(1),ix1,2*ixOmax2-ix2+1)
+             uprim(iw_mom(2),ix1,ix2)=-uprim(iw_mom(2),ix1,2*ixOmax2-ix2+1)
            end do
          end do
        endif
@@ -124,10 +125,12 @@ contains
 
        {^D& end do \}
 
+       !$acc loop collapse(ndim+1) private(gravity_field, xloc) vector
        do idim = 1, ndim
           {^D& do ix^DB=ixOmin^DB,ixOmax^DB \}
              {^IFTWOD      
-               call set_local_gravity(idim,ps(n)%x(ix1,ix2,1:ndim),gravity_field)
+               xloc(1:ndim) = ps(n)%x(ix1,ix2,1:ndim)
+               call set_local_gravity(idim,xloc,gravity_field)
                bgb%w(ix1,ix2,iw_mom(idim),n)=bgb%w(ix1,ix2,iw_mom(idim),n)+qdt*gravity_field*bga%w(ix1,ix2,iw_rho,n)
                bgb%w(ix1,ix2,iw_e,n)=bgb%w(ix1,ix2,iw_e,n)+qdt*gravity_field*bga%w(ix1,ix2,iw_mom(idim),n)
               }
