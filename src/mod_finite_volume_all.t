@@ -41,7 +41,6 @@ contains
     real(dp)               :: tmp(nw_euler,5)
     real(dp)               :: f(nw_euler, 2)
     real(dp)               :: inv_dr(ndim)
-    real(dp)               :: xx(ndim)
     integer                :: typelim
     real(dp)               :: xloc(ndim)
     !-----------------------------------------------------------------------------
@@ -128,22 +127,15 @@ contains
 
        !$acc loop collapse(ndim+1) private(gravity_field, xloc) vector
        do idim = 1, ndim
-          !$acc loop collapse(ndim) private(xx,gravity_field) vector
           {^D& do ix^DB=ixOmin^DB,ixOmax^DB \}
              {^IFTWOD      
-<<<<<<< HEAD
                xloc(1:ndim) = ps(n)%x(ix1,ix2,1:ndim)
                call set_local_gravity(idim,xloc,gravity_field)
-=======
-               xx(1:ndim)=ps(n)%x(ix1,ix2,1:ndim)
-               call set_local_gravity(idim,xx(1:ndim),gravity_field)
->>>>>>> cdd079a2df24a143c2c632c3ba061b53c8c5de74
                bgb%w(ix1,ix2,iw_mom(idim),n)=bgb%w(ix1,ix2,iw_mom(idim),n)+qdt*gravity_field*bga%w(ix1,ix2,iw_rho,n)
                bgb%w(ix1,ix2,iw_e,n)=bgb%w(ix1,ix2,iw_e,n)+qdt*gravity_field*bga%w(ix1,ix2,iw_mom(idim),n)
               }
           {^D& end do \}
        enddo
-
     end do
 
   end subroutine finite_volume_local
