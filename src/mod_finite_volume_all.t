@@ -44,7 +44,7 @@ contains
     integer                :: typelim
     !-----------------------------------------------------------------------------
 
-    !$acc parallel loop, private(n, uprim, inv_dr) firstprivate(ixI^L, ixO^L) present(bga, bgb, bga%w, bgb%w,ps)
+    !$acc parallel loop, private(n, uprim, inv_dr) firstprivate(ixI^L, ixO^L) present(bga, bgb, bga%w, bgb%w)
     do iigrid = 1, igridstail_active
        n = igrids_active(iigrid)
 
