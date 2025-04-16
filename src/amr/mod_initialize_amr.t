@@ -57,9 +57,19 @@ contains
     do itimelevel = 1, nstep
        !$acc enter data copyin( bg(itimelevel)%w )
     end do
+
+    ! cray does a deepcopy, while nvfortran doesn't
+    ! the loop is very slow with cray, so we differentiate here
+#ifdef _CRAYFTN
+    !$acc update device(ps, ps1, ps2)
+#endif
     do igrid = 1, max_blocks
+#ifdef _CRAYFTN
+       !$acc enter data attach(ps(igrid)%w, ps1(igrid)%w, ps2(igrid)%w)
+#else
        !$acc update device(ps(igrid), ps1(igrid), ps2(igrid))
        !$acc enter data copyin(ps(igrid)%x) attach(ps(igrid)%w, ps1(igrid)%w, ps2(igrid)%w)
+#endif
     end do
 
     ! update ghost cells
