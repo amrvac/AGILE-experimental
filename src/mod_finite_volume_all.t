@@ -59,8 +59,10 @@ contains
              call to_primitive(uprim(:, ix^D))
        {^D& end do \}
 
+       {^IFTWOD
+       ! local hack for reflective boundaries in 2D, along y (for RTHD test)
        if(ps(n)%is_physical_boundary(3)) then
-         !$acc loop  
+         !$acc loop collapse(ndim) vector 
          do ix1=ixImin1,ixImax1
            do ix2=ixOmin2-2,ixOmin2-1
              uprim(iw_rho,ix1,ix2)=uprim(iw_rho,ix1,2*ixOmin2-ix2-1)
@@ -71,7 +73,7 @@ contains
          end do
        endif
        if(ps(n)%is_physical_boundary(4)) then
-         !$acc loop  
+         !$acc loop collapse(ndim) vector 
          do ix1=ixImin1,ixImax1
            do ix2=ixOmax2+1,ixOmax2+2
              uprim(iw_rho,ix1,ix2)=uprim(iw_rho,ix1,2*ixOmax2-ix2+1)
@@ -81,6 +83,38 @@ contains
            end do
          end do
        endif
+       }
+       {^IFTHREED
+       ! local hack for reflective boundaries in 3D, along z (for RTHD test)
+       if(ps(n)%is_physical_boundary(5)) then
+         !$acc loop collapse(ndim) vector 
+         do ix1=ixImin1,ixImax1
+           do ix2=ixImin2,ixImax2
+             do ix3=ixOmin3-2,ixOmin3-1
+                uprim(iw_rho,ix1,ix2,ix3)=uprim(iw_rho,ix1,ix2,2*ixOmin3-ix3-1)
+                uprim(iw_e,ix1,ix2,ix3)=uprim(iw_e,ix1,ix2,2*ixOmin3-ix3-1)
+                uprim(iw_mom(1),ix1,ix2,ix3)=uprim(iw_mom(1),ix1,ix2,2*ixOmin3-ix3-1)
+                uprim(iw_mom(2),ix1,ix2,ix3)=uprim(iw_mom(2),ix1,ix2,2*ixOmin3-ix3-1)
+                uprim(iw_mom(3),ix1,ix2,ix3)=-uprim(iw_mom(3),ix1,ix2,2*ixOmin3-ix3-1)
+             end do
+           end do
+         end do
+       endif
+       if(ps(n)%is_physical_boundary(6)) then
+         !$acc loop collapse(ndim) vector 
+         do ix1=ixImin1,ixImax1
+           do ix2=ixImin2,ixImax2
+             do ix3=ixOmax3+1,ixOmax3+2
+                uprim(iw_rho,ix1,ix2,ix3)=uprim(iw_rho,ix1,ix2,2*ixOmax3-ix3+1)
+                uprim(iw_e,ix1,ix2,ix3)=uprim(iw_e,ix1,ix2,2*ixOmax3-ix3+1)
+                uprim(iw_mom(1),ix1,ix2,ix3)=uprim(iw_mom(1),ix1,ix2,2*ixOmax3-ix3+1)
+                uprim(iw_mom(2),ix1,ix2,ix3)=uprim(iw_mom(2),ix1,ix2,2*ixOmax3-ix3+1)
+                uprim(iw_mom(3),ix1,ix2,ix3)=-uprim(iw_mom(3),ix1,ix2,2*ixOmax3-ix3+1)
+             end do
+           end do
+         end do
+       endif
+       }
 
        !$acc loop collapse(ndim) private(f, tmp) vector
        {^D& do ix^DB=ixOmin^DB,ixOmax^DB \}
@@ -134,6 +168,12 @@ contains
                bgb%w(ix1,ix2,iw_mom(idim),n)=bgb%w(ix1,ix2,iw_mom(idim),n)+qdt*gravity_field*bga%w(ix1,ix2,iw_rho,n)
                bgb%w(ix1,ix2,iw_e,n)=bgb%w(ix1,ix2,iw_e,n)+qdt*gravity_field*bga%w(ix1,ix2,iw_mom(idim),n)
               }
+             {^IFTHREED      
+               xloc(1:ndim) = ps(n)%x(ix1,ix2,ix3,1:ndim)
+               call set_local_gravity(idim,xloc,gravity_field)
+               bgb%w(ix1,ix2,ix3,iw_mom(idim),n)=bgb%w(ix1,ix2,ix3,iw_mom(idim),n)+qdt*gravity_field*bga%w(ix1,ix2,ix3,iw_rho,n)
+               bgb%w(ix1,ix2,ix3,iw_e,n)=bgb%w(ix1,ix2,ix3,iw_e,n)+qdt*gravity_field*bga%w(ix1,ix2,ix3,iw_mom(idim),n)
+              }
           {^D& end do \}
        enddo
     end do
@@ -171,21 +211,26 @@ contains
 
   end subroutine to_conservative
 
-{^IFTWOD
   subroutine set_local_gravity(idim,x, gravity_field)
     !$acc routine seq
     integer, intent(in)   :: idim
     real(dp), intent(in)  :: x(1:ndim)
     real(dp), intent(out) :: gravity_field
 
-    if (idim==1) then
-       gravity_field=0.0d0
-    else
+    gravity_field=0.0d0
+
+{^IFTWOD
+    if (idim==2) then
        gravity_field=-1.0d0
-    end if
+    endif
+}
+{^IFTHREED
+    if (idim==3) then
+     gravity_field=-1.0d0
+    endif
+}
     
   end subroutine set_local_gravity
-}
 
   subroutine muscl_flux_euler_prim(u, flux_dim, flux, typelim)
     !$acc routine seq
