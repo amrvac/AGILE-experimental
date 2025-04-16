@@ -44,7 +44,7 @@ contains
     integer                :: typelim
     !-----------------------------------------------------------------------------
 
-    !$acc parallel loop, private(n, uprim, inv_dr) firstprivate(ixI^L, ixO^L) present(bga, bgb, bga%w, bgb%w)
+    !$acc parallel loop, private(n, uprim, inv_dr) firstprivate(ixI^L, ixO^L) present(bga, bgb, bga%w, bgb%w,ps)
     do iigrid = 1, igridstail_active
        n = igrids_active(iigrid)
 
@@ -57,6 +57,29 @@ contains
              uprim(:, ix^D) = bga%w(ix^D, :, n)
              call to_primitive(uprim(:, ix^D))
        {^D& end do \}
+
+       if(ps(n)%is_physical_boundary(3)) then
+         !$acc loop  
+         do ix1=ixImin1,ixImax1
+           do ix2=ixOmin2-2,ixOmin2-1
+             uprim(iw_rho,ix1,ix2)=uprim(iw_rho,ix1,ixOmin2)
+             uprim(iw_e,ix1,ix2)=uprim(iw_e,ix1,ixOmin2)
+             uprim(iw_mom(1),ix1,ix2)=-uprim(iw_mom(1),ix1,ixOmin2)
+             uprim(iw_mom(2),ix1,ix2)=-uprim(iw_mom(2),ix1,ixOmin2)
+           end do
+         end do
+       endif
+       if(ps(n)%is_physical_boundary(4)) then
+         !$acc loop  
+         do ix1=ixImin1,ixImax1
+           do ix2=ixOmax2+1,ixOmax2+2
+             uprim(iw_rho,ix1,ix2)=uprim(iw_rho,ix1,ixOmax2)
+             uprim(iw_e,ix1,ix2)=uprim(iw_e,ix1,ixOmax2)
+             uprim(iw_mom(1),ix1,ix2)=-uprim(iw_mom(1),ix1,ixOmax2)
+             uprim(iw_mom(2),ix1,ix2)=-uprim(iw_mom(2),ix1,ixOmax2)
+           end do
+         end do
+       endif
 
        !$acc loop collapse(ndim) private(f, tmp) vector
        {^D& do ix^DB=ixOmin^DB,ixOmax^DB \}
