@@ -13,6 +13,7 @@
 /
 
  &stoplist
+   it_max              = 100
    time_max            = 2.d0
 /
 

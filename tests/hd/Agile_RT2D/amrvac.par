@@ -13,6 +13,7 @@
 /
 
  &stoplist
+   it_max              = 100
    time_max            = 2.d0
 /
 
@@ -29,11 +30,12 @@
   typeboundary_max2 = 'symm','symm','asymm','symm'
 /
  &meshlist
-   refine_max_level          = 1
-   block_nx1        = 16
-   block_nx2        = 16
-   domain_nx1         = 4096
-   domain_nx2         = 4096
+   refine_max_level= 1
+   max_blocks      = 16384
+   block_nx1       = 32
+   block_nx2       = 32
+   domain_nx1      = 4096
+   domain_nx2      = 4096
    xprobmin1       = 0.0d0
    xprobmax1       = 1.0d0
    xprobmin2       = 0.0d0
