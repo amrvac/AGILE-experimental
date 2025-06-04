@@ -27,6 +27,9 @@ module mod_ghostcells_update
   integer, dimension(-1:2,-1:1) :: ixS_srl_min1,ixS_srl_min2,ixS_srl_min3,&
      ixS_srl_max1,ixS_srl_max2,ixS_srl_max3, ixR_srl_min1,ixR_srl_min2,&
      ixR_srl_min3,ixR_srl_max1,ixR_srl_max2,ixR_srl_max3
+  !$acc declare create(ixS_srl_min1,ixS_srl_min2,ixS_srl_min3)
+  !$acc declare create(ixS_srl_max1,ixS_srl_max2,ixS_srl_max3, ixR_srl_min1,ixR_srl_min2)
+  !$acc declare create(ixR_srl_min3,ixR_srl_max1,ixR_srl_max2,ixR_srl_max3)
 
   ! index ranges of staggered variables to send (S) to sibling blocks, receive (R) from sibling blocks
   integer, dimension(3,-1:1) :: ixS_srl_stg_min1,ixS_srl_stg_min2,&
@@ -1068,6 +1071,10 @@ contains
       ixR_p_max3( 1,2)=ixCoGmax3
       
     end if
+    
+  !$acc update device(ixS_srl_min1,ixS_srl_min2,ixS_srl_min3)
+  !$acc update device(ixS_srl_max1,ixS_srl_max2,ixS_srl_max3, ixR_srl_min1,ixR_srl_min2)
+  !$acc update device(ixR_srl_min3,ixR_srl_max1,ixR_srl_max2,ixR_srl_max3)
 
   end subroutine init_bc
 
@@ -3399,7 +3406,7 @@ contains
     subroutine bc_fill_srl(psb,igrid,nwhead,nwtail,i1,i2,i3,iib1,iib2,iib3)
       !$acc routine vector
       use mod_physicaldata, only: state
-      use mod_global_parameters, only: max_blocks, mype
+      use mod_global_parameters, only: max_blocks, mype, ndim
       use mod_connectivity
       integer, intent(in) :: igrid,i1,i2,i3,iib1,iib2,iib3,nwhead,nwtail
       type(state), target :: psb(max_blocks)
