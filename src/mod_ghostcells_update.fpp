@@ -1579,14 +1579,56 @@ contains
 
     ! fill coarse ghost-cell values of finer neighbors in the same processor
     !$OMP PARALLEL DO SCHEDULE(dynamic) PRIVATE(igrid,iib1,iib2,iib3)
+ !$acc parallel loop default(present) copyin(idphyb,ixS_p_min1,ixS_p_min2,ixS_p_min3,ixS_p_max1,ixS_p_max2,ixS_p_max3,ixR_p_min1,ixR_p_min2,ixR_p_min3,ixR_p_max1,ixR_p_max2,ixR_p_max3) private(igrid,iib1,iib2,iib3,ineighbor,n_i1,n_i2,n_i3,n_inc1,n_inc2,n_inc3,ixSmin1,ixSmin2,ixSmin3,ixSmax1,ixSmax2,ixSmax3,ixRmin1,ixRmin2,ixRmin3,ixRmax1,ixRmax2,ixRmax3,iw,ix1,ix2,ix3) firstprivate(nwhead,nwtail)
     do iigrid=1,igridstail; igrid=igrids(iigrid);
       iib1=idphyb(1,igrid);iib2=idphyb(2,igrid);iib3=idphyb(3,igrid);
       do i3=-1,1
       do i2=-1,1
       do i1=-1,1
          if (skip_direction([ i1,i2,i3 ])) cycle
-         if (neighbor_type(i1,i2,i3,igrid)==neighbor_fine) call &
-            bc_fill_prolong(igrid,i1,i2,i3,iib1,iib2,iib3)
+         if (neighbor_type(i1,i2,i3,igrid)==neighbor_fine) then
+            ! call bc_fill_prolong(igrid,i1,i2,i3,iib1,iib2,iib3)
+            ! Inlining rountine bc_fill_prolong
+            ! copying only the ipole==0 case, leaving out staggered.
+
+            ! Subroutine arguments have the same name inside and
+            ! outside.
+
+!           Internal variables
+!           integer :: ipe_neighbor,ineighbor,ixSmin1,ixSmin2,ixSmin3,ixSmax1,&
+!           ixSmax2,ixSmax3,ixRmin1,ixRmin2,ixRmin3,ixRmax1,ixRmax2,ixRmax3,ic1,&
+!           ic2,ic3,inc1,inc2,inc3,ipole,idir
+          do ic3=1+int((1-i3)/2),2-int((1+i3)/2)
+             inc3=2*i3+ic3
+          do ic2=1+int((1-i2)/2),2-int((1+i2)/2)
+             inc2=2*i2+ic2
+          do ic1=1+int((1-i1)/2),2-int((1+i1)/2)
+             inc1=2*i1+ic1
+             ipe_neighbor=neighbor_child(2,inc1,inc2,inc3,igrid)
+             if(ipe_neighbor==mype) then
+               ixSmin1=ixS_p_min1(iib1,inc1);ixSmin2=ixS_p_min2(iib2,inc2)
+               ixSmin3=ixS_p_min3(iib3,inc3);ixSmax1=ixS_p_max1(iib1,inc1)
+               ixSmax2=ixS_p_max2(iib2,inc2);ixSmax3=ixS_p_max3(iib3,inc3);
+               ineighbor=neighbor_child(1,inc1,inc2,inc3,igrid)
+               ipole=neighbor_pole(i1,i2,i3,igrid)
+               n_i1=-i1;n_i2=-i2;n_i3=-i3;
+               n_inc1=ic1+n_i1;n_inc2=ic2+n_i2;n_inc3=ic3+n_i3;
+               ixRmin1=ixR_p_min1(iib1,n_inc1)
+               ixRmin2=ixR_p_min2(iib2,n_inc2)
+               ixRmin3=ixR_p_min3(iib3,n_inc3)
+               ixRmax1=ixR_p_max1(iib1,n_inc1)
+               ixRmax2=ixR_p_max2(iib2,n_inc2)
+               ixRmax3=ixR_p_max3(iib3,n_inc3);
+               psc(ineighbor)%w(ixRmin1:ixRmax1,ixRmin2:ixRmax2,&
+                  ixRmin3:ixRmax3,nwhead:nwtail) =psb(igrid)%w(ixSmin1:ixSmax1,&
+                  ixSmin2:ixSmax2,ixSmin3:ixSmax3,nwhead:nwtail)
+             end if
+          end do
+          end do
+          end do
+
+        end if
+
       end do
       end do
       end do
@@ -2679,123 +2721,123 @@ contains
       end subroutine bc_send_prolong
 
       !> Send to finer neighbor
-      subroutine bc_fill_prolong(igrid,i1,i2,i3,iib1,iib2,iib3)
-        integer, intent(in) :: igrid,i1,i2,i3,iib1,iib2,iib3
-
-        integer :: ipe_neighbor,ineighbor,ixSmin1,ixSmin2,ixSmin3,ixSmax1,&
-           ixSmax2,ixSmax3,ixRmin1,ixRmin2,ixRmin3,ixRmax1,ixRmax2,ixRmax3,ic1,&
-           ic2,ic3,inc1,inc2,inc3,ipole,idir
-
-        ipole=neighbor_pole(i1,i2,i3,igrid)
-
-        if(ipole==0) then
-          do ic3=1+int((1-i3)/2),2-int((1+i3)/2)
-             inc3=2*i3+ic3
-          do ic2=1+int((1-i2)/2),2-int((1+i2)/2)
-             inc2=2*i2+ic2
-          do ic1=1+int((1-i1)/2),2-int((1+i1)/2)
-             inc1=2*i1+ic1
-             ipe_neighbor=neighbor_child(2,inc1,inc2,inc3,igrid)
-             if(ipe_neighbor==mype) then
-               ixSmin1=ixS_p_min1(iib1,inc1);ixSmin2=ixS_p_min2(iib2,inc2)
-               ixSmin3=ixS_p_min3(iib3,inc3);ixSmax1=ixS_p_max1(iib1,inc1)
-               ixSmax2=ixS_p_max2(iib2,inc2);ixSmax3=ixS_p_max3(iib3,inc3);
-               ineighbor=neighbor_child(1,inc1,inc2,inc3,igrid)
-               ipole=neighbor_pole(i1,i2,i3,igrid)
-               n_i1=-i1;n_i2=-i2;n_i3=-i3;
-               n_inc1=ic1+n_i1;n_inc2=ic2+n_i2;n_inc3=ic3+n_i3;
-               ixRmin1=ixR_p_min1(iib1,n_inc1)
-               ixRmin2=ixR_p_min2(iib2,n_inc2)
-               ixRmin3=ixR_p_min3(iib3,n_inc3)
-               ixRmax1=ixR_p_max1(iib1,n_inc1)
-               ixRmax2=ixR_p_max2(iib2,n_inc2)
-               ixRmax3=ixR_p_max3(iib3,n_inc3);
-               psc(ineighbor)%w(ixRmin1:ixRmax1,ixRmin2:ixRmax2,&
-                  ixRmin3:ixRmax3,nwhead:nwtail) =psb(igrid)%w(ixSmin1:ixSmax1,&
-                  ixSmin2:ixSmax2,ixSmin3:ixSmax3,nwhead:nwtail)
-               if(stagger_grid) then
-                 do idir=1,ndim
-                   ixSmin1=ixS_p_stg_min1(idir,inc1)
-                   ixSmin2=ixS_p_stg_min2(idir,inc2)
-                   ixSmin3=ixS_p_stg_min3(idir,inc3)
-                   ixSmax1=ixS_p_stg_max1(idir,inc1)
-                   ixSmax2=ixS_p_stg_max2(idir,inc2)
-                   ixSmax3=ixS_p_stg_max3(idir,inc3);
-                   ixRmin1=ixR_p_stg_min1(idir,n_inc1)
-                   ixRmin2=ixR_p_stg_min2(idir,n_inc2)
-                   ixRmin3=ixR_p_stg_min3(idir,n_inc3)
-                   ixRmax1=ixR_p_stg_max1(idir,n_inc1)
-                   ixRmax2=ixR_p_stg_max2(idir,n_inc2)
-                   ixRmax3=ixR_p_stg_max3(idir,n_inc3);
-                   psc(ineighbor)%ws(ixRmin1:ixRmax1,ixRmin2:ixRmax2,&
-                      ixRmin3:ixRmax3,idir)=psb(igrid)%ws(ixSmin1:ixSmax1,&
-                      ixSmin2:ixSmax2,ixSmin3:ixSmax3,idir)
-                 end do
-               end if
-             end if
-          end do
-          end do
-          end do
-        else
-          do ic3=1+int((1-i3)/2),2-int((1+i3)/2)
-             inc3=2*i3+ic3
-          do ic2=1+int((1-i2)/2),2-int((1+i2)/2)
-             inc2=2*i2+ic2
-          do ic1=1+int((1-i1)/2),2-int((1+i1)/2)
-             inc1=2*i1+ic1
-             ipe_neighbor=neighbor_child(2,inc1,inc2,inc3,igrid)
-             if(ipe_neighbor==mype) then
-               ixSmin1=ixS_p_min1(iib1,inc1);ixSmin2=ixS_p_min2(iib2,inc2)
-               ixSmin3=ixS_p_min3(iib3,inc3);ixSmax1=ixS_p_max1(iib1,inc1)
-               ixSmax2=ixS_p_max2(iib2,inc2);ixSmax3=ixS_p_max3(iib3,inc3);
-               ineighbor=neighbor_child(1,inc1,inc2,inc3,igrid)
-               ipole=neighbor_pole(i1,i2,i3,igrid)
-               select case (ipole)
-               case (1)
-                  n_inc1=inc1;n_inc2=ic2-i2;n_inc3=ic3-i3;
-               case (2)
-                  n_inc1=ic1-i1;n_inc2=inc2;n_inc3=ic3-i3;
-               case (3)
-                  n_inc1=ic1-i1;n_inc2=ic2-i2;n_inc3=inc3;
-               end select
-               ixRmin1=ixR_p_min1(iib1,n_inc1)
-               ixRmin2=ixR_p_min2(iib2,n_inc2)
-               ixRmin3=ixR_p_min3(iib3,n_inc3)
-               ixRmax1=ixR_p_max1(iib1,n_inc1)
-               ixRmax2=ixR_p_max2(iib2,n_inc2)
-               ixRmax3=ixR_p_max3(iib3,n_inc3);
-               call pole_copy(psc(ineighbor)%w,ixCoGmin1,ixCoGmin2,ixCoGmin3,&
-                  ixCoGmax1,ixCoGmax2,ixCoGmax3,ixRmin1,ixRmin2,ixRmin3,&
-                  ixRmax1,ixRmax2,ixRmax3,psb(igrid)%w,ixGlo1,ixGlo2,ixGlo3,&
-                  ixGhi1,ixGhi2,ixGhi3,ixSmin1,ixSmin2,ixSmin3,ixSmax1,ixSmax2,&
-                  ixSmax3,ipole)
-               if(stagger_grid) then
-                 do idir=1,ndim
-                   ixSmin1=ixS_p_stg_min1(idir,inc1)
-                   ixSmin2=ixS_p_stg_min2(idir,inc2)
-                   ixSmin3=ixS_p_stg_min3(idir,inc3)
-                   ixSmax1=ixS_p_stg_max1(idir,inc1)
-                   ixSmax2=ixS_p_stg_max2(idir,inc2)
-                   ixSmax3=ixS_p_stg_max3(idir,inc3);
-                   ixRmin1=ixR_p_stg_min1(idir,n_inc1)
-                   ixRmin2=ixR_p_stg_min2(idir,n_inc2)
-                   ixRmin3=ixR_p_stg_min3(idir,n_inc3)
-                   ixRmax1=ixR_p_stg_max1(idir,n_inc1)
-                   ixRmax2=ixR_p_stg_max2(idir,n_inc2)
-                   ixRmax3=ixR_p_stg_max3(idir,n_inc3);
-                   call pole_copy_stg(psc(ineighbor)%ws,ixCoGsmin1,ixCoGsmin2,&
-                      ixCoGsmin3,ixCoGsmax1,ixCoGsmax2,ixCoGsmax3,ixRmin1,&
-                      ixRmin2,ixRmin3,ixRmax1,ixRmax2,ixRmax3,psb(igrid)%ws,&
-                      ixGslo1,ixGslo2,ixGslo3,ixGshi1,ixGshi2,ixGshi3,ixSmin1,&
-                      ixSmin2,ixSmin3,ixSmax1,ixSmax2,ixSmax3,idir,ipole)
-                 end do
-               end if
-             end if
-          end do
-          end do
-          end do
-        end if
-      end subroutine bc_fill_prolong
+!      subroutine bc_fill_prolong(igrid,i1,i2,i3,iib1,iib2,iib3)
+!        integer, intent(in) :: igrid,i1,i2,i3,iib1,iib2,iib3
+!
+!        integer :: ipe_neighbor,ineighbor,ixSmin1,ixSmin2,ixSmin3,ixSmax1,&
+!           ixSmax2,ixSmax3,ixRmin1,ixRmin2,ixRmin3,ixRmax1,ixRmax2,ixRmax3,ic1,&
+!           ic2,ic3,inc1,inc2,inc3,ipole,idir
+!
+!        ipole=neighbor_pole(i1,i2,i3,igrid)
+!
+!        if(ipole==0) then
+!          do ic3=1+int((1-i3)/2),2-int((1+i3)/2)
+!             inc3=2*i3+ic3
+!          do ic2=1+int((1-i2)/2),2-int((1+i2)/2)
+!             inc2=2*i2+ic2
+!          do ic1=1+int((1-i1)/2),2-int((1+i1)/2)
+!             inc1=2*i1+ic1
+!             ipe_neighbor=neighbor_child(2,inc1,inc2,inc3,igrid)
+!             if(ipe_neighbor==mype) then
+!               ixSmin1=ixS_p_min1(iib1,inc1);ixSmin2=ixS_p_min2(iib2,inc2)
+!               ixSmin3=ixS_p_min3(iib3,inc3);ixSmax1=ixS_p_max1(iib1,inc1)
+!               ixSmax2=ixS_p_max2(iib2,inc2);ixSmax3=ixS_p_max3(iib3,inc3);
+!               ineighbor=neighbor_child(1,inc1,inc2,inc3,igrid)
+!               ipole=neighbor_pole(i1,i2,i3,igrid)
+!               n_i1=-i1;n_i2=-i2;n_i3=-i3;
+!               n_inc1=ic1+n_i1;n_inc2=ic2+n_i2;n_inc3=ic3+n_i3;
+!               ixRmin1=ixR_p_min1(iib1,n_inc1)
+!               ixRmin2=ixR_p_min2(iib2,n_inc2)
+!               ixRmin3=ixR_p_min3(iib3,n_inc3)
+!               ixRmax1=ixR_p_max1(iib1,n_inc1)
+!               ixRmax2=ixR_p_max2(iib2,n_inc2)
+!               ixRmax3=ixR_p_max3(iib3,n_inc3);
+!               psc(ineighbor)%w(ixRmin1:ixRmax1,ixRmin2:ixRmax2,&
+!                  ixRmin3:ixRmax3,nwhead:nwtail) =psb(igrid)%w(ixSmin1:ixSmax1,&
+!                  ixSmin2:ixSmax2,ixSmin3:ixSmax3,nwhead:nwtail)
+!               if(stagger_grid) then
+!                 do idir=1,ndim
+!                   ixSmin1=ixS_p_stg_min1(idir,inc1)
+!                   ixSmin2=ixS_p_stg_min2(idir,inc2)
+!                   ixSmin3=ixS_p_stg_min3(idir,inc3)
+!                   ixSmax1=ixS_p_stg_max1(idir,inc1)
+!                   ixSmax2=ixS_p_stg_max2(idir,inc2)
+!                   ixSmax3=ixS_p_stg_max3(idir,inc3);
+!                   ixRmin1=ixR_p_stg_min1(idir,n_inc1)
+!                   ixRmin2=ixR_p_stg_min2(idir,n_inc2)
+!                   ixRmin3=ixR_p_stg_min3(idir,n_inc3)
+!                   ixRmax1=ixR_p_stg_max1(idir,n_inc1)
+!                   ixRmax2=ixR_p_stg_max2(idir,n_inc2)
+!                   ixRmax3=ixR_p_stg_max3(idir,n_inc3);
+!                   psc(ineighbor)%ws(ixRmin1:ixRmax1,ixRmin2:ixRmax2,&
+!                      ixRmin3:ixRmax3,idir)=psb(igrid)%ws(ixSmin1:ixSmax1,&
+!                      ixSmin2:ixSmax2,ixSmin3:ixSmax3,idir)
+!                 end do
+!               end if
+!             end if
+!          end do
+!          end do
+!          end do
+!        else
+!          do ic3=1+int((1-i3)/2),2-int((1+i3)/2)
+!             inc3=2*i3+ic3
+!          do ic2=1+int((1-i2)/2),2-int((1+i2)/2)
+!             inc2=2*i2+ic2
+!          do ic1=1+int((1-i1)/2),2-int((1+i1)/2)
+!             inc1=2*i1+ic1
+!             ipe_neighbor=neighbor_child(2,inc1,inc2,inc3,igrid)
+!             if(ipe_neighbor==mype) then
+!               ixSmin1=ixS_p_min1(iib1,inc1);ixSmin2=ixS_p_min2(iib2,inc2)
+!               ixSmin3=ixS_p_min3(iib3,inc3);ixSmax1=ixS_p_max1(iib1,inc1)
+!               ixSmax2=ixS_p_max2(iib2,inc2);ixSmax3=ixS_p_max3(iib3,inc3);
+!               ineighbor=neighbor_child(1,inc1,inc2,inc3,igrid)
+!               ipole=neighbor_pole(i1,i2,i3,igrid)
+!               select case (ipole)
+!               case (1)
+!                  n_inc1=inc1;n_inc2=ic2-i2;n_inc3=ic3-i3;
+!               case (2)
+!                  n_inc1=ic1-i1;n_inc2=inc2;n_inc3=ic3-i3;
+!               case (3)
+!                  n_inc1=ic1-i1;n_inc2=ic2-i2;n_inc3=inc3;
+!               end select
+!               ixRmin1=ixR_p_min1(iib1,n_inc1)
+!               ixRmin2=ixR_p_min2(iib2,n_inc2)
+!               ixRmin3=ixR_p_min3(iib3,n_inc3)
+!               ixRmax1=ixR_p_max1(iib1,n_inc1)
+!               ixRmax2=ixR_p_max2(iib2,n_inc2)
+!               ixRmax3=ixR_p_max3(iib3,n_inc3);
+!               call pole_copy(psc(ineighbor)%w,ixCoGmin1,ixCoGmin2,ixCoGmin3,&
+!                  ixCoGmax1,ixCoGmax2,ixCoGmax3,ixRmin1,ixRmin2,ixRmin3,&
+!                  ixRmax1,ixRmax2,ixRmax3,psb(igrid)%w,ixGlo1,ixGlo2,ixGlo3,&
+!                  ixGhi1,ixGhi2,ixGhi3,ixSmin1,ixSmin2,ixSmin3,ixSmax1,ixSmax2,&
+!                  ixSmax3,ipole)
+!               if(stagger_grid) then
+!                 do idir=1,ndim
+!                   ixSmin1=ixS_p_stg_min1(idir,inc1)
+!                   ixSmin2=ixS_p_stg_min2(idir,inc2)
+!                   ixSmin3=ixS_p_stg_min3(idir,inc3)
+!                   ixSmax1=ixS_p_stg_max1(idir,inc1)
+!                   ixSmax2=ixS_p_stg_max2(idir,inc2)
+!                   ixSmax3=ixS_p_stg_max3(idir,inc3);
+!                   ixRmin1=ixR_p_stg_min1(idir,n_inc1)
+!                   ixRmin2=ixR_p_stg_min2(idir,n_inc2)
+!                   ixRmin3=ixR_p_stg_min3(idir,n_inc3)
+!                   ixRmax1=ixR_p_stg_max1(idir,n_inc1)
+!                   ixRmax2=ixR_p_stg_max2(idir,n_inc2)
+!                   ixRmax3=ixR_p_stg_max3(idir,n_inc3);
+!                   call pole_copy_stg(psc(ineighbor)%ws,ixCoGsmin1,ixCoGsmin2,&
+!                      ixCoGsmin3,ixCoGsmax1,ixCoGsmax2,ixCoGsmax3,ixRmin1,&
+!                      ixRmin2,ixRmin3,ixRmax1,ixRmax2,ixRmax3,psb(igrid)%ws,&
+!                      ixGslo1,ixGslo2,ixGslo3,ixGshi1,ixGshi2,ixGshi3,ixSmin1,&
+!                      ixSmin2,ixSmin3,ixSmax1,ixSmax2,ixSmax3,idir,ipole)
+!                 end do
+!               end if
+!             end if
+!          end do
+!          end do
+!          end do
+!        end if
+!      end subroutine bc_fill_prolong
 
       subroutine gc_prolong(igrid)
         integer, intent(in) :: igrid
