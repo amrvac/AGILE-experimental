@@ -1417,13 +1417,15 @@ contains
              ic3=1+modulo(node(pig3_,igrid)-1,2)
              !!jesseTODO: the original statement which I will have to
              !convert I feel ...
-             !!if(.not.(i1==0.or.i1==2*ic1-3).or..not.(i2==0.or.i2==2*ic2-3)&
-             !!   .or..not.(i3==0.or.i3==2*ic3-3)) return
+             if(.not.(i1==0.or.i1==2*ic1-3).or..not.(i2==0.or.i2==2*ic2-3)&
+                .or..not.(i3==0.or.i3==2*ic3-3)) cycle
              !! it contains: 1) i1 = i2 = i3 = 0 | 2) 
              !! wait I believe this is exactly the same line as in the
              !base bc_fill_srl
-             if ((all([ i1,i2,i3 ] == 0)) .or. (.not. req_diagonal .and. count([ &
-                i1,i2,i3 ] /= 0) > 1)) cycle
+             
+             !!!!if ((all([ i1,i2,i3 ] == 0)) .or. (.not. req_diagonal .and. count([ &
+             !!!!   i1,i2,i3 ] /= 0) > 1)) cycle
+
              ineighbor=neighbor(1,i1,i2,i3,igrid)
              ipole=neighbor_pole(i1,i2,i3,igrid)
              if(ipole==0) then
@@ -1434,9 +1436,25 @@ contains
                ixRmin1=ixR_r_min1(iib1,n_inc1);ixRmin2=ixR_r_min2(iib2,n_inc2)
                ixRmin3=ixR_r_min3(iib3,n_inc3);ixRmax1=ixR_r_max1(iib1,n_inc1)
                ixRmax2=ixR_r_max2(iib2,n_inc2);ixRmax3=ixR_r_max3(iib3,n_inc3);
-               psb(ineighbor)%w(ixRmin1:ixRmax1,ixRmin2:ixRmax2,ixRmin3:ixRmax3,&
-                  nwhead:nwtail)=psc(igrid)%w(ixSmin1:ixSmax1,ixSmin2:ixSmax2,&
-                  ixSmin3:ixSmax3,nwhead:nwtail)
+
+               !psb(ineighbor)%w(ixRmin1:ixRmax1,ixRmin2:ixRmax2,ixRmin3:ixRmax3,&
+               !   nwhead:nwtail)=psc(igrid)%w(ixSmin1:ixSmax1,ixSmin2:ixSmax2,&
+               !   ixSmin3:ixSmax3,nwhead:nwtail)
+
+               !$acc loop collapse(ndim+1) independent vector
+               do iw = nwhead, nwtail
+               do ix3=1,ixSmax3-ixSmin3+1
+               do ix2=1,ixSmax2-ixSmin2+1
+               do ix1=1,ixSmax1-ixSmin1+1
+                  psb(ineighbor)%w(ixRmin1+ix1-1,ixRmin2+ix2-1,ixRmin3+ix3-1,&
+                     iw) = psc(igrid)%w(ixSmin1+ix1-1,ixSmin2+ix2-1,&
+                     ixSmin3+ix3-1,iw)
+               end do
+               end do
+               end do
+               end do
+
+
                !!if(stagger_grid) then
                !!  do idir=1,ndim
                !!     ixSmin1=ixS_r_stg_min1(idir,i1)
@@ -1622,9 +1640,25 @@ contains
                ixRmax1=ixR_p_max1(iib1,n_inc1)
                ixRmax2=ixR_p_max2(iib2,n_inc2)
                ixRmax3=ixR_p_max3(iib3,n_inc3);
-               psc(ineighbor)%w(ixRmin1:ixRmax1,ixRmin2:ixRmax2,&
-                  ixRmin3:ixRmax3,nwhead:nwtail) =psb(igrid)%w(ixSmin1:ixSmax1,&
-                  ixSmin2:ixSmax2,ixSmin3:ixSmax3,nwhead:nwtail)
+
+               !psc(ineighbor)%w(ixRmin1:ixRmax1,ixRmin2:ixRmax2,&
+               !   ixRmin3:ixRmax3,nwhead:nwtail) =psb(igrid)%w(ixSmin1:ixSmax1,&
+               !   ixSmin2:ixSmax2,ixSmin3:ixSmax3,nwhead:nwtail)
+
+               !! todojesse
+               !$acc loop collapse(ndim+1) independent vector
+               do iw = nwhead, nwtail
+               do ix3=1,ixSmax3-ixSmin3+1
+               do ix2=1,ixSmax2-ixSmin2+1
+               do ix1=1,ixSmax1-ixSmin1+1
+                  psc(ineighbor)%w(ixRmin1+ix1-1,ixRmin2+ix2-1,ixRmin3+ix3-1,&
+                     iw) = psb(igrid)%w(ixSmin1+ix1-1,ixSmin2+ix2-1,&
+                     ixSmin3+ix3-1,iw)
+               end do
+               end do
+               end do
+               end do
+
              end if
           end do
           end do
