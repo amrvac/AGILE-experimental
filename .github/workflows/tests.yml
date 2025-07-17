@@ -13,24 +13,20 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest]
+        os: [ubuntu-latest, macos-latest]
         FC_compiler: [gfortran-12]
         CC_compiler: [gcc-12]
         suite: [hd]
-        include:
-          - os: macos-latest
-            FC_compiler: gfortran-12
-            CC_compiler: gcc-12
-            gcc_name: gcc@12
 
     env:
       CC: ${{ matrix.CC_compiler }}
       FC: ${{ matrix.FC_compiler }}
       AMRVAC_DIR: ${{ github.workspace }}
+      GCC_PACKAGE_NAME: gcc@12
 
     runs-on: ${{ matrix.os }}
 
-    name: ${{ matrix.os }} / ${{ matrix.compiler }} / ${{ matrix.suite }}
+    name: ${{ matrix.os }} / ${{ matrix.FC_compiler }} / ${{ matrix.suite }}
 
     steps:
       - uses: actions/checkout@v2
@@ -38,12 +34,12 @@ jobs:
         run: |
           if [[ $RUNNER_OS == "Linux" ]]; then
             sudo apt-get update
-            sudo apt-get install ${{ matrix.compiler }}
+            sudo apt-get install ${{ matrix.FC_compiler }}
             sudo apt-get install openmpi-bin libopenmpi-dev
           else
-            brew install ${{ matrix.gcc_name }}
+            brew install ${{ env.GCC_PACKAGE_NAME }}
             brew install open-mpi
-            ln -s $(which ${{ matrix.compiler }}) /usr/local/bin/gfortran
+            ln -s $(which ${{ matrix.FC_compiler }}) /usr/local/bin/gfortran
           fi
       - name: check compiler versions
         run: |
