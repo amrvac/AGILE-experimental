@@ -94,6 +94,5 @@ jobs:
           uv sync
       - name: compile
         run: |
-          source ${AMRVAC_DIR}/.venv/bin/activate
-          cd tests/hd/KH3D
-          make ARCH=ifx
+          cd tests
+          ARCH=ifx ./test_runner.sh ${{ matrix.suite }}
