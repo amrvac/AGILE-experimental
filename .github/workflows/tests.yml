@@ -9,24 +9,28 @@ on:
 
 
 jobs:
-  COMPILE:
+  GNU:
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest]
-        compiler: [gfortran-10, gfortran-11, gfortran-12]
+        FC_compiler: [gfortran-12]
+        CC_compiler: [gcc-12]
+        suite: [hd]
         include:
           - os: macos-latest
-            compiler: gfortran-12
+            FC_compiler: gfortran-12
+            CC_compiler: gcc-12
             gcc_name: gcc@12
 
     env:
-      FC: ${{ matrix.compiler }}
+      CC: ${{ matrix.CC_compiler }}
+      FC: ${{ matrix.FC_compiler }}
       AMRVAC_DIR: ${{ github.workspace }}
 
     runs-on: ${{ matrix.os }}
 
-    name: compile / ${{ matrix.os }} / ${{ matrix.compiler }}
+    name: ${{ matrix.os }} / ${{ matrix.compiler }} / ${{ matrix.suite }}
 
     steps:
       - uses: actions/checkout@v2
@@ -43,48 +47,6 @@ jobs:
           fi
       - name: check compiler versions
         run: |
-          whereis ${FC}
-          ${FC} --version
-          gfortran --version
-          mpirun --version
-          mpif90 --version
-      - name: create Python environment
-        run: |
-          pip install uv
-          uv sync
-      - name: compile KH3D
-        run: |
-          source ${AMRVAC_DIR}/.venv/bin/activate
-          cd tests/hd/KH3D
-          make ARCH=gnu
-
-  GNU:
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest]
-        FC_compiler: [gfortran-12]
-        CC_compiler: [gcc-12]
-        suite: [hd]
-
-    env:
-      CC: ${{ matrix.CC_compiler }}
-      FC: ${{ matrix.FC_compiler }}
-      AMRVAC_DIR: ${{ github.workspace }}
-
-    runs-on: ${{ matrix.os }}
-    needs: COMPILE
-
-    name: ${{ matrix.suite }}
-
-    steps:
-      - uses: actions/checkout@v2
-      - name: install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install openmpi-bin libopenmpi-dev
-      - name: check compiler versions
-        run: |
           ${FC} --version
           ${CC} --version
           mpirun --version
@@ -99,7 +61,7 @@ jobs:
 
   INTEL:
     runs-on: ubuntu-latest
-    name: compile / Intel
+    name: test / Intel
 
     env:
       FC: ifx
@@ -120,7 +82,6 @@ jobs:
           sudo apt update 
           sudo apt-get -y upgrade 
           sudo apt-get install intel-oneapi-compiler-dpcpp-cpp-and-cpp-classic
-          #sudo apt-get install intel-oneapi-dpcpp-cpp
           sudo apt-get install intel-oneapi-compiler-fortran
           sudo apt-get install intel-oneapi-mpi
           sudo apt-get install intel-oneapi-mpi-devel
@@ -129,7 +90,6 @@ jobs:
       - name: check compiler versions
         run: |
           ${FC} --version
-          #${CC} --version
           mpirun --version
           mpiifx --version
       - name: create Python environment
@@ -140,4 +100,4 @@ jobs:
         run: |
           source ${AMRVAC_DIR}/.venv/bin/activate
           cd tests/hd/KH3D
-          make arch=ifx
+          make ARCH=ifx
