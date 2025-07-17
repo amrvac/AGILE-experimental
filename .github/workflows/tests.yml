@@ -39,6 +39,7 @@ jobs:
           else
             brew install ${{ env.GCC_PACKAGE_NAME }}
             brew install open-mpi
+            brew install grep
             ln -s $(which ${{ matrix.FC_compiler }}) /usr/local/bin/gfortran
           fi
       - name: check compiler versions
