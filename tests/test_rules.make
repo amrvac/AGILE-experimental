@@ -20,9 +20,9 @@ LOG_CMP := $(AMRVAC_DIR)/tools/fortran/compare_logs
 # Number of MPI processes to use
 NUM_PROCS ?= 4
 
-# Enable oversubscription when available
+# Enable oversubscription
 ifeq ($(strip $(ARCH)),ifx)
-MPIRUN_ARG = ""
+MPIRUN_ARG = "-genv I_MPI_PIN=0"
 else
 MPIRUN_ARG = "--oversubscribe"
 endif
