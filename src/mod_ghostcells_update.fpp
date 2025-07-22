@@ -27,6 +27,10 @@ module mod_ghostcells_update
   integer, dimension(-1:2,-1:1) :: ixS_srl_min1,ixS_srl_min2,ixS_srl_min3,&
      ixS_srl_max1,ixS_srl_max2,ixS_srl_max3, ixR_srl_min1,ixR_srl_min2,&
      ixR_srl_min3,ixR_srl_max1,ixR_srl_max2,ixR_srl_max3
+  !$acc declare create(ixS_srl_min1,ixS_srl_min2,ixS_srl_min3)
+  !$acc declare create(ixS_srl_max1,ixS_srl_max2,ixS_srl_max3)
+  !$acc declare create(ixR_srl_min1,ixR_srl_min2,ixR_srl_min3)
+  !$acc declare create(ixR_srl_max1,ixR_srl_max2,ixR_srl_max3)
 
   ! index ranges of staggered variables to send (S) to sibling blocks, receive (R) from sibling blocks
   integer, dimension(3,-1:1) :: ixS_srl_stg_min1,ixS_srl_stg_min2,&
@@ -37,6 +41,8 @@ module mod_ghostcells_update
   ! index ranges to send (S) restricted (r) ghost cells to coarser blocks
   integer, dimension(-1:1,-1:1) :: ixS_r_min1,ixS_r_min2,ixS_r_min3,ixS_r_max1,&
      ixS_r_max2,ixS_r_max3
+  !$acc declare create(ixS_r_min1,ixS_r_min2,ixS_r_min3)
+  !$acc declare create(ixS_r_max1,ixS_r_max2,ixS_r_max3)
 
   ! index ranges of staggered variables to send (S) restricted (r) ghost cells to coarser blocks
   integer, dimension(3,-1:1) :: ixS_r_stg_min1,ixS_r_stg_min2,ixS_r_stg_min3,&
@@ -45,6 +51,8 @@ module mod_ghostcells_update
   ! index ranges to receive restriced ghost cells from finer blocks
   integer, dimension(-1:1, 0:3) :: ixR_r_min1,ixR_r_min2,ixR_r_min3,ixR_r_max1,&
      ixR_r_max2,ixR_r_max3
+  !$acc declare create(ixR_r_min1,ixR_r_min2,ixR_r_min3)
+  !$acc declare create(ixR_r_max1,ixR_r_max2,ixR_r_max3)
 
   ! index ranges of staggered variables to receive restriced ghost cells from finer blocks
   integer, dimension(3,0:3)  :: ixR_r_stg_min1,ixR_r_stg_min2,ixR_r_stg_min3,&
@@ -54,6 +62,10 @@ module mod_ghostcells_update
   integer, dimension(-1:1, 0:3) :: ixS_p_min1,ixS_p_min2,ixS_p_min3,ixS_p_max1,&
      ixS_p_max2,ixS_p_max3, ixR_p_min1,ixR_p_min2,ixR_p_min3,ixR_p_max1,&
      ixR_p_max2,ixR_p_max3
+  !$acc declare create(ixS_p_min1,ixS_p_min2,ixS_p_min3)
+  !$acc declare create(ixS_p_max1,ixS_p_max2,ixS_p_max3)
+  !$acc declare create(ixR_p_min1,ixR_p_min2,ixR_p_min3)
+  !$acc declare create(ixR_p_max1,ixR_p_max2,ixR_p_max3)
 
   ! send prolongated (p) staggered ghost cells to finer blocks, receive prolongated from coarser blocks
   integer, dimension(3,0:3)  :: ixS_p_stg_min1,ixS_p_stg_min2,ixS_p_stg_min3,&
@@ -1069,6 +1081,22 @@ contains
       
     end if
 
+    !srl
+    !$acc update device(ixS_srl_min1,ixS_srl_min2,ixS_srl_min3)
+    !$acc update device(ixS_srl_max1,ixS_srl_max2,ixS_srl_max3)
+    !$acc update device(ixR_srl_min1,ixR_srl_min2,ixR_srl_min3)
+    !$acc update device(ixR_srl_max1,ixR_srl_max2,ixR_srl_max3)
+    !p and r
+    !$acc update device(ixR_r_min1,ixR_r_min2,ixR_r_min3)
+    !$acc update device(ixR_r_max1,ixR_r_max2,ixR_r_max3)
+    !$acc update device(ixR_p_min1,ixR_p_min2,ixR_p_min3)
+    !$acc update device(ixR_p_max1,ixR_p_max2,ixR_p_max3)
+    !$acc update device(ixS_r_min1,ixS_r_min2,ixS_r_min3)
+    !$acc update device(ixS_r_max1,ixS_r_max2,ixS_r_max3)
+    !$acc update device(ixS_p_min1,ixS_p_min2,ixS_p_min3)
+    !$acc update device(ixS_p_max1,ixS_p_max2,ixS_p_max3)
+
+
   end subroutine init_bc
 
   subroutine create_bc_mpi_datatype(nwstart,nwbc)
@@ -1337,9 +1365,9 @@ contains
 
     ! fill ghost-cell values of sibling blocks and coarser neighbors in the same processor
 
-
     !$OMP PARALLEL DO SCHEDULE(dynamic) PRIVATE(igrid,iib1,iib2,iib3)
-!$acc parallel loop default(present) copyin(idphyb,ixS_r_min1,ixS_r_min2,ixS_r_min3,ixS_r_max1,ixS_r_max2,ixS_r_max3,ixR_r_min1,ixR_r_min2,ixR_r_min3,ixR_r_max1,ixR_r_max2,ixR_r_max3,ixS_srl_min1,ixS_srl_min2,ixS_srl_min3,ixS_srl_max1,ixS_srl_max2,ixS_srl_max3,ixR_srl_min1,ixR_srl_min2,ixR_srl_min3,ixR_srl_max1,ixR_srl_max2,ixR_srl_max3) private(igrid,iib1,iib2,iib3,ineighbor,n_i1,n_i2,n_i3,n_inc1,n_inc2,n_inc3,ixSmin1,ixSmin2,ixSmin3,ixSmax1,ixSmax2,ixSmax3,ixRmin1,ixRmin2,ixRmin3,ixRmax1,ixRmax2,ixRmax3,iw,ix1,ix2,ix3) firstprivate(nwhead,nwtail)
+!!!!!!$acc parallel loop 
+!$acc parallel loop default(present) copyin(idphyb,ixS_r_min1,ixS_r_min2,ixS_r_min3,ixS_r_max1,ixS_r_max2,ixS_r_max3,ixR_r_min1,ixR_r_min2,ixR_r_min3,ixR_r_max1,ixR_r_max2,ixR_r_max3,ixS_srl_min1,ixS_srl_min2,ixS_srl_min3,ixS_srl_max1,ixS_srl_max2,ixS_srl_max3,ixR_srl_min1,ixR_srl_min2,ixR_srl_min3,ixR_srl_max1,ixR_srl_max2,ixR_srl_max3) private(igrid,iib1,iib2,iib3,ineighbor,ic1,ic2,ic3,n_i1,n_i2,n_i3,n_inc1,n_inc2,n_inc3,ixSmin1,ixSmin2,ixSmin3,ixSmax1,ixSmax2,ixSmax3,ixRmin1,ixRmin2,ixRmin3,ixRmax1,ixRmax2,ixRmax3,iw,ix1,ix2,ix3) firstprivate(nwhead,nwtail)
     do iigrid=1,igridstail; igrid=igrids(iigrid);
        iib1=idphyb(1,igrid);iib2=idphyb(2,igrid);iib3=idphyb(3,igrid);
       !$acc loop seq
@@ -1412,13 +1440,19 @@ contains
          
            ipe_neighbor=neighbor(2,i1,i2,i3,igrid)
            if(ipe_neighbor==mype) then
-             ic1=1+modulo(node(pig1_,igrid)-1,2)
-             ic2=1+modulo(node(pig2_,igrid)-1,2)
-             ic3=1+modulo(node(pig3_,igrid)-1,2)
+
+             !check if node array is present
+             !check if psc is present (or filled)
+  
+             ic1=1 !+modulo(node(pig1_,igrid)-1,2)
+             ic2=1 !+modulo(node(pig2_,igrid)-1,2)
+             ic3=1 !+modulo(node(pig3_,igrid)-1,2)
              !!jesseTODO: the original statement which I will have to
              !convert I feel ...
-             if(.not.(i1==0.or.i1==2*ic1-3).or..not.(i2==0.or.i2==2*ic2-3)&
-                .or..not.(i3==0.or.i3==2*ic3-3)) cycle
+
+             !if(.not.(i1==0.or.i1==2*ic1-3).or..not.(i2==0.or.i2==2*ic2-3)&
+             !   .or..not.(i3==0.or.i3==2*ic3-3)) cycle
+
              !! it contains: 1) i1 = i2 = i3 = 0 | 2) 
              !! wait I believe this is exactly the same line as in the
              !base bc_fill_srl
@@ -1446,8 +1480,11 @@ contains
                do ix3=1,ixSmax3-ixSmin3+1
                do ix2=1,ixSmax2-ixSmin2+1
                do ix1=1,ixSmax1-ixSmin1+1
+                  !psb(ineighbor)%w(ixRmin1+ix1-1,ixRmin2+ix2-1,ixRmin3+ix3-1,&
+                  !   iw) = psc(igrid)%w(ixSmin1+ix1-1,ixSmin2+ix2-1,&
+                  !   ixSmin3+ix3-1,iw)
                   psb(ineighbor)%w(ixRmin1+ix1-1,ixRmin2+ix2-1,ixRmin3+ix3-1,&
-                     iw) = psc(igrid)%w(ixSmin1+ix1-1,ixSmin2+ix2-1,&
+                     iw) = psb(igrid)%w(ixSmin1+ix1-1,ixSmin2+ix2-1,&
                      ixSmin3+ix3-1,iw)
                end do
                end do
