@@ -16,6 +16,11 @@ ifdef OPENACC
 $(info Enabling OpenACC)
 f90_flags += -hacc
 enabled += OPENACC
+ifdef NOGPUDIRECT
+$(info Disabling direct GPU-GPU copies)
+f90_flags += -DNOGPUDIRECT
+enabled += NOGPUDIRECT
+endif
 endif
 
 ifdef DEBUG
