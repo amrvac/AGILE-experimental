@@ -1331,7 +1331,11 @@ contains
     ! MPI receive SRL
     do inb = 1, nbprocs_info%nbprocs_srl
 #ifndef NOGPUDIRECT
+#ifdef _CRAYFTN
+      !$acc host_data use_device(nbprocs_info)
+#else
       !$acc host_data use_device(nbprocs_info%srl_rcv(inb)%buffer, nbprocs_info%srl_info_rcv(inb)%buffer)
+#endif
 #endif
        call MPI_IRECV(nbprocs_info%srl_rcv(inb)%buffer, &
             size(nbprocs_info%srl_rcv(inb)%buffer), &
@@ -1398,7 +1402,11 @@ contains
     ! MPI send SRL
     do inb = 1, nbprocs_info%nbprocs_srl
 #ifndef NOGPUDIRECT
+#ifdef _CRAYFTN
+      !$acc host_data use_device(nbprocs_info)
+#else
       !$acc host_data use_device(nbprocs_info%srl_send(inb)%buffer, nbprocs_info%srl_info_send(inb)%buffer)
+#endif
 #endif
        call MPI_ISEND(nbprocs_info%srl_send(inb)%buffer, &
             size(nbprocs_info%srl_send(inb)%buffer), &
