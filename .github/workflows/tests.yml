@@ -38,10 +38,10 @@ jobs:
             sudo apt-get install openmpi-bin libopenmpi-dev
           else
             brew install ${{ env.GCC_PACKAGE_NAME }}
-            brew install open-mpi
             brew install grep
             brew install md5sha1sum
             ln -s $(which ${{ matrix.FC_compiler }}) /usr/local/bin/gfortran
+            brew install open-mpi --build-from-source
           fi
       - name: check compiler versions
         run: |
