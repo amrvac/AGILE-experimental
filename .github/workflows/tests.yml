@@ -14,8 +14,8 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
-        FC_compiler: [gfortran-12]
-        CC_compiler: [gcc-12]
+        FC_compiler: [gfortran-15]
+        CC_compiler: [gcc-15]
         suite: [hd]
 
     env:
@@ -38,10 +38,11 @@ jobs:
             sudo apt-get install openmpi-bin libopenmpi-dev
           else
             brew install ${{ env.GCC_PACKAGE_NAME }}
+            brew install open-mpi
             brew install grep
             brew install md5sha1sum
             ln -s $(which ${{ matrix.FC_compiler }}) /usr/local/bin/gfortran
-            brew install open-mpi --build-from-source
+            
           fi
       - name: check compiler versions
         run: |
