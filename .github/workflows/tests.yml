@@ -13,15 +13,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        os: [ubuntu-latest]
+        FC_compiler: [gfortran-14]
+        CC_compiler: [gcc-14]
         suite: [hd]
         include:
-          - os: ubuntu-latest
-            FC_compiler: gfortran-14
-            CC_compiler: gcc-14
           - os: macos-latest
             FC_compiler: gfortran-15
             CC_compiler: gcc-15
-            
 
     env:
       CC: ${{ matrix.CC_compiler }}
