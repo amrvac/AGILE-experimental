@@ -17,9 +17,9 @@ contains
 @:get_cmax()
 @:phys_get_dt()
 
-  !>setdt  - set dt for all levels between levmin and levmax. 
+  !>setdt  - set dt for all levels between levmin and levmax.
   !>         dtpar>0  --> use fixed dtpar for all level
-  !>         dtpar<=0 --> determine CFL limited timestep 
+  !>         dtpar<=0 --> determine CFL limited timestep
   subroutine setdt()
     use mod_global_parameters
 
@@ -32,7 +32,7 @@ contains
 
     if (dtpar<=zero) then
        dtmin_mype=bigdouble
-       
+
        !$acc parallel loop PRIVATE(igrid,dx1,dx2,dx3,dxinv,w) REDUCTION(min:dtmin_mype) gang
        do iigrid=1,igridstail_active; igrid=igrids_active(iigrid)
 
@@ -41,28 +41,28 @@ contains
 
           dxinv(1)=one/dx1;dxinv(2)=one/dx2;dxinv(3)=one/dx3;
 
-          !$acc loop vector collapse(ndim) reduction(min:dtmin_mype) private(cmax, cmaxtot, u, xloc, dxinv, qdtnew)
-          do ix3=ixMlo3,ixMhi3 
-             do ix2=ixMlo2,ixMhi2 
-                do ix1=ixMlo1,ixMhi1 
+          !$acc loop vector collapse(ndim) reduction(min:dtmin_mype) private(idims, cmax, cmaxtot, u, xloc, qdtnew)
+          do ix3=ixMlo3,ixMhi3
+             do ix2=ixMlo2,ixMhi2
+                do ix1=ixMlo1,ixMhi1
                    w(1:nw,ix1,ix2,ix3) = bg(1)%w(ix1,ix2,ix3,1:nw,igrid)
                    cmaxtot = 0.0d0
                    u = w(:,ix1,ix2,ix3)
                    call to_primitive(u)
-                   
+
                    !$acc loop seq
                    do idims = 1, ndim
                       cmax = get_cmax(u,idims)
                       cmaxtot = cmaxtot + cmax * dxinv(idims)
                    end do
                    dtmin_mype     = min( dtmin_mype, courantpar / cmaxtot )
-                   
+
 #:if defined('SOURCE_TERM')
                    u            = w(:,ix1,ix2,ix3)
                    xloc(1:ndim) = ps(igrid)%x(ix1, ix2, ix3, 1:ndim)
                    call phys_get_dt(u, xloc, [dx1, dx2, dx3], qdtnew)
                    dtmin_mype = min( dtmin_mype, qdtnew )
-#:endif    
+#:endif
                 end do
              end do
           end do
@@ -108,7 +108,7 @@ contains
        do ifile=1,nfile
           dtmax = min(tsave(isavet(ifile),ifile)-global_time,dtmax)
        end do
-       if(dtmax > smalldouble)then 
+       if(dtmax > smalldouble)then
           dt=min(dt,dtmax)
        else
           ! dtmax=0 means dtsave is divisible by global_time
