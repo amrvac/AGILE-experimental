@@ -1,5 +1,7 @@
 
+#:mute
 #:include "physics/mod_physics_templates.fpp"
+#:endmute
 
 module mod_dt
 
@@ -16,6 +18,7 @@ contains
 @:to_primitive()
 @:get_cmax()
 @:phys_get_dt()
+@:get_cs2()
 
   !>setdt  - set dt for all levels between levmin and levmax.
   !>         dtpar>0  --> use fixed dtpar for all level
@@ -26,14 +29,13 @@ contains
     integer :: iigrid, igrid, idims, ix1,ix2,ix3, ifile
     double precision :: dtmin_mype, factor, dx1,dx2,dx3, dtmax
 
-    double precision :: w(nw,ixMlo1:ixMhi1,ixMlo2:ixMhi2,ixMlo3:ixMhi3)
-    double precision :: dxinv(1:ndim), cmaxtot, cmax, u(1:nw_phys)
+    double precision :: dxinv(1:ndim), cmaxtot, cmax, u(1:nw_phys), cs2max_mype
     double precision :: xloc(1:ndim), qdtnew
 
     if (dtpar<=zero) then
        dtmin_mype=bigdouble
 
-       !$acc parallel loop PRIVATE(igrid,dx1,dx2,dx3,dxinv,w) REDUCTION(min:dtmin_mype) gang
+       !$acc parallel loop PRIVATE(igrid,dx1,dx2,dx3,dxinv) REDUCTION(min:dtmin_mype) gang
        do iigrid=1,igridstail_active; igrid=igrids_active(iigrid)
 
           dx1=rnode(rpdx1_,igrid);dx2=rnode(rpdx2_,igrid)
@@ -41,28 +43,29 @@ contains
 
           dxinv(1)=one/dx1;dxinv(2)=one/dx2;dxinv(3)=one/dx3;
 
-          !$acc loop vector collapse(ndim) reduction(min:dtmin_mype) private(idims, cmax, cmaxtot, u, xloc, qdtnew)
+          !$acc loop vector collapse(ndim) REDUCTION(min:dtmin_mype) private(idims, cmax, cmaxtot, u, xloc, qdtnew)
           do ix3=ixMlo3,ixMhi3
              do ix2=ixMlo2,ixMhi2
                 do ix1=ixMlo1,ixMhi1
-                   w(1:nw,ix1,ix2,ix3) = bg(1)%w(ix1,ix2,ix3,1:nw,igrid)
-                   cmaxtot = 0.0d0
-                   u = w(:,ix1,ix2,ix3)
+                   u = bg(1)%w(ix1,ix2,ix3,1:nw_phys,igrid)
                    call to_primitive(u)
+                   xloc(1:ndim) = ps(igrid)%x(ix1, ix2, ix3, 1:ndim)
 
+                   cmaxtot = 0.0d0
                    !$acc loop seq
                    do idims = 1, ndim
-                      cmax = get_cmax(u,idims)
+                      cmax = get_cmax(u,xloc,idims)
                       cmaxtot = cmaxtot + cmax * dxinv(idims)
                    end do
                    dtmin_mype     = min( dtmin_mype, courantpar / cmaxtot )
 
 #:if defined('SOURCE_TERM')
-                   u            = w(:,ix1,ix2,ix3)
+                   u = bg(1)%w(ix1,ix2,ix3,1:nw_phys,igrid)
                    xloc(1:ndim) = ps(igrid)%x(ix1, ix2, ix3, 1:ndim)
                    call phys_get_dt(u, xloc, [dx1, dx2, dx3], qdtnew)
                    dtmin_mype = min( dtmin_mype, qdtnew )
 #:endif
+
                 end do
              end do
           end do
@@ -73,6 +76,30 @@ contains
     else
        dtmin_mype=dtpar
     end if
+
+
+    if (need_global_cs2max) then
+       cs2max_mype=-bigdouble
+
+       !$acc parallel loop PRIVATE(igrid) REDUCTION(max:cs2max_mype) gang
+       do iigrid=1,igridstail_active; igrid=igrids_active(iigrid)
+
+          !$acc loop vector collapse(ndim) REDUCTION(max:cs2max_mype) private(u)
+          do ix3=ixMlo3,ixMhi3
+             do ix2=ixMlo2,ixMhi2
+                do ix1=ixMlo1,ixMhi1
+
+                   u(1:nw_phys) = bg(1)%w(ix1,ix2,ix3,1:nw_phys,igrid)
+                   call to_primitive(u)
+                   cs2max_mype = max( cs2max_mype, get_cs2(u) )
+
+                end do
+             end do
+          end do
+       end do
+
+    end if
+
 
     if (dtmin_mype<dtmin) then
        write(unitterm,*)"Error: Time step too small!", dtmin_mype
@@ -101,6 +128,12 @@ contains
        dt=dtmin_mype
     end if
 
+    if (need_global_cs2max) then
+       call MPI_ALLREDUCE(cs2max_mype, cs2max_global, 1, MPI_DOUBLE_PRECISION, MPI_MAX, icomm, &
+            ierrmpi)
+       !$acc update device(cs2max_global)
+    end if
+
     if(any(dtsave(1:nfile)<bigdouble).or.any(tsave(isavet(1:nfile),&
        1:nfile)<bigdouble))then
        dtmax = minval(ceiling(global_time/dtsave(1:nfile))*dtsave(1:nfile))-&
@@ -123,5 +156,6 @@ contains
        endif
     endif
 
+    !$acc update device(dt)
   end subroutine setdt
 end module mod_dt
