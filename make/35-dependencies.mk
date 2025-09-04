@@ -10,7 +10,8 @@ endif
 ifdef CONFIG_READ
 $(build_dir)/dependencies.mk: $(f90_files) $(build_dir)/f90/amrvac.h | $(build_dir)
 > @echo "Regenerating depencies"
-> @fortdepend -f $(f90_files) -i mpi -b $(build_dir)/obj -w -o $@
+#> @fortdepend -f $(f90_files) -i mpi -i openacc -b $(build_dir)/obj -w -o $@
+> @fortdepend -f $(f90_files) -i openacc mpi -b $(build_dir)/obj -w -o $@
 
 # Precompiling and dependency tracking is not needed if we're cleaning.
 ifndef disable_precompile

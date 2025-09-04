@@ -77,7 +77,9 @@ program amrvac
      ! modify initial condition
      if (firstprocess) then
        ! update ghost cells for all need-boundary variables before modification
+       print *, "STARTING, see if past this TODOJESSE"
        call getbc(global_time,0.d0,ps,1,nwflux+nwaux)
+       print *, "PASSING, see if past this TODOJESSE"
        call modify_IC
      end if
 

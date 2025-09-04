@@ -3,7 +3,7 @@
 #SBATCH --cpus-per-task=1
 #SBATCH --ntasks=1
 #SBATCH --gpus=1
-#SBATCH --partition=gpu_a100
+#SBATCH --partition=gpu_h100
 #SBATCH --mem=0
 #SBATCH --job-name=NVHPC
 #SBATCH --mail-type=ALL
