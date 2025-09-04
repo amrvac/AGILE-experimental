@@ -60,6 +60,7 @@ contains
     do igrid = 1, max_blocks
        !$acc update device(ps(igrid), ps1(igrid), ps2(igrid))
  !$acc enter data copyin(ps(igrid)%x) attach(ps(igrid)%w, ps1(igrid)%w, ps2(igrid)%w)
+!! !$acc update device(psc(igrid)) !!todo we added this
     end do
 #endif
 
