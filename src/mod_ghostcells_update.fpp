@@ -1353,7 +1353,7 @@ contains
     do inb = 1, nbprocs_info%nbprocs_srl
        imaxigrids = max(nbprocs_info%srl(inb)%nigrids, imaxigrids)
     end do
-    !$acc parallel loop gang collapse(2) independent
+    !$acc parallel loop gang collapse(2) independent private(Nx1,Nx2,Nx3,ienc)
     do inb = 1, nbprocs_info%nbprocs_srl
        do i = 1, imaxigrids
           if (i > nbprocs_info%srl(inb)%nigrids) cycle
@@ -1470,7 +1470,7 @@ contains
 #endif
 
     ! unpack the MPI buffers
-    !$acc parallel loop gang collapse(2) independent
+    !$acc parallel loop gang collapse(2) independent private(Nx1,Nx2,Nx3,ienc)
     do inb = 1, nbprocs_info%nbprocs_srl
        do i = 1, imaxigrids
           if (i > nbprocs_info%srl(inb)%nigrids) cycle
