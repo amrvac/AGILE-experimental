@@ -1482,8 +1482,6 @@ contains
           call idecode( i1, i2, i3, ienc )
           i1 = -i1; i2 = -i2; i3=-i3
 
-!          print *, 'received:', igrid, i1, i2, i3
-
           iib1 = idphyb(1,igrid); iib2 = idphyb(2,igrid); iib3 = idphyb(3,igrid)
 
           ixRmin1=ixR_srl_min1(iib1,i1); ixRmin2=ixR_srl_min2(iib2,i2)

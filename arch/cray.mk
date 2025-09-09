@@ -2,7 +2,7 @@ arch := cray
 
 compile = ftn
 # disabled ftn messages: 878=multiple includes of same module
-f90_flags += -ea -ef -eZ -ffree -eI -M878
+f90_flags += -ea -ef -eZ -ffree -eI -M878 -hacc_model=auto_async_none:fast_addr:no_deep_copy
 
 ifdef OPENMP
 $(info Enabling OpenMP)
