@@ -1277,17 +1277,17 @@ contains
 
     ! fill physical-boundary ghost cells before internal ghost-cell values exchange
     if(bcphys.and. .not.stagger_grid) then
-      !$OMP PARALLEL DO SCHEDULE(dynamic) PRIVATE(igrid)
+!      !$OMP PARALLEL DO SCHEDULE(dynamic) PRIVATE(igrid)
       do iigrid=1,igridstail; igrid=igrids(iigrid);
         if(.not.phyboundblock(igrid)) cycle
         call fill_boundary_before_gc(igrid)
           !todojesse: maybe this function should also be put here?
       end do
-      !$OMP END PARALLEL DO
+!      !$OMP END PARALLEL DO
     end if
 
     ! prepare coarse values to send to coarser neighbors
-    !$OMP PARALLEL DO SCHEDULE(dynamic) PRIVATE(igrid)
+!    !$OMP PARALLEL DO SCHEDULE(dynamic) PRIVATE(igrid)
     do iigrid=1,igridstail; igrid=igrids(iigrid);
       if(any(neighbor_type(:,:,:,igrid)==neighbor_coarse)) then
         call coarsen_grid(psb(igrid),ixGlo1,ixGlo2,ixGlo3,ixGhi1,ixGhi2,ixGhi3,&
@@ -1306,7 +1306,7 @@ contains
        end do
       end if
     end do
-    !$OMP END PARALLEL DO
+!    !$OMP END PARALLEL DO
 
     ! default : no singular axis
     ipole=0
@@ -1367,44 +1367,46 @@ contains
       end do
     end do
 
-    ! fill ghost-cell values of sibling blocks and coarser neighbors in the same processor
-    print *, "debugpsc", psc(1)%w(1,1,1,1)
-    print *, "shape psc(1)%w", shape(psc(1)%w)
-    print *, "shape psc(max_blocks)%w", shape(psc(max_blocks)%w)
-    print *, "shape psb(1)%w", shape(psb(1)%w)
-    print *, "shape psb(max_blocks)%w", shape(psb(max_blocks)%w)
+    !!! fill ghost-cell values of sibling blocks and coarser neighbors in the same processor
+    !!print *, "debugpsc", psc(1)%w(1,1,1,1)
+    !!print *, "shape psc(1)%w", shape(psc(1)%w)
+    !!print *, "shape psc(max_blocks)%w", shape(psc(max_blocks)%w)
+    !!print *, "shape psb(1)%w", shape(psb(1)%w)
+    !!print *, "shape psb(max_blocks)%w", shape(psb(max_blocks)%w)
 
 !!!!$acc data copyin(psc)
 !!!!$acc update device(psc)
 !!!!$acc declare copyin(psc)
 !!!$acc enter data copyin(psc)
 
-!!    do iigrid=1,igridstail; 
-!!        igrid=igrids(iigrid);
-!!        !$acc enter data copyin(psc(igrid)%w)
-!!        !$acc enter data copyin(psc(igrid)%x)
-!!    end do
+    do iigrid=1,igridstail; 
+        igrid=igrids(iigrid);
+        !$acc enter data copyin(psc(igrid)%w)
+        !$acc enter data copyin(psc(igrid)%x)
+        !$acc enter data copyin(psb(igrid)%w)
+        !$acc enter data copyin(psb(igrid)%x)
+    end do
 
-!!    do iigrid=1,igridstail; igrid=igrids(iigrid);
-!!      if (.not. acc_is_present(psb(igrid)%w, size(psb(igrid)%w))) then
-!!          print *, igrid, "psb(igrid)%w not on device!"
-!!      end if
-!!    end do
-!!
-!!    do iigrid=1,igridstail; igrid=igrids(iigrid);
-!!      if (.not. acc_is_present(psc(igrid)%w, size(psc(igrid)%w))) then
-!!          print *, igrid, "psc(igrid)%w not on device!"
-!!      end if
-!!    end do
+    do iigrid=1,igridstail; igrid=igrids(iigrid);
+      if (.not. acc_is_present(psb(igrid)%w, size(psb(igrid)%w))) then
+          print *, igrid, "psb(igrid)%w not on device!"
+      end if
+    end do
+
+    do iigrid=1,igridstail; igrid=igrids(iigrid);
+      if (.not. acc_is_present(psc(igrid)%w, size(psc(igrid)%w))) then
+          print *, igrid, "psc(igrid)%w not on device!"
+      end if
+    end do
 
 ! Wait for all device operations to finish
 !$acc wait
-
-    !$OMP PARALLEL DO SCHEDULE(dynamic) PRIVATE(igrid,iib1,iib2,iib3)
 !!!!!!$acc parallel loop 
 !!!!!$acc parallel loop default(present)
 !!!$acc parallel loop default(present) private(igrid,iib1,iib2,iib3,ineighbor,ipole,ipe_neighbor,iw,i1,i2,i3,ic1,ic2,ic3,n_i1,n_i2,n_i3,n_inc1,n_inc2,n_inc3,ixSmin1,ixSmin2,ixSmin3,ixSmax1,ixSmax2,ixSmax3,ixRmin1,ixRmin2,ixRmin3,ixRmax1,ixRmax2,ixRmax3,iw,ix1,ix2,ix3) firstprivate(nwhead,nwtail)
 !!!!$acc parallel loop default(present) private(igrid,iib1,iib2,iib3,ineighbor,ipole,ipe_neighbor,iw,i1,i2,i3,ic1,ic2,ic3,n_i1,n_i2,n_i3,n_inc1,n_inc2,n_inc3,ixSmin1,ixSmin2,ixSmin3,ixSmax1,ixSmax2,ixSmax3,ixRmin1,ixRmin2,ixRmin3,ixRmax1,ixRmax2,ixRmax3,iw,ix1,ix2,ix3) firstprivate(nwhead,nwtail)
+
+!!    !$OMP PARALLEL DO SCHEDULE(dynamic) PRIVATE(igrid,iib1,iib2,iib3)
 !$acc parallel loop default(present) copyin(idphyb,ixS_r_min1,ixS_r_min2,ixS_r_min3,ixS_r_max1,ixS_r_max2,ixS_r_max3,ixR_r_min1,ixR_r_min2,ixR_r_min3,ixR_r_max1,ixR_r_max2,ixR_r_max3,ixS_srl_min1,ixS_srl_min2,ixS_srl_min3,ixS_srl_max1,ixS_srl_max2,ixS_srl_max3,ixR_srl_min1,ixR_srl_min2,ixR_srl_min3,ixR_srl_max1,ixR_srl_max2,ixR_srl_max3) private(igrid,iib1,iib2,iib3,ineighbor,ipole,ipe_neighbor,iw,i1,i2,i3,ic1,ic2,ic3,n_i1,n_i2,n_i3,n_inc1,n_inc2,n_inc3,ixSmin1,ixSmin2,ixSmin3,ixSmax1,ixSmax2,ixSmax3,ixRmin1,ixRmin2,ixRmin3,ixRmax1,ixRmax2,ixRmax3,iw,ix1,ix2,ix3) firstprivate(nwhead,nwtail)
     do iigrid=1,igridstail-1; igrid=igrids(iigrid);
        iib1=idphyb(1,igrid);iib2=idphyb(2,igrid);iib3=idphyb(3,igrid);
@@ -1413,8 +1415,8 @@ contains
       do i2=-1,1
       do i1=-1,1
          ! next line is inlined version of skip_direction
-         if ((all([ i1,i2,i3 ] == 0)) .or. (.not. req_diagonal .and. count([ &
-            i1,i2,i3 ] /= 0) > 1)) cycle
+         if ((all([ i1,i2,i3 ] == 0)) .or. (.not. req_diagonal &
+              .and. count([ i1,i2,i3 ] /= 0) > 1)) cycle
          select case (neighbor_type(i1,i2,i3,igrid))
          case(neighbor_sibling)
           ipe_neighbor=neighbor(2,i1,i2,i3,igrid)
@@ -1429,14 +1431,29 @@ contains
               ixRmin1=ixR_srl_min1(iib1,n_i1);ixRmin2=ixR_srl_min2(iib2,n_i2)
               ixRmin3=ixR_srl_min3(iib3,n_i3);ixRmax1=ixR_srl_max1(iib1,n_i1)
               ixRmax2=ixR_srl_max2(iib2,n_i2);ixRmax3=ixR_srl_max3(iib3,n_i3);
-              !$acc loop collapse(ndim+1) independent vector
+              !!$acc loop collapse(ndim+1) independent vector
               do iw = nwhead, nwtail
               do ix3=1,ixSmax3-ixSmin3+1
               do ix2=1,ixSmax2-ixSmin2+1
               do ix1=1,ixSmax1-ixSmin1+1
+
+                 !todojesse associated calls do not work within an
+                 !openacc kernel I read ...
+                 if (.not. associated(psb(igrid)%w)) then
+                 print *, "igrid", igrid, psb(igrid)%w(ixSmin1+ix1-1,&
+                                ixSmin2+ix2-1,ixSmin3+ix3-1,iw)
+                 print *, "igrid iw etc", iw, ix1, ix2, ix3 
+                 end if
+                 if (.not. associated(psb(ineighbor)%w)) then
+                 print *, "ineighbor", ineighbor, psb(ineighbor)%w(&
+                            ixRmin1+ix1-1,ixRmin2+ix2-1,ixRmin3+ix3-1,iw) 
+                 print *, "ineighbor iw etc", iw, ix1, ix2, ix3 
+                 end if
+
                  psb(ineighbor)%w(ixRmin1+ix1-1,ixRmin2+ix2-1,ixRmin3+ix3-1,&
                     iw) = psb(igrid)%w(ixSmin1+ix1-1,ixSmin2+ix2-1,&
                     ixSmin3+ix3-1,iw)
+
               end do
               end do
               end do
@@ -1484,9 +1501,9 @@ contains
              !check if psc is present (or filled)
              ! -> This is the problem, in fill_coarse boundary I guess
 
-             !print *, "debugnode", node(pig1_,igrid)
-             !print *, "debugpsb", psb(igrid)%w(1,1,1,1)
-             !print *, "debugpsc", psc(igrid)%w(1,1,1,1)
+             !!print *, "debugnode", node(pig1_,igrid)
+             !!print *, "debugpsb", psb(igrid)%w(1,1,1,1)
+             !!print *, "debugpsc", psc(igrid)%w(1,1,1,1)
   
              ic1=1+modulo(node(pig1_,igrid)-1,2)
              ic2=1+modulo(node(pig2_,igrid)-1,2)
@@ -1505,23 +1522,31 @@ contains
              !! wait I believe this is exactly the same line as in the
              !base bc_fill_srl
              
+             !print *, "debugjesse", ineighbor, ipole
+
              ineighbor=neighbor(1,i1,i2,i3,igrid)
              ipole=neighbor_pole(i1,i2,i3,igrid)
              if(ipole==0) then
                n_inc1=-2*i1+ic1; n_inc2=-2*i2+ic2; n_inc3=-2*i3+ic3;
-               ixSmin1=ixS_r_min1(iib1,i1);ixSmin2=ixS_r_min2(iib2,i2)
-               ixSmin3=ixS_r_min3(iib3,i3);ixSmax1=ixS_r_max1(iib1,i1)
-               ixSmax2=ixS_r_max2(iib2,i2);ixSmax3=ixS_r_max3(iib3,i3);
-               ixRmin1=ixR_r_min1(iib1,n_inc1);ixRmin2=ixR_r_min2(iib2,n_inc2)
-               ixRmin3=ixR_r_min3(iib3,n_inc3);ixRmax1=ixR_r_max1(iib1,n_inc1)
-               ixRmax2=ixR_r_max2(iib2,n_inc2);ixRmax3=ixR_r_max3(iib3,n_inc3);
+               ixSmin1=ixS_r_min1(iib1,i1)
+               ixSmin2=ixS_r_min2(iib2,i2)
+               ixSmin3=ixS_r_min3(iib3,i3)
+               ixSmax1=ixS_r_max1(iib1,i1)
+               ixSmax2=ixS_r_max2(iib2,i2)
+               ixSmax3=ixS_r_max3(iib3,i3)
+               ixRmin1=ixR_r_min1(iib1,n_inc1)
+               ixRmin2=ixR_r_min2(iib2,n_inc2)
+               ixRmin3=ixR_r_min3(iib3,n_inc3)
+               ixRmax1=ixR_r_max1(iib1,n_inc1)
+               ixRmax2=ixR_r_max2(iib2,n_inc2)
+               ixRmax3=ixR_r_max3(iib3,n_inc3)
 
                !psb(ineighbor)%w(ixRmin1:ixRmax1,ixRmin2:ixRmax2,ixRmin3:ixRmax3,&
                !   nwhead:nwtail)=psc(igrid)%w(ixSmin1:ixSmax1,ixSmin2:ixSmax2,&
                !   ixSmin3:ixSmax3,nwhead:nwtail)
 
 
-               !$acc loop collapse(ndim+1) independent vector
+               !!$acc loop collapse(ndim+1) independent vector
                do iw = nwhead, nwtail
                do ix3=1,ixSmax3-ixSmin3+1
                do ix2=1,ixSmax2-ixSmin2+1
@@ -1530,13 +1555,53 @@ contains
                   !print *, "debugpsb", psb(ineighbor)%w(ixRmin1+ix1-1,&
                   !          ixRmin2+ix2-1,ixRmin3+ix3-1,iw),&
                   !          iw, ix1, ix2, ix3
+
                   !print *, "debugpsc", psc(igrid)%w(ixSmin1+ix1-1,&
                   !          ixSmin2+ix2-1,ixSmin3+ix3-1,iw),&
-                  !          iw, ix1, ix2, ix3
+                  !          iw, ix1, ix2, ix3, ubound(psc(igrid)%w,1)
+
+                  !if (ixRmin1+ix1-1 > ubound(psb(ineighbor)%w,1) .or.&
+                  !    ixRmin2+ix2-1 > ubound(psb(ineighbor)%w,2) .or.& 
+                  !    ixRmin3+ix3-1 > ubound(psb(ineighbor)%w,3) ) then
+                  !    print *, "ERROR: todojesse psb does not exist:",&
+                  !    iw, ixRmin1+ix1-1, ixRmin2+ix2-1, ixRmin3+ix3-1,&
+                  !    "basic ind", iw, ix1, ix2, ix3
+                  !end if
+
+                  !if (ixSmin1+ix1-1 > ubound(psc(igrid)%w,1) .or.&
+                  !    ixSmin2+ix2-1 > ubound(psc(igrid)%w,2) .or.& 
+                  !    ixSmin3+ix3-1 > ubound(psc(igrid)%w,3) ) then
+                  !    print *, "ERROR: todojesse psc does not exist:",&
+                  !    iw, ixSmin1+ix1-1, ixSmin2+ix2-1, ixSmin3+ix3-1,&
+                  !    "basic ind", iw, ix1, ix2, ix3
+                  !end if
+
+                  !if (.not. associated(psb(ineighbor)%w) ) then
+                  !    print *, "psb(ineighbor) is not associated",&
+                  !            ineighbor 
+                  !end if
+                  !if (.not. associated(psc(igrid)%w) ) then
+                  !    print *, "psc(igrid) is not associated",&
+                  !            igrid 
+                  !end if
+      
+                  if (.not.associated(psc(igrid)%w)) then
+                  print *, "psc igrid", igrid, psc(igrid)%w(ixSmin1+ix1-1,&
+                                 ixSmin2+ix2-1,ixSmin3+ix3-1,iw)
+                  print *, "psc igrid iw etc", igrid, iw, ix1, ix2, ix3 
+                  end if
+                  if (.not. associated(psb(ineighbor)%w)) then
+                  print *, "psb ineighbor", ineighbor, psb(ineighbor)%w(&
+                             ixRmin1+ix1-1,ixRmin2+ix2-1,ixRmin3+ix3-1,iw) 
+                  print *, "psb ineighbor iw etc", ineighbor, iw, ix1, ix2, ix3 
+                  end if
 
                   psb(ineighbor)%w(ixRmin1+ix1-1,ixRmin2+ix2-1,&
                   ixRmin3+ix3-1,iw) = psc(igrid)%w(ixSmin1+ix1-1,&
                   ixSmin2+ix2-1,ixSmin3+ix3-1,iw)
+
+                  !print *, "debugpsc", psb(ineighbor)%w(ixRmin1+ix1-1,&
+                  !                    ixRmin2+ix2-1,ixRmin3+ix3-1,iw)
 
                   !psb(ineighbor)%w(ixRmin1+ix1-1,ixRmin2+ix2-1,ixRmin3+ix3-1,&
                   !   iw) = psb(igrid)%w(ixSmin1+ix1-1,ixSmin2+ix2-1,&
@@ -1620,43 +1685,48 @@ contains
       end do
       end do
       end do
-      !print *, "2debugjesse: even made it here"
-      print *, "iigrid ", iigrid, "out of igridstail", igridstail
-      print *, "igrid ", igrid, "out of igrids(igridstail)", igrids(igridstail)
+      !!print *, "2debugjesse: even made it here"
+      !print *, "iigrid ", iigrid, "out of igridstail", igridstail
+      !print *, "igrid ", igrid, "out of igrids(igridstail)", igrids(igridstail)
     end do
-!$acc end parallel loop
+!!$acc end parallel loop
+!!$acc wait
 
     print *, "3debugjesse: even made it here" 
-    !$OMP END PARALLEL DO
+!    !$OMP END PARALLEL DO
+
+    !!MPI_Request request;
+    !!MPI_Status status;
+    !!MPI_Finalize();
 
     call MPI_WAITALL(irecv_c,recvrequest_c_sr,recvstatus_c_sr,ierrmpi)
     call MPI_WAITALL(isend_c,sendrequest_c_sr,sendstatus_c_sr,ierrmpi)
 
-    if(stagger_grid) then
-      call MPI_WAITALL(nrecv_bc_srl,recvrequest_srl,recvstatus_srl,ierrmpi)
-      call MPI_WAITALL(nsend_bc_srl,sendrequest_srl,sendstatus_srl,ierrmpi)
-      call MPI_WAITALL(nrecv_bc_r,recvrequest_r,recvstatus_r,ierrmpi)
-      call MPI_WAITALL(nsend_bc_r,sendrequest_r,sendstatus_r,ierrmpi)
-      ! unpack the received data from sibling blocks and finer neighbors to fill ghost-cell staggered values
-      ibuf_recv_srl=1
-      ibuf_recv_r=1
-      do iigrid=1,igridstail; igrid=igrids(iigrid);
-        iib1=idphyb(1,igrid);iib2=idphyb(2,igrid);iib3=idphyb(3,igrid);
-       do i3=-1,1
-       do i2=-1,1
-       do i1=-1,1
-          if (skip_direction([ i1,i2,i3 ])) cycle
-          select case (neighbor_type(i1,i2,i3,igrid))
-          case (neighbor_sibling)
-             call bc_fill_srl_stg
-          case (neighbor_fine)
-             call bc_fill_restrict_stg
-          end select
-       end do
-       end do
-       end do
-      end do
-    end if
+!!    if(stagger_grid) then
+!!      call MPI_WAITALL(nrecv_bc_srl,recvrequest_srl,recvstatus_srl,ierrmpi)
+!!      call MPI_WAITALL(nsend_bc_srl,sendrequest_srl,sendstatus_srl,ierrmpi)
+!!      call MPI_WAITALL(nrecv_bc_r,recvrequest_r,recvstatus_r,ierrmpi)
+!!      call MPI_WAITALL(nsend_bc_r,sendrequest_r,sendstatus_r,ierrmpi)
+!!      ! unpack the received data from sibling blocks and finer neighbors to fill ghost-cell staggered values
+!!      ibuf_recv_srl=1
+!!      ibuf_recv_r=1
+!!      do iigrid=1,igridstail; igrid=igrids(iigrid);
+!!        iib1=idphyb(1,igrid);iib2=idphyb(2,igrid);iib3=idphyb(3,igrid);
+!!       do i3=-1,1
+!!       do i2=-1,1
+!!       do i1=-1,1
+!!          if (skip_direction([ i1,i2,i3 ])) cycle
+!!          select case (neighbor_type(i1,i2,i3,igrid))
+!!          case (neighbor_sibling)
+!!             call bc_fill_srl_stg
+!!          case (neighbor_fine)
+!!             call bc_fill_restrict_stg
+!!          end select
+!!       end do
+!!       end do
+!!       end do
+!!      end do
+!!    end if
 
     do ipwbuf=1,npwbuf
        if (isend_buf(ipwbuf)/=0) deallocate(pwbuf(ipwbuf)%w)
@@ -1694,8 +1764,10 @@ contains
       end do
     end do
 
-    ! fill coarse ghost-cell values of finer neighbors in the same processor
-!!    !$OMP PARALLEL DO SCHEDULE(dynamic) PRIVATE(igrid,iib1,iib2,iib3)
+    print *, "4debugjesse: about to start this actually!" 
+
+!!    ! fill coarse ghost-cell values of finer neighbors in the same processor
+!!!    !$OMP PARALLEL DO SCHEDULE(dynamic) PRIVATE(igrid,iib1,iib2,iib3)
 !$acc parallel loop default(present) copyin(idphyb,ixS_p_min1,ixS_p_min2,ixS_p_min3,ixS_p_max1,ixS_p_max2,ixS_p_max3,ixR_p_min1,ixR_p_min2,ixR_p_min3,ixR_p_max1,ixR_p_max2,ixR_p_max3) private(igrid,iib1,iib2,iib3,ineighbor,n_i1,n_i2,n_i3,n_inc1,n_inc2,n_inc3,ixSmin1,ixSmin2,ixSmin3,ixSmax1,ixSmax2,ixSmax3,ixRmin1,ixRmin2,ixRmin3,ixRmax1,ixRmax2,ixRmax3,iw,ix1,ix2,ix3) firstprivate(nwhead,nwtail)
     do iigrid=1,igridstail; igrid=igrids(iigrid);
       iib1=idphyb(1,igrid);iib2=idphyb(2,igrid);iib3=idphyb(3,igrid);
@@ -1752,6 +1824,9 @@ contains
                   psc(ineighbor)%w(ixRmin1+ix1-1,ixRmin2+ix2-1,ixRmin3+ix3-1,&
                      iw) = psb(igrid)%w(ixSmin1+ix1-1,ixSmin2+ix2-1,&
                      ixSmin3+ix3-1,iw)
+
+                  !print *, "debugpsc", psc(ineighbor)%w(ixRmin1+ix1-1,&
+                  !        ixRmin2+ix2-1,ixRmin3+ix3-1,iw)
                end do
                end do
                end do
@@ -1768,7 +1843,6 @@ contains
       end do
       end do
     end do
-    !$OMP END PARALLEL DO
 
     call MPI_WAITALL(irecv_c,recvrequest_c_p,recvstatus_c_p,ierrmpi)
     call MPI_WAITALL(isend_c,sendrequest_c_p,sendstatus_c_p,ierrmpi)
@@ -2212,6 +2286,13 @@ contains
         if(phyboundblock(igrid).and..not.stagger_grid.and.bcphys) then
           ! to use block in physical boundary setup for coarse representative
           block=>psc(igrid)
+
+          !jessetodo maybe something like the lines below is required?
+          !!!$acc enter data copyin(psb(igrid)%w, psb(ineighbor)%w)
+          !!!$acc kernels present(psb(igrid)%w, psb(ineighbor)%w)
+          !!!$acc end kernels
+          !!!$acc exit data copyout(psb(ineighbor)%w)
+
           ! filling physical boundary ghost cells of a coarser representative block for
           ! sending swap region with width of nghostcells to its coarser neighbor
           do idims=1,ndim
