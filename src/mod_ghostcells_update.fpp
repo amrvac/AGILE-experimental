@@ -1387,6 +1387,7 @@ contains
         !$acc enter data copyin(psb(igrid)%x)
     end do
 
+    !!these lines below should not give output
     do iigrid=1,igridstail; igrid=igrids(iigrid);
       if (.not. acc_is_present(psb(igrid)%w, size(psb(igrid)%w))) then
           print *, igrid, "psb(igrid)%w not on device!"
