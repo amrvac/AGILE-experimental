@@ -1387,75 +1387,17 @@ contains
         !$acc enter data copyin(psb(igrid)%x)
     end do
 
-!!even though things are present and everything, when you comments out
-!!any of the $acc lines above things dont work anymore ...
-
-!!    !!these lines below should not give output
-!!    do iigrid=1,igridstail; igrid=igrids(iigrid);
-!!      if (.not. acc_is_present(psb(igrid)%w, size(psb(igrid)%w))) then
-!!          print *, igrid, "psb(igrid)%w not on device!"
-!!      end if
-!!    end do
-!!
-!!    do iigrid=1,igridstail; igrid=igrids(iigrid);
-!!      if (.not. acc_is_present(psc(igrid)%w, size(psc(igrid)%w))) then
-!!          print *, igrid, "psc(igrid)%w not on device!"
-!!      end if
-!!    end do
-
-
-    !! The more elaborate checking version. I believe "associated" only
-    !!checks presence on the host-side, while acc_is_present does checks
-    !!the allocation size on the device-side
-    do iigrid=1,igridstail;
-      igrid=igrids(iigrid);
-
-      if (allocated(psc(igrid)%w)) then
-          print *, "psc(", igrid, ")%w shape:", shape(psc(igrid)%w)
-          if (acc_is_present(psc(igrid)%w, size(psc(igrid)%w))) then
-              print *, "  -> present on device"
-          else
-              print *, "  -> NOT on device"
-          end if
-      else
-          print *, "psc(", igrid, ")%w not allocated"
+    do iigrid=1,igridstail; igrid=igrids(iigrid);
+      if (.not. acc_is_present(psb(igrid)%w, size(psb(igrid)%w))) then
+          print *, igrid, "psb(igrid)%w not on device!"
       end if
-
-      if (allocated(psc(igrid)%x)) then
-          print *, "psc(", igrid, ")%x shape:", shape(psc(igrid)%x)
-          if (acc_is_present(psc(igrid)%x, size(psc(igrid)%x))) then
-              print *, "  -> present on device"
-          else
-              print *, "  -> NOT on device"
-          end if
-      else
-          print *, "psc(", igrid, ")%x not allocated"
-      end if
-
-      if (allocated(psb(igrid)%w)) then
-          print *, "psb(", igrid, ")%w shape:", shape(psb(igrid)%w)
-          if (acc_is_present(psb(igrid)%w, size(psb(igrid)%w))) then
-              print *, "  -> present on device"
-          else
-              print *, "  -> NOT on device"
-          end if
-      else
-          print *, "psb(", igrid, ")%w not allocated"
-      end if
-
-      if (allocated(psb(igrid)%x)) then
-          print *, "psb(", igrid, ")%x shape:", shape(psb(igrid)%x)
-          if (acc_is_present(psb(igrid)%x, size(psb(igrid)%x))) then
-              print *, "  -> present on device"
-          else
-              print *, "  -> NOT on device"
-          end if
-      else
-          print *, "psb(", igrid, ")%x not allocated"
-      end if
-
     end do
 
+    do iigrid=1,igridstail; igrid=igrids(iigrid);
+      if (.not. acc_is_present(psc(igrid)%w, size(psc(igrid)%w))) then
+          print *, igrid, "psc(igrid)%w not on device!"
+      end if
+    end do
 
 ! Wait for all device operations to finish
 !$acc wait
@@ -1466,7 +1408,7 @@ contains
 
 !!    !$OMP PARALLEL DO SCHEDULE(dynamic) PRIVATE(igrid,iib1,iib2,iib3)
 !$acc parallel loop default(present) copyin(idphyb,ixS_r_min1,ixS_r_min2,ixS_r_min3,ixS_r_max1,ixS_r_max2,ixS_r_max3,ixR_r_min1,ixR_r_min2,ixR_r_min3,ixR_r_max1,ixR_r_max2,ixR_r_max3,ixS_srl_min1,ixS_srl_min2,ixS_srl_min3,ixS_srl_max1,ixS_srl_max2,ixS_srl_max3,ixR_srl_min1,ixR_srl_min2,ixR_srl_min3,ixR_srl_max1,ixR_srl_max2,ixR_srl_max3) private(igrid,iib1,iib2,iib3,ineighbor,ipole,ipe_neighbor,iw,i1,i2,i3,ic1,ic2,ic3,n_i1,n_i2,n_i3,n_inc1,n_inc2,n_inc3,ixSmin1,ixSmin2,ixSmin3,ixSmax1,ixSmax2,ixSmax3,ixRmin1,ixRmin2,ixRmin3,ixRmax1,ixRmax2,ixRmax3,iw,ix1,ix2,ix3) firstprivate(nwhead,nwtail)
-    do iigrid=1,igridstail; igrid=igrids(iigrid);
+    do iigrid=1,igridstail-1; igrid=igrids(iigrid);
        iib1=idphyb(1,igrid);iib2=idphyb(2,igrid);iib3=idphyb(3,igrid);
       !$acc loop seq
       do i3=-1,1
@@ -1747,8 +1689,8 @@ contains
       !print *, "iigrid ", iigrid, "out of igridstail", igridstail
       !print *, "igrid ", igrid, "out of igrids(igridstail)", igrids(igridstail)
     end do
-!$acc end parallel loop
-!$acc wait
+!!$acc end parallel loop
+!!$acc wait
 
     print *, "3debugjesse: even made it here" 
 !    !$OMP END PARALLEL DO
@@ -1901,7 +1843,6 @@ contains
       end do
       end do
     end do
-!$acc end parallel loop
 
     call MPI_WAITALL(irecv_c,recvrequest_c_p,recvstatus_c_p,ierrmpi)
     call MPI_WAITALL(isend_c,sendrequest_c_p,sendstatus_c_p,ierrmpi)
@@ -3393,8 +3334,6 @@ contains
              ixFimax2,ixFimax3,dxFi1,dxFi2,dxFi3,xFimin1,xFimin2,xFimin3,dxCo1,&
              dxCo2,dxCo3,invdxCo1,invdxCo2,invdxCo3,xComin1,xComin2,xComin3)
         else
-          !todojesse this is where the code terminates when the acc
-          !loops are fixed ...
           call interpolation_linear(igrid,ixFimin1,ixFimin2,ixFimin3,ixFimax1,&
              ixFimax2,ixFimax3,dxFi1,dxFi2,dxFi3,xFimin1,xFimin2,xFimin3,dxCo1,&
              dxCo2,dxCo3,invdxCo1,invdxCo2,invdxCo3,xComin1,xComin2,xComin3)
