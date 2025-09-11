@@ -1407,54 +1407,54 @@ contains
     !! The more elaborate checking version. I believe "associated" only
     !!checks presence on the host-side, while acc_is_present does checks
     !!the allocation size on the device-side
-    do iigrid=1,igridstail;
-      igrid=igrids(iigrid);
-
-      if (allocated(psc(igrid)%w)) then
-          print *, "psc(", igrid, ")%w shape:", shape(psc(igrid)%w)
-          if (acc_is_present(psc(igrid)%w, size(psc(igrid)%w))) then
-              print *, "  -> present on device"
-          else
-              print *, "  -> NOT on device"
-          end if
-      else
-          print *, "psc(", igrid, ")%w not allocated"
-      end if
-
-      if (allocated(psc(igrid)%x)) then
-          print *, "psc(", igrid, ")%x shape:", shape(psc(igrid)%x)
-          if (acc_is_present(psc(igrid)%x, size(psc(igrid)%x))) then
-              print *, "  -> present on device"
-          else
-              print *, "  -> NOT on device"
-          end if
-      else
-          print *, "psc(", igrid, ")%x not allocated"
-      end if
-
-      if (allocated(psb(igrid)%w)) then
-          print *, "psb(", igrid, ")%w shape:", shape(psb(igrid)%w)
-          if (acc_is_present(psb(igrid)%w, size(psb(igrid)%w))) then
-              print *, "  -> present on device"
-          else
-              print *, "  -> NOT on device"
-          end if
-      else
-          print *, "psb(", igrid, ")%w not allocated"
-      end if
-
-      if (allocated(psb(igrid)%x)) then
-          print *, "psb(", igrid, ")%x shape:", shape(psb(igrid)%x)
-          if (acc_is_present(psb(igrid)%x, size(psb(igrid)%x))) then
-              print *, "  -> present on device"
-          else
-              print *, "  -> NOT on device"
-          end if
-      else
-          print *, "psb(", igrid, ")%x not allocated"
-      end if
-
-    end do
+!    do iigrid=1,igridstail;
+!      igrid=igrids(iigrid);
+!
+!      if (associated(psc(igrid)%w)) then
+!          print *, "psc(", igrid, ")%w shape:", shape(psc(igrid)%w)
+!          if (acc_is_present(psc(igrid)%w, size(psc(igrid)%w))) then
+!              print *, "  -> present on device"
+!          else
+!              print *, "  -> NOT on device"
+!          end if
+!      else
+!          print *, "psc(", igrid, ")%w not associated"
+!      end if
+!
+!      if (associated(psc(igrid)%x)) then
+!          print *, "psc(", igrid, ")%x shape:", shape(psc(igrid)%x)
+!          if (acc_is_present(psc(igrid)%x, size(psc(igrid)%x))) then
+!              print *, "  -> present on device"
+!          else
+!              print *, "  -> NOT on device"
+!          end if
+!      else
+!          print *, "psc(", igrid, ")%x not associated"
+!      end if
+!
+!      if (associated(psb(igrid)%w)) then
+!          print *, "psb(", igrid, ")%w shape:", shape(psb(igrid)%w)
+!          if (acc_is_present(psb(igrid)%w, size(psb(igrid)%w))) then
+!              print *, "  -> present on device"
+!          else
+!              print *, "  -> NOT on device"
+!          end if
+!      else
+!          print *, "psb(", igrid, ")%w not associated"
+!      end if
+!
+!      if (associated(psb(igrid)%x)) then
+!          print *, "psb(", igrid, ")%x shape:", shape(psb(igrid)%x)
+!          if (acc_is_present(psb(igrid)%x, size(psb(igrid)%x))) then
+!              print *, "  -> present on device"
+!          else
+!              print *, "  -> NOT on device"
+!          end if
+!      else
+!          print *, "psb(", igrid, ")%x not associated"
+!      end if
+!
+!    end do
 
 
 ! Wait for all device operations to finish
