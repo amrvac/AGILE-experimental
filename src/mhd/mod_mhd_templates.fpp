@@ -435,7 +435,6 @@ end subroutine addsource_local
 subroutine addsource_nonlocal(qdt, dtfactor, qtC, wCTprim, qt, wnew, x, dx, idir, &
      qsourcesplit)
   !$acc routine seq
-  use mod_usr, only: bfield
   use mod_global_parameters, only: dt, cs2max_global
 
   real(dp), intent(in)     :: qdt, dtfactor, qtC, qt

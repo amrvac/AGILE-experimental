@@ -348,9 +348,6 @@ subroutine addsource_nonlocal(qdt, dtfactor, qtC, wCTprim, qt, wnew, x, dx, idir
   real(dp)                 :: T(1:5), gradT, Tface(2)
   real(dp)                 :: mag(1:5), divb
 
-  wnew(iw_rho) = wCTprim(iw_rho,1)+wCTprim(iw_rho,2)+&
-    wCTprim(iw_rho,3)+wCTprim(iw_rho,4)+wCTprim(iw_rho,5)
-
   !> p*divb to be added here
   mag(1:5) = wCTprim(iw_b1-1+idir,1:5)
   divb = (8*mag(4)-8*mag(2)-mag(5)+mag(1))/12.0_dp/dx(idir)
