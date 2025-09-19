@@ -47,10 +47,10 @@ contains
        ixImin3:ixImax3, sdim:3)            :: fE !not yet provided
     ! .. local ..
     integer                :: n, iigrid, ix1,ix2,ix3
-    double precision       :: uprim(nw, ixImin1:ixImax1,ixImin2:ixImax2,&
+    double precision       :: uprim(nw_phys, ixImin1:ixImax1,ixImin2:ixImax2,&
        ixImin3:ixImax3)
     real(dp)               :: tmp(nw_phys,5)
-    real(dp)               :: f(nw_phys, 2)
+    real(dp)               :: f(nw_flux, 2)
     real(dp)               :: inv_dr(ndim)
     real(dp)               :: dr(ndim)
     integer                :: typelim
@@ -64,7 +64,7 @@ contains
        n = igrids_active(iigrid)
 
        dr  = rnode(rpdx1_:rnodehi, n)
-       inv_dr  = 1/rnode(rpdx1_:rnodehi, n)
+       inv_dr  = 1/dr
        typelim = type_limiter(node(plevel_, n))
 
        !$acc loop collapse(ndim) vector
@@ -72,43 +72,43 @@ contains
           do ix2=ixImin2,ixImax2 
              do ix1=ixImin1,ixImax1 
                 ! Convert to primitive
-                uprim(:, ix1,ix2,ix3) = bga%w(ix1,ix2,ix3, :, n)
-                call to_primitive(uprim(:, ix1,ix2,ix3))
+                uprim(1:nw_phys, ix1,ix2,ix3) = bga%w(ix1,ix2,ix3, 1:nw_phys, n)
+                call to_primitive(uprim(1:nw_phys, ix1,ix2,ix3))
              end do
           end do
        end do
 
-       !$acc loop collapse(ndim) private(f, wnew, tmp, xlocC, xloc #{if defined('SOURCE_LOCAL')}#, wCT, wprim #{endif}#) vector
+       !$acc loop collapse(ndim) private(f, wnew, tmp, xlocC, xloc#{if defined('SOURCE_LOCAL')}#, wCT, wprim #{endif}#) vector
        do ix3=ixOmin3,ixOmax3 
           do ix2=ixOmin2,ixOmax2 
              do ix1=ixOmin1,ixOmax1 
                 ! Compute fluxes in all dimensions
 
-                tmp = uprim(:, ix1-2:ix1+2, ix2, ix3)
+                tmp = uprim(1:nw_phys, ix1-2:ix1+2, ix2, ix3)
                 xlocC(1:ndim,1) = ps(n)%x(ix1, ix2, ix3, 1:ndim)
                 xlocC(1:ndim,2) = ps(n)%x(ix1, ix2, ix3, 1:ndim)
                 xlocC(1,1) = xlocC(1,1)-0.5_dp*dr(1)
                 xlocC(1,2) = xlocC(1,2)+0.5_dp*dr(1)
                 call muscl_flux_prim(tmp, xlocC, 1, f, typelim)
-                bgb%w(ix1, ix2, ix3, :, n) = bgb%w(ix1, ix2, ix3, :,&
+                bgb%w(ix1, ix2, ix3, 1:nw_flux, n) = bgb%w(ix1, ix2, ix3, 1:nw_flux,&
                      n) + qdt * (f(:, 1) - f(:, 2)) * inv_dr(1)
 
-                tmp = uprim(:, ix1, ix2-2:ix2+2, ix3)
+                tmp = uprim(1:nw_phys, ix1, ix2-2:ix2+2, ix3)
                 xlocC(1:ndim,1) = ps(n)%x(ix1, ix2, ix3, 1:ndim)
                 xlocC(1:ndim,2) = ps(n)%x(ix1, ix2, ix3, 1:ndim)
                 xlocC(2,1) = xlocC(2,1)-0.5_dp*dr(2)
                 xlocC(2,2) = xlocC(2,2)+0.5_dp*dr(2)
                 call muscl_flux_prim(tmp, xlocC, 2, f, typelim)
-                bgb%w(ix1, ix2, ix3, :, n) = bgb%w(ix1, ix2, ix3, :,&
+                bgb%w(ix1, ix2, ix3, 1:nw_flux, n) = bgb%w(ix1, ix2, ix3, 1:nw_flux,&
                      n) + qdt * (f(:, 1) - f(:, 2)) * inv_dr(2)
 
-                tmp = uprim(:, ix1, ix2, ix3-2:ix3+2)
+                tmp = uprim(1:nw_phys, ix1, ix2, ix3-2:ix3+2)
                 xlocC(1:ndim,1) = ps(n)%x(ix1, ix2, ix3, 1:ndim)
                 xlocC(1:ndim,2) = ps(n)%x(ix1, ix2, ix3, 1:ndim)
                 xlocC(3,1) = xlocC(3,1)-0.5_dp*dr(3)
                 xlocC(3,2) = xlocC(3,2)+0.5_dp*dr(3)
                 call muscl_flux_prim(tmp, xlocC, 3, f, typelim)
-                bgb%w(ix1, ix2, ix3, :, n) = bgb%w(ix1, ix2, ix3, :,&
+                bgb%w(ix1, ix2, ix3, 1:nw_flux, n) = bgb%w(ix1, ix2, ix3, 1:nw_flux,&
                      n) + qdt * (f(:, 1) - f(:, 2)) * inv_dr(3)
 
 #:if defined('SOURCE_LOCAL')
@@ -120,7 +120,7 @@ contains
                 call addsource_local(qdt*dble(idimsmax-idimsmin+1)/dble(ndim),&
                      dtfactor*dble(idimsmax-idimsmin+1)/dble(ndim), qtC, wCT,&
                      wprim, qt, wnew, xloc, dr, .false. )
-                bgb%w(ix1, ix2, ix3, :, n) = wnew(:)
+                bgb%w(ix1, ix2, ix3, 1:nw_flux, n) = wnew(1:nw_flux)
 #:endif             
 
 #:if defined('SOURCE_NONLOCAL')
@@ -128,22 +128,22 @@ contains
                 xloc(1:ndim) = ps(n)%x(ix1, ix2, ix3, 1:ndim)
                 wnew         = bgb%w(ix1, ix2, ix3, 1:nw_phys, n)
                 
-                tmp = uprim(:, ix1-2:ix1+2, ix2, ix3)
+                tmp = uprim(1:nw_phys, ix1-2:ix1+2, ix2, ix3)
                 call addsource_nonlocal(qdt*dble(idimsmax-idimsmin+1)/dble(ndim),&
                      dtfactor*dble(idimsmax-idimsmin+1)/dble(ndim), qtC, tmp,&
                      qt, wnew, xloc, dr, 1, .false. )
 
-                tmp = uprim(:, ix1, ix2-2:ix2+2, ix3)
+                tmp = uprim(1:nw_phys, ix1, ix2-2:ix2+2, ix3)
                 call addsource_nonlocal(qdt*dble(idimsmax-idimsmin+1)/dble(ndim),&
                      dtfactor*dble(idimsmax-idimsmin+1)/dble(ndim), qtC, tmp,&
                      qt, wnew, xloc, dr, 2, .false. )
 
-                tmp = uprim(:, ix1, ix2, ix3-2:ix3+2)
+                tmp = uprim(1:nw_phys, ix1, ix2, ix3-2:ix3+2)
                 call addsource_nonlocal(qdt*dble(idimsmax-idimsmin+1)/dble(ndim),&
                      dtfactor*dble(idimsmax-idimsmin+1)/dble(ndim), qtC, tmp,&
                      qt, wnew, xloc, dr, 3, .false. )
                 
-                bgb%w(ix1, ix2, ix3, :, n) = wnew(:)           
+                bgb%w(ix1, ix2, ix3, 1:nw_flux, n) = wnew(1:nw_flux)           
 #:endif                
              end do
           end do
@@ -160,9 +160,9 @@ contains
     real(dp), intent(in)  :: u(nw_phys, 5)
     real(dp), intent(in)  :: xlocC(1:ndim, 2)
     integer, intent(in)   :: flux_dim, typelim
-    real(dp), intent(out) :: flux(nw_phys, 2)
+    real(dp), intent(out) :: flux(nw_flux, 2)
     real(dp)              :: uL(nw_phys), uR(nw_phys), wL, wR, wmax
-    real(dp)              :: flux_l(nw_phys), flux_r(nw_phys)
+    real(dp)              :: flux_l(nw_flux), flux_r(nw_flux)
     real(dp)              :: xC(ndim)
 
     ! Construct uL, uR for first cell face
@@ -185,7 +185,7 @@ contains
 
     call to_conservative(uL)
     call to_conservative(uR)
-    flux(:, 1) = 0.5_dp * ((flux_l + flux_r) - wmax * (uR - uL))
+    flux(:, 1) = 0.5_dp * ((flux_l + flux_r) - wmax * (uR(1:nw_flux) - uL(1:nw_flux)))
 
     ! Construct uL, uR for second cell face
     select case (typelim)
@@ -207,7 +207,7 @@ contains
 
     call to_conservative(uL)
     call to_conservative(uR)
-    flux(:, 2) = 0.5_dp * ((flux_l + flux_r) - wmax * (uR - uL))
+    flux(:, 2) = 0.5_dp * ((flux_l + flux_r) - wmax * (uR(1:nw_flux) - uL(1:nw_flux)))
 
   end subroutine muscl_flux_prim
 

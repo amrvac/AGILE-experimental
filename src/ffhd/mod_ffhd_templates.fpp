@@ -3,12 +3,19 @@
 #:def phys_vars()
 
   integer, parameter :: dp = kind(0.0d0)
-  !> Only consider the hyperbolic thermal conduction situation
-  !> Base number of physical variables (density, momentum, energy)
-  integer, parameter, public              :: nw_phys_base=3
+  !> Base number of physical variables (density, momentum, energy, (q), b1, b2, b3)
+  integer, parameter, public              :: nw_phys_base=6
   !> Total number of physical variables (base + conditional additions)
   !> This will be set to nw_phys_base + 1 if HYPERTC is defined
   integer, parameter, public              :: nw_phys=nw_phys_base &
+#:if defined('HYPERTC')
+    + 1
+#:else
+    + 0
+#:endif
+
+  integer, parameter, public              :: nw_flux_base=3
+  integer, parameter, public              :: nw_flux=nw_flux_base &
 #:if defined('HYPERTC')
     + 1
 #:else
@@ -34,9 +41,15 @@
   integer, public                         :: p_
   !$acc declare create(p_)
 
-    !> Index of the hyperbolic flux variable
+  !> Index of the hyperbolic flux variable
   integer, public                         :: q_
   !$acc declare create(q_)
+
+  ! !> Index of the frozen magnetic field
+  integer, public                         :: iw_b1
+  integer, public                         :: iw_b2
+  integer, public                         :: iw_b3
+  !$acc declare create(iw_b1, iw_b2, iw_b3)
 
   !> The adiabatic index
   double precision, public                :: ffhd_gamma = 5.d0/3.0d0
@@ -229,6 +242,12 @@
     !$acc update device(hypertc_kappa)
 #:endif
 
+    ! Set index of frozen magnetic field
+    iw_b1 = var_set_extravar('b1', 'b1')
+    iw_b2 = var_set_extravar('b2', 'b2')
+    iw_b3 = var_set_extravar('b3', 'b3')
+    !$acc update device(iw_b1, iw_b2, iw_b3)
+
     ! set number of variables which need update ghostcells
     nwgc=nwflux
     !$acc update device(nwgc)
@@ -272,7 +291,6 @@
 subroutine addsource_local(qdt, dtfactor, qtC, wCT, wCTprim, qt, wnew, x, dr, &
     qsourcesplit)
   !$acc routine seq
-  use mod_usr, only: bfield
 #:if defined('SOURCE_USR')
   use mod_usr, only: addsource_usr
 #:endif
@@ -293,14 +311,10 @@ subroutine addsource_local(qdt, dtfactor, qtC, wCT, wCTprim, qt, wnew, x, dr, &
   integer                  :: idim
   real(dp)                 :: field, mag, divb
 
-  !> p*divb to be added here
-  divb = 0.0_dp
-  wnew(iw_mom(1)) = wnew(iw_mom(1)) + qdt*wCTprim(iw_e)*divb
-
 #:if defined('GRAVITY')
   do idim = 1, ndim
      field = gravity_field(wCT, x, idim)
-     mag = bfield(x, idim)
+     mag = wCTprim(iw_b1-1+idim)
      wnew(iw_mom(1)) = wnew(iw_mom(1)) + qdt * field * wCT(iw_rho) * mag
      wnew(iw_e)      = wnew(iw_e) + qdt * field * wCT(iw_mom(1)) * mag
   end do
@@ -321,7 +335,6 @@ end subroutine addsource_local
 subroutine addsource_nonlocal(qdt, dtfactor, qtC, wCTprim, qt, wnew, x, dx, idir, &
      qsourcesplit)
   !$acc routine seq
-  use mod_usr, only: bfield
   use mod_global_parameters, only: dt, cs2max_global
 
   real(dp), intent(in)     :: qdt, dtfactor, qtC, qt
@@ -331,9 +344,17 @@ subroutine addsource_nonlocal(qdt, dtfactor, qtC, wCTprim, qt, wnew, x, dx, idir
   integer, intent(in)      :: idir
   logical, intent(in)      :: qsourcesplit
   ! .. local ..
-  real(dp)                 :: field, mag
   real(dp)                 :: Te, tau, htc_qrsc, sigT, taumin
   real(dp)                 :: T(1:5), gradT, Tface(2)
+  real(dp)                 :: mag(1:5), divb
+
+  wnew(iw_rho) = wCTprim(iw_rho,1)+wCTprim(iw_rho,2)+&
+    wCTprim(iw_rho,3)+wCTprim(iw_rho,4)+wCTprim(iw_rho,5)
+
+  !> p*divb to be added here
+  mag(1:5) = wCTprim(iw_b1-1+idir,1:5)
+  divb = (8*mag(4)-8*mag(2)-mag(5)+mag(1))/12.0_dp/dx(idir)
+  wnew(iw_mom(1)) = wnew(iw_mom(1)) + qdt*wCTprim(iw_e,3)*divb
 
 #:if defined('HYPERTC')
   !> gradient of temperature:
@@ -350,8 +371,7 @@ subroutine addsource_nonlocal(qdt, dtfactor, qtC, wCTprim, qt, wnew, x, dx, idir
   tau = taumin
   tau = max( taumin*dt, sigT*Te*(phys_gamma-1.0d0)/wCTprim(iw_e,3)/cs2max_global)
 
-  mag   = bfield(x, idir)
-  htc_qrsc = sigT * mag * gradT
+  htc_qrsc = sigT * mag(3) * gradT
   htc_qrsc = ( htc_qrsc + wCTprim(iw_q,3)/3.0_dp ) / tau
 
   wnew(iw_q) = wnew(iw_q) - qdt * htc_qrsc
@@ -394,18 +414,17 @@ end subroutine to_conservative
 #:def get_flux()
 subroutine get_flux(u, xC, flux_dim, flux)
   !$acc routine seq
-  use mod_usr, only: bfield
 
   real(dp), intent(in)  :: u(nw_phys)
   real(dp), intent(in)  :: xC(1:ndim)
   integer, intent(in)   :: flux_dim
-  real(dp), intent(out) :: flux(nw_phys)
+  real(dp), intent(out) :: flux(nw_flux)
   real(dp)              :: inv_gamma_m1
   real(dp)              :: mag
 
   inv_gamma_m1 = 1.0_dp/(phys_gamma - 1.0_dp)
 
-  mag = bfield(xC, flux_dim)
+  mag = u(iw_b1-1+flux_dim)
 
   ! Density flux
   flux(iw_rho) = u(iw_rho) * u(iw_mom(1)) * mag
@@ -415,11 +434,13 @@ subroutine get_flux(u, xC, flux_dim, flux)
   
   ! Energy flux with hyperbolic conduction included
   flux(iw_e) = u(iw_mom(1))*(u(iw_e)*inv_gamma_m1 + &
-               0.5_dp*u(iw_rho)*u(iw_mom(1))**2 + u(iw_e)) * mag
-
+               0.5_dp*u(iw_rho)*u(iw_mom(1))**2 + u(iw_e)) * mag + &
 #:if defined('HYPERTC')
-  flux(iw_e) = flux(iw_e) + u(iw_q) * mag
-  flux(iw_q) = 0.0d0
+  u(iw_q)*mag
+
+  flux(iw_q) = 0.0_dp
+#:else
+  0.0_dp
 #:endif
 
 end subroutine get_flux
@@ -428,13 +449,12 @@ end subroutine get_flux
 #:def get_cmax()  
 pure real(dp) function get_cmax(u, x, flux_dim) result(wC)
   !$acc routine seq
-  use mod_usr, only: bfield
   real(dp), intent(in)  :: u(nw_phys)
   real(dp), intent(in)  :: x(1:ndim)
   integer, intent(in)   :: flux_dim
   real(dp)              :: mag
 
-  mag = bfield(x, flux_dim)
+  mag = u(iw_b1-1+flux_dim)
   
   wC = dsqrt(phys_gamma*u(iw_e)/u(iw_rho)) + abs(u(iw_mom(1))*mag)
 
