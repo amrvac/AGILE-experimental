@@ -1,40 +1,40 @@
 module mod_coarsen
+  use mod_global_parameters
+  use mod_physics
 
   implicit none
   private
 
-  public :: coarsen_grid 
- 
+  public :: coarsen_grid
+
 contains
 
-  
+
   !> coarsen one grid to its coarser representative
   subroutine coarsen_grid(sFi,ixFiGmin1,ixFiGmin2,ixFiGmin3,ixFiGmax1,&
      ixFiGmax2,ixFiGmax3,ixFimin1,ixFimin2,ixFimin3,ixFimax1,ixFimax2,ixFimax3,&
      sCo,ixCoGmin1,ixCoGmin2,ixCoGmin3,ixCoGmax1,ixCoGmax2,ixCoGmax3,ixComin1,&
      ixComin2,ixComin3,ixComax1,ixComax2,ixComax3)
     !$acc routine vector
-    use mod_global_parameters
-    use mod_physics
 
     type(state), intent(inout)      :: sFi, sCo
     integer, intent(in) :: ixFiGmin1,ixFiGmin2,ixFiGmin3,ixFiGmax1,ixFiGmax2,&
        ixFiGmax3, ixFimin1,ixFimin2,ixFimin3,ixFimax1,ixFimax2,ixFimax3,&
         ixCoGmin1,ixCoGmin2,ixCoGmin3,ixCoGmax1,ixCoGmax2,ixCoGmax3, ixComin1,&
        ixComin2,ixComin3,ixComax1,ixComax2,ixComax3
-  
+
     integer :: ixCo1,ixCo2,ixCo3, ixFi1,ixFi2,ixFi3, iw
     double precision :: CoFiratio
     double precision :: B_energy_change(ixCoGmin1:ixCoGmax1,&
        ixCoGmin2:ixCoGmax2,ixCoGmin3:ixCoGmax3)
-  
+
     associate(wFi=>sFi%w(ixFiGmin1:ixFiGmax1,ixFiGmin2:ixFiGmax2,&
        ixFiGmin3:ixFiGmax3,1:nw), wCo=>sCo%w(ixCoGmin1:ixCoGmax1,&
        ixCoGmin2:ixCoGmax2,ixCoGmin3:ixCoGmax3,1:nw))
     staggered: associate(wFis=>sFi%ws,wCos=>sCo%ws)
     ! coarsen by 2 in every direction - conservatively
 
-! AGILE: tbd    
+! AGILE: tbd
 !    if(coarsenprimitive) call phys_to_primitive(ixFiGmin1,ixFiGmin2,ixFiGmin3,&
 !       ixFiGmax1,ixFiGmax2,ixFiGmax3,ixFimin1,ixFimin2,ixFimin3,ixFimax1,&
 !       ixFimax2,ixFimax3,wFi,sFi%x)
@@ -70,8 +70,8 @@ contains
         end do
       end do
     end if
-  
-! AGILE: tbd    
+
+! AGILE: tbd
     ! if(stagger_grid) then
     !   do iw=1,nws
     !     ! Start one layer before
