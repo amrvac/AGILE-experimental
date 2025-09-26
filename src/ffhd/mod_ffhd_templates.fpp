@@ -65,6 +65,10 @@
   double precision, public                :: hypertc_kappa=-1.0d0
   !$acc declare copyin(hypertc_kappa)
 
+  !> Whether p*divb source term is not zero
+  logical, public                         :: ffhd_pdivb = .false.
+  !$acc declare copyin(ffhd_pdivb)
+
   !> switch for hyperbolic thermal conduction
   logical, public                         :: ffhd_hyperbolic_thermal_conduction = .false.
   !$acc declare copyin(ffhd_hyperbolic_thermal_conduction)
@@ -95,7 +99,7 @@
     integer                      :: n
 
     namelist /ffhd_list/ ffhd_energy, ffhd_gamma, ffhd_partial_ionization, ffhd_gravity, &
-          ffhd_radiative_cooling, ffhd_hyperbolic_thermal_conduction, ffhd_source_usr
+          ffhd_radiative_cooling, ffhd_hyperbolic_thermal_conduction, ffhd_source_usr, ffhd_pdivb
 
     do n = 1, size(files)
        open(unitpar, file=trim(files(n)), status="old")
@@ -346,12 +350,14 @@ subroutine addsource_nonlocal(qdt, dtfactor, qtC, wCTprim, qt, wnew, x, dx, idir
   ! .. local ..
   real(dp)                 :: Te, tau, htc_qrsc, sigT, taumin
   real(dp)                 :: T(1:5), gradT, Tface(2)
-  real(dp)                 :: mag(1:5), divb
+  real(dp)                 :: mag(1:5), divb 
 
-  !> p*divb to be added here
+#:if defined('PDIVB')
+  ! > p*divb 
   mag(1:5) = wCTprim(iw_b1-1+idir,1:5)
   divb = (8*mag(4)-8*mag(2)-mag(5)+mag(1))/12.0_dp/dx(idir)
   wnew(iw_mom(1)) = wnew(iw_mom(1)) + qdt*wCTprim(iw_e,3)*divb
+#:endif
 
 #:if defined('HYPERTC')
   !> gradient of temperature:

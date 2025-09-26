@@ -1,5 +1,5 @@
  &filelist
-    base_filename='output/fs3d_bm'
+    base_filename='output/fs3d'
     autoconvert = F
     saveprim=T
     convert_type='vtuBCCmpi'
@@ -59,9 +59,10 @@
  /
 
  &ffhd_list
+    ffhd_pdivb=T
     ffhd_hyperbolic_thermal_conduction=T
-    ffhd_radiative_cooling=F
-    ffhd_gravity=F
+    ffhd_radiative_cooling=T
+    ffhd_gravity=T
     ffhd_source_usr=F
  /
 

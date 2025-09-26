@@ -4,6 +4,7 @@
 
   integer, parameter :: dp = kind(0.0d0)
   integer, parameter, public              :: nw_phys=2+2*ndim+1
+  integer, parameter, public              :: nw_flux=2+2*ndim+1
   
   !> Whether an energy equation is used
   logical, public                         :: mhd_energy = .true.
@@ -488,7 +489,7 @@ end subroutine addsource_nonlocal
     real(dp), intent(in)  :: u(nw_phys)
     real(dp), intent(in)  :: xC(1:ndim)
     integer, intent(in)   :: flux_dim
-    real(dp), intent(out) :: flux(nw_phys)
+    real(dp), intent(out) :: flux(nw_flux)
     real(dp)              :: ptotal
 
     ! Density flux
