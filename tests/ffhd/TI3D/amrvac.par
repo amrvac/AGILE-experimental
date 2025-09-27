@@ -1,21 +1,19 @@
  &filelist
-   base_filename    = 'output/ti3d'
-   autoconvert      = F
+   base_filename    = 'output/ti3da'
+   autoconvert      = T
    convert_type     = 'vtuBCCmpi'
    saveprim         = T
  /
-   base_filename    = '/scratch/leuven/377/vsc37715/agile_test/ti'
-
 
  &savelist
    itsave(1,1)      = 0
    itsave(1,2)      = 0
-   dtsave_log      = 0.01
-   dtsave_dat      = 1.d0
+   dtsave_log      = 0.01d0
+   dtsave_dat      = 0.2d0
  /
 
  &stoplist
-   time_max        = 5.d0
+   time_max        = 1.d0
  /
 
  &methodlist
@@ -38,9 +36,9 @@
 
  &meshlist
    refine_max_level   = 1
-   block_nx1          = 32
-   block_nx2          = 32
-   block_nx3          = 32
+   block_nx1          = 16
+   block_nx2          = 16
+   block_nx3          = 16
    domain_nx1         = 128
    domain_nx2         = 128
    domain_nx3         = 128

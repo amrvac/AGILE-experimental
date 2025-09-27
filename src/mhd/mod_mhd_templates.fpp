@@ -33,6 +33,10 @@
   integer, public :: psi_
   !$acc declare create(psi_)
 
+  !> Index of the hyperbolic flux variable
+  integer, public                         :: q_
+  !$acc declare create(q_)
+
   !> The adiabatic index
   double precision, public                :: mhd_gamma = 5.d0/3.0d0
   !$acc declare copyin(mhd_gamma)
@@ -75,6 +79,18 @@
   logical, public                         :: mhd_partial_ionization = .false.
   !$acc declare copyin(mhd_partial_ionization)
 
+  !> switch for radiative cooling
+  logical, public                         :: mhd_radiative_cooling = .false.
+  !$acc declare copyin(mhd_radiative_cooling)
+
+  !> switch for hyperbolic thermal conduction
+  logical, public                         :: mhd_hyperbolic_thermal_conduction = .false.
+  !$acc declare copyin(mhd_hyperbolic_thermal_conduction)
+
+  !> switch for source user
+  logical, public                         :: mhd_source_usr = .false.
+  !$acc declare copyin(mhd_source_usr)
+
   !> Whether particles module is added
   logical, public                         :: mhd_particles = .false.
   !$acc declare copyin(mhd_particles)
@@ -88,7 +104,7 @@
     character(len=*), intent(in) :: files(:)
     integer                      :: n
 
-    namelist /mhd_list/ mhd_gamma, mhd_glm_alpha, mhd_gravity
+    namelist /mhd_list/ mhd_gamma, mhd_glm_alpha, mhd_gravity, mhd_radiative_cooling, mhd_hyperbolic_thermal_conduction, mhd_source_usr
 
     do n = 1, size(files)
        open(unitpar, file=trim(files(n)), status="old")
@@ -238,77 +254,6 @@
       end if
     end if
 
-    !> here no SI_UNIT used by default, to be implemented
-    mp = mp_cgs
-    kB = kB_cgs
-    !> eq_state_units by default, to be implemented
-    a = 1.d0+4.d0*He_abundance
-    b = 2.d0+3.d0*He_abundance
-
-    if(unit_density/=1.d0 .or. unit_numberdensity/=1.d0) then
-      if(unit_density/=1.d0) then
-        unit_numberdensity=unit_density/(a*mp)
-      else if(unit_numberdensity/=1.d0) then
-        unit_density=a*mp*unit_numberdensity
-      end if
-      if(unit_temperature/=1.d0) then
-        unit_pressure=b*unit_numberdensity*kB*unit_temperature
-        unit_velocity=dsqrt(unit_pressure/unit_density)
-        if(unit_length/=1.d0) then
-          unit_time=unit_length/unit_velocity
-        else if(unit_time/=1.d0) then
-          unit_length=unit_velocity*unit_time
-        end if
-      else if(unit_pressure/=1.d0) then
-        unit_temperature=unit_pressure/(b*unit_numberdensity*kB)
-        unit_velocity=dsqrt(unit_pressure/unit_density)
-        if(unit_length/=1.d0) then
-          unit_time=unit_length/unit_velocity
-        else if(unit_time/=1.d0) then
-          unit_length=unit_velocity*unit_time
-        end if
-      else if(unit_velocity/=1.d0) then
-        unit_pressure=unit_density*unit_velocity**2
-        unit_temperature=unit_pressure/(b*unit_numberdensity*kB)
-        if(unit_length/=1.d0) then
-          unit_time=unit_length/unit_velocity
-        else if(unit_time/=1.d0) then
-          unit_length=unit_velocity*unit_time
-        end if
-      else if(unit_time/=1.d0) then
-        unit_velocity=unit_length/unit_time
-        unit_pressure=unit_density*unit_velocity**2
-        unit_temperature=unit_pressure/(b*unit_numberdensity*kB)
-      end if
-    else if(unit_temperature/=1.d0) then
-      ! units of temperature and velocity are dependent
-      if(unit_pressure/=1.d0) then
-        unit_numberdensity=unit_pressure/(b*unit_temperature*kB)
-        unit_density=a*mp*unit_numberdensity
-        unit_velocity=dsqrt(unit_pressure/unit_density)
-        if(unit_length/=1.d0) then
-          unit_time=unit_length/unit_velocity
-        else if(unit_time/=1.d0) then
-          unit_length=unit_velocity*unit_time
-        end if
-      end if
-    else if(unit_pressure/=1.d0) then
-      if(unit_velocity/=1.d0) then
-        unit_density=unit_pressure/unit_velocity**2
-        unit_numberdensity=unit_density/(a*mp)
-        unit_temperature=unit_pressure/(b*unit_numberdensity*kB)
-        if(unit_length/=1.d0) then
-          unit_time=unit_length/unit_velocity
-        else if(unit_time/=1.d0) then
-          unit_length=unit_velocity*unit_time
-        end if
-      else if(unit_time/=0.d0) then
-        unit_velocity=unit_length/unit_time
-        unit_density=unit_pressure/unit_velocity**2
-        unit_numberdensity=unit_density/(a*mp)
-        unit_temperature=unit_pressure/(b*unit_numberdensity*kB)
-      end if
-    end if
     unit_mass=unit_density*unit_length**3
 
     !$acc update device(unit_density, unit_numberdensity, unit_temperature, unit_pressure, unit_velocity, unit_length, unit_time, unit_mass)
@@ -319,6 +264,9 @@
     !> Initialize the module
   subroutine phys_init()
     use mod_global_parameters
+    #:if defined('COOLING')
+    use mod_radiative_cooling, only: rc_fl, radiative_cooling_init_params, radiative_cooling_init
+    #:endif
 !    use mod_particles, only: particles_init
 
     call phys_units()
@@ -360,18 +308,29 @@
     psi_ = var_set_fluxvar('psi', 'psi', need_bc=.false.)
     !$acc update device(psi_)
 
-    ! Whether diagonal ghost cells are required for the physics
-    phys_req_diagonal = .true.
+#:if defined('HYPERTC')
+    ! Set index for heat flux
+    q_ = var_set_q()
+    hypertc_kappa = 8.d-7*unit_temperature**3.5_dp/unit_length/unit_density/unit_velocity**3
+    !$acc update device(q_)
+    !$acc update device(hypertc_kappa)
+#:endif
 
     ! set number of variables which need update ghostcells
     nwgc=nwflux
     !$acc update device(nwgc)
 
+#:if defined('COOLING')
+    call radiative_cooling_init_params(phys_gamma,He_abundance)
+    call radiative_cooling_init(rc_fl)
+    !$acc update device(rc_fl)
+    !$acc enter data copyin(rc_fl%tcool,rc_fl%Lcool, rc_fl%Yc)
+#:endif
+
 ! use cycle, needs to be dealt with:    
 !    ! Initialize particles module
 !    if (mhd_particles) then
 !       call particles_init()
-!       phys_req_diagonal = .true.
 !    end if
 
   end subroutine phys_init
@@ -407,8 +366,14 @@ subroutine addsource_local(qdt, dtfactor, qtC, wCT, wCTprim, qt, wnew, x, dr, &
     qsourcesplit)
   !$acc routine seq
   use mod_global_parameters, only:cmax_global
+#:if defined('SOURCE_USR')
+  use mod_usr, only: addsource_usr
+#:endif
 #:if defined('GRAVITY')
   use mod_usr, only: gravity_field
+#:endif
+#:if defined('COOLING')
+  use mod_radiative_cooling, only: radiative_cooling_add_source
 #:endif
   real(dp), intent(in)     :: qdt, dtfactor, qtC, qt
   real(dp), intent(in)     :: wCT(nw_phys), wCTprim(nw_phys)
@@ -428,6 +393,14 @@ subroutine addsource_local(qdt, dtfactor, qtC, wCT, wCTprim, qt, wnew, x, dr, &
 #:endif  
   wnew(psi_)=wnew(psi_)*dexp(-qdt*cmax_global*mhd_glm_alpha/minval(dr))
 
+#:if defined('COOLING')
+  call radiative_cooling_add_source(qdt,wCT,wCTprim,wnew,x)
+#:endif
+
+#:if defined('SOURCE_USR')
+  call addsource_usr(qdt, qt, wCT, wCTprim, wnew, x, .false.)
+#:endif
+
 end subroutine addsource_local
 #:enddef
 
@@ -435,8 +408,7 @@ end subroutine addsource_local
 subroutine addsource_nonlocal(qdt, dtfactor, qtC, wCTprim, qt, wnew, x, dx, idir, &
      qsourcesplit)
   !$acc routine seq
-  use mod_usr, only: bfield
-  use mod_global_parameters, only: dt, cs2max_global
+  use mod_global_parameters, only: dt, cmax_global, courantpar, third
 
   real(dp), intent(in)     :: qdt, dtfactor, qtC, qt
   real(dp), intent(in)     :: wCTprim(nw_phys,5)
@@ -445,7 +417,17 @@ subroutine addsource_nonlocal(qdt, dtfactor, qtC, wCTprim, qt, wnew, x, dx, idir
   integer, intent(in)      :: idir
   logical, intent(in)      :: qsourcesplit
   ! .. local ..
-  real(dp)                 :: field, mag
+  real(dp)                 :: Te(1:5), gradT
+  real(dp)                 :: tau, htc_qrsc, sigT
+
+#:if defined('HYPERTC')
+  Te(1:5)=wCTprim(iw_e,1:5)/wCTprim(iw_rho,1:5)
+  gradT=(8.d0*(Te(4)-Te(2))-Te(5)+Te(1))/(12.d0*dx(idir))
+  sigT=hypertc_kappa*sqrt(Te(3)**5)
+  htc_qrsc=sigT*gradT*wCTprim(iw_mag(idir),3)/sqrt(wCTprim(iw_mag(1),3)**2+wCTprim(iw_mag(2),3)**2+wCTprim(iw_mag(3),3)**2)
+  tau=max(4.d0*dt,sigT*Te(3)*courantpar**2*(phys_gamma-1.0d0)/(wCTprim(iw_e,3)*cmax_global**2))
+  wnew(iw_q)=wnew(iw_q)-qdt*(htc_qrsc+wCTprim(iw_q,3)*third)/tau
+#:endif
 
 end subroutine addsource_nonlocal
 #:enddef
@@ -538,15 +520,5 @@ pure real(dp) function get_cmax(u, x, flux_dim) result(wC)
 
 end function get_cmax
 #:enddef  
-
-#:def get_cs2()
-!> obtain the squared sound speed
-pure real(dp) function get_cs2(u) result(cs2)
-  !$acc routine seq
-  real(dp), intent(in)  :: u(nw_phys)
-
-  cs2 = phys_gamma*u(iw_e)/u(iw_rho)
-end function get_cs2
-#:enddef
 
 #:endif
