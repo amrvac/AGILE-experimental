@@ -350,18 +350,19 @@ subroutine addsource_nonlocal(qdt, dtfactor, qtC, wCTprim, qt, wnew, x, dx, idir
   ! .. local ..
   real(dp)                 :: Te, tau, htc_qrsc, sigT, taumin
   real(dp)                 :: T(1:5), gradT, Tface(2)
-  real(dp)                 :: mag(1:5), divb 
+  real(dp)                 :: mag5(1:5), divb, mag
 
 #:if defined('PDIVB')
   ! > p*divb 
-  mag(1:5) = wCTprim(iw_b1-1+idir,1:5)
-  divb = (8*mag(4)-8*mag(2)-mag(5)+mag(1))/12.0_dp/dx(idir)
+  mag5(1:5) = wCTprim(iw_b1-1+idir,1:5)
+  divb = (8*mag5(4)-8*mag5(2)-mag5(5)+mag5(1))/12.0_dp/dx(idir)
   wnew(iw_mom(1)) = wnew(iw_mom(1)) + qdt*wCTprim(iw_e,3)*divb
 #:endif
 
 #:if defined('HYPERTC')
   !> gradient of temperature:
   T(1:5) = wCTprim(iw_e,1:5) / wCTprim(iw_rho,1:5)
+  mag = wCTprim(iw_b1-1+idir,3)
   
   Tface(1) = (7.0d0*(T(2)+T(3))-(T(1)+T(4)))/12.0d0
   Tface(2) = (7.0d0*(T(3)+T(4))-(T(2)+T(5)))/12.0d0
@@ -374,7 +375,7 @@ subroutine addsource_nonlocal(qdt, dtfactor, qtC, wCTprim, qt, wnew, x, dx, idir
   tau = taumin
   tau = max( taumin*dt, sigT*Te*(phys_gamma-1.0d0)/wCTprim(iw_e,3)/cs2max_global)
 
-  htc_qrsc = sigT * mag(3) * gradT
+  htc_qrsc = sigT * mag * gradT
   htc_qrsc = ( htc_qrsc + wCTprim(iw_q,3)/3.0_dp ) / tau
 
   wnew(iw_q) = wnew(iw_q) - qdt * htc_qrsc
