@@ -1,26 +1,35 @@
  &filelist
-   base_filename    = 'output/ti3d'
+   base_filename    = 'output/kh3d'
    autoconvert      = T
    convert_type     = 'vtuBCCmpi'
    saveprim         = T
  /
 
  &savelist
-   itsave(1,1)      = 0
-   itsave(1,2)      = 0
-   dtsave_log      = 0.01
-   dtsave_dat      = 0.5d0
+  itsave(1,1)      = 0
+  itsave(1,2)      = 0
+  itsave(1,3)      = 0
+  ditsave_log      = 100
+  dtsave_dat       = 1.0d0
+  dtsave_slice     = 0.1d0
+  nslices          = 3
+  slicedir(1)      = 3
+  slicecoord(1)    = 0.5d0
+  slicedir(2)      = 2
+  slicecoord(2)    = 0.5d0
+  slicedir(3)      = 1
+  slicecoord(3)    = 0.5d0
  /
 
  &stoplist
-   time_max        = 10.d0
+   time_max         = 2.0d0
  /
 
  &methodlist
    time_stepper    = 'threestep'
    flux_scheme     = 20*'tvdlf'
    limiter         = 20*'vanleer'
-   phys                = 'hd'
+   phys            = 'hd'
  /
 
  &boundlist
@@ -31,14 +40,15 @@
    typeboundary_min3 = 5*'periodic'
    typeboundary_max3 = 5*'periodic'
  /
-   typeboundary_min3 = 'symm','asymm','symm','asymm'
-   typeboundary_max3 = 'symm','asymm','symm','asymm'
 
  &meshlist
-   refine_max_level   = 1
-   block_nx1          = 32
-   block_nx2          = 32
-   block_nx3          = 32
+   max_blocks         = 40000
+   refine_max_level   = 4
+   refine_criterion   = 1 !user-defined criterion only (in mod_usr)
+   itfixgrid          = 0 
+   block_nx1          = 16
+   block_nx2          = 16
+   block_nx3          = 16
    domain_nx1         = 128
    domain_nx2         = 128
    domain_nx3         = 128
@@ -52,26 +62,6 @@
  /
 
  &paramlist
-   slowsteps        = 50
-   courantpar       = 0.4d0
-   typecourant      = 'maxsum'
+   slowsteps        = 10
+   courantpar       = 0.7d0
  /
-
- &rc_list
-   ncool = 4000
-   coolmethod = 'exact'
-   coolcurve = 'Colgan_DM'
- /
-
- &phys_list
-   gravity = .false.
-   source_usr = .false.
-   hyperbolic_thermal_conduction = .false.
-   radiative_cooling = .true.
- /
-
- &usr_list
-  scale = 0.1d0
-  radius = 0.15d0
- /
-
