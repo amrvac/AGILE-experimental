@@ -49,7 +49,7 @@ module mod_connectivity
    type nbinfo_cf_t
       integer                            :: nigrids=0
       integer                            :: iexpand=4   ! realloc with iexpand bigger arrays
-      integer, allocatable, dimension(:) :: igrid, iencode, isize, ibuf_start, icencode
+      integer, allocatable, dimension(:) :: igrid, inc1, inc2, inc3, isize, ibuf_start
     contains
       procedure, non_overridable         :: init => init_cf
       procedure, non_overridable         :: expand => expand_cf
@@ -172,10 +172,11 @@ module mod_connectivity
      call self%init( size(self%igrid) * self%iexpand )
      self%nigrids                 = tmp%nigrids
      self%igrid(1:size_old)       = tmp%igrid
-     self%iencode(1:size_old)     = tmp%iencode
      self%ibuf_start(1:size_old)  = tmp%ibuf_start
      self%isize(1:size_old)       = tmp%isize
-     self%icencode(1:size_old)    = tmp%icencode
+     self%inc1(1:size_old)        = tmp%inc1
+     self%inc2(1:size_old)        = tmp%inc2
+     self%inc3(1:size_old)        = tmp%inc3
 
    end subroutine expand_cf
 
@@ -195,10 +196,10 @@ module mod_connectivity
      integer, intent(in)  :: nigrids
 
      if ( allocated(self%igrid) ) then
-        deallocate(self%igrid, self%iencode, self%ibuf_start, self%isize, self%icencode)
+        deallocate(self%igrid, self%inc1, self%inc2, self%inc3, self%ibuf_start, self%isize)
      end if
-     allocate(self%igrid(nigrids), self%iencode(nigrids), self%ibuf_start(nigrids), self%isize(nigrids), &
-          self%icencode(nigrids))
+     allocate(self%igrid(nigrids), self%inc1(nigrids), self%inc2(nigrids), &
+          self%inc3(nigrids), self%ibuf_start(nigrids), self%isize(nigrids))
 
    end subroutine init_cf
 
@@ -271,21 +272,21 @@ module mod_connectivity
      
    end subroutine add_to_srl
    
-   subroutine add_to_c(self, ipe, igrid, i1, i2, i3, ic1, ic2, ic3)
+   subroutine add_to_c(self, ipe, igrid, i1, i2, i3)
      class(nbprocs_info_t) :: self
-     integer, intent(in)   :: ipe, igrid, i1, i2, i3, ic1, ic2, ic3
+     integer, intent(in)   :: ipe, igrid, i1, i2, i3
      
      call self%add_ipe_to_c_list(ipe)
-     call self%add_igrid_to_c(ipe, igrid, i1, i2, i3, ic1, ic2, ic3)
+     call self%add_igrid_to_c(ipe, igrid, i1, i2, i3)
      
    end subroutine add_to_c
 
-   subroutine add_to_f(self, ipe, igrid, i1, i2, i3, ic1, ic2, ic3)
+   subroutine add_to_f(self, ipe, igrid, i1, i2, i3)
      class(nbprocs_info_t) :: self
-     integer, intent(in)   :: ipe, igrid, i1, i2, i3, ic1, ic2, ic3
+     integer, intent(in)   :: ipe, igrid, i1, i2, i3
      
      call self%add_ipe_to_f_list(ipe)
-     call self%add_igrid_to_f(ipe, igrid, i1, i2, i3, ic1, ic2, ic3)
+     call self%add_igrid_to_f(ipe, igrid, i1, i2, i3)
      
    end subroutine add_to_f
 
@@ -363,9 +364,9 @@ module mod_connectivity
      
    end subroutine add_igrid_to_srl
 
-   subroutine add_igrid_to_c(self, ipe, igrid, i1, i2, i3, ic1, ic2, ic3)
+   subroutine add_igrid_to_c(self, ipe, igrid, i1, i2, i3)
      class(nbprocs_info_t) :: self
-     integer, intent(in)   :: ipe, igrid, i1, i2, i3, ic1, ic2, ic3
+     integer, intent(in)   :: ipe, igrid, i1, i2, i3
      ! .. local ..
      integer               :: inbpe, i
 
@@ -378,19 +379,17 @@ module mod_connectivity
      ! need to enlarge storage
      if ( self%c(inbpe)%nigrids > size( self%c(inbpe)%igrid ) ) call self%c(inbpe)%expand
 
-     call self%iencode(i1,i2,i3,i)
      ! add the data at the counter
      self%c(inbpe)%igrid( self%c(inbpe)%nigrids )    = igrid
-     self%c(inbpe)%iencode( self%c(inbpe)%nigrids )  = i
-     
-     call self%iencode(ic1,ic2,ic3,i)
-     self%c(inbpe)%icencode( self%c(inbpe)%nigrids ) = i
+     self%c(inbpe)%inc1( self%c(inbpe)%nigrids )     = i1
+     self%c(inbpe)%inc2( self%c(inbpe)%nigrids )     = i2
+     self%c(inbpe)%inc3( self%c(inbpe)%nigrids )     = i3
      
    end subroutine add_igrid_to_c
    
-   subroutine add_igrid_to_f(self, ipe, igrid, i1, i2, i3, ic1, ic2, ic3)
+   subroutine add_igrid_to_f(self, ipe, igrid, i1, i2, i3)
      class(nbprocs_info_t) :: self
-     integer, intent(in)   :: ipe, igrid, i1, i2, i3, ic1, ic2, ic3
+     integer, intent(in)   :: ipe, igrid, i1, i2, i3
      ! .. local ..
      integer               :: inbpe, i
 
@@ -403,13 +402,11 @@ module mod_connectivity
      ! need to enlarge storage
      if ( self%f(inbpe)%nigrids > size( self%f(inbpe)%igrid ) ) call self%f(inbpe)%expand
 
-     call self%iencode(i1,i2,i3,i)
      ! add the data at the counter
      self%f(inbpe)%igrid( self%f(inbpe)%nigrids )    = igrid
-     self%f(inbpe)%iencode( self%f(inbpe)%nigrids )  = i
-     
-     call self%iencode(ic1,ic2,ic3,i)
-     self%f(inbpe)%icencode( self%f(inbpe)%nigrids ) = i
+     self%f(inbpe)%inc1( self%f(inbpe)%nigrids )     = i1
+     self%f(inbpe)%inc2( self%f(inbpe)%nigrids )     = i2
+     self%f(inbpe)%inc3( self%f(inbpe)%nigrids )     = i3
      
    end subroutine add_igrid_to_f
    
@@ -486,28 +483,34 @@ module mod_connectivity
    end subroutine alloc_buffers_srl
 
    subroutine alloc_buffers_f(self, nwgc, &
-         ixS_r_min1, ixS_r_max1, &
-         ixS_r_min2, ixS_r_max2, &
-         ixS_r_min3, ixS_r_max3, &
+         ixS_p_min1, ixS_p_max1, &
+         ixS_p_min2, ixS_p_max2, &
+         ixS_p_min3, ixS_p_max3, &
          ixR_r_min1, ixR_r_max1, &
          ixR_r_min2, ixR_r_max2, &
          ixR_r_min3, ixR_r_max3)
+     ! neighbor is fine
+     ! required buffers:
+     ! send: psb(ixS_p_) with indices type_send_p
+     ! receive: psb(ixR_r_) with indices type_recv_r
      
      class(nbprocs_info_t)                     :: self
      integer, intent(in)                       :: nwgc
-     integer, dimension(-1:1,-1:1), intent(in) :: &
-         ixS_r_min1, ixS_r_max1, &
-         ixS_r_min2, ixS_r_max2, &
-         ixS_r_min3, ixS_r_max3
-     integer, dimension(-1:1,0:3), intent(in) :: &        
+     integer, dimension(-1:1,0:3), intent(in) :: &
+         ixS_p_min1, ixS_p_max1, &
+         ixS_p_min2, ixS_p_max2, &
+         ixS_p_min3, ixS_p_max3, &
          ixR_r_min1, ixR_r_max1, &
          ixR_r_min2, ixR_r_max2, &
          ixR_r_min3, ixR_r_max3
      ! .. local ..
      integer         :: inb, isize_S, isize_R
-     integer         :: igrid
+     integer         :: igrid, inc1, inc2, inc3
      integer         :: iib1, iib2, iib3, ibuf_start
-     integer         :: i1, i2, i3
+     integer         :: ixSmin1, ixSmin2, ixSmin3
+     integer         :: ixRmin1, ixRmin2, ixRmin3
+     integer         :: ixSmax1, ixSmax2, ixSmax3
+     integer         :: ixRmax1, ixRmax2, ixRmax3
 
      if (allocated(self%f_send)) then
         deallocate( self%f_send, self%f_rcv, self%f_info_send, self%f_info_rcv )
@@ -521,25 +524,37 @@ module mod_connectivity
           )
 
      do inb = 1, self%nbprocs_f
-        call self%f_info_send(inb)%alloc( 4 * self%srl(inb)%nigrids )
-        call self%f_info_rcv(inb)%alloc( 4 * self%srl(inb)%nigrids )
+        call self%f_info_send(inb)%alloc( 5 * self%f(inb)%nigrids )
+        call self%f_info_rcv(inb)%alloc( 5 * self%f(inb)%nigrids )
 
         isize_S = 0; isize_R = 0; ibuf_start = 1
         do igrid = 1, self%f(inb)%nigrids
            iib1 = idphyb(1,self%f(inb)%igrid(igrid))
            iib2 = idphyb(2,self%f(inb)%igrid(igrid))
            iib3 = idphyb(3,self%f(inb)%igrid(igrid))
-           call self%idecode( i1, i2, i3, self%f(inb)%iencode(igrid) )
+           inc1 = self%f(inb)%inc1(igrid)
+           inc2 = self%f(inb)%inc2(igrid)
+           inc3 = self%f(inb)%inc3(igrid)
            
-           ixSmin1=ixS_r_min1(iib1,i1);ixSmin2=ixS_r_min2(iib2,i2)
-           ixSmin3=ixS_r_min3(iib3,i3);ixSmax1=ixS_r_max1(iib1,i1)
-           ixSmax2=ixS_r_max2(iib2,i2);ixSmax3=ixS_r_max3(iib3,i3)
+           ixSmin1=ixS_p_min1(iib1,inc1);ixSmin2=ixS_p_min2(iib2,inc2)
+           ixSmin3=ixS_p_min3(iib3,inc3);ixSmax1=ixS_p_max1(iib1,inc1)
+           ixSmax2=ixS_p_max2(iib2,inc2);ixSmax3=ixS_p_max3(iib3,inc3)
            
            ixRmin1=ixR_r_min1(iib1,inc1);ixRmin2=ixR_r_min2(iib2,inc2)
            ixRmin3=ixR_r_min3(iib3,inc3);ixRmax1=ixR_r_max1(iib1,inc1)
            ixRmax2=ixR_r_max2(iib2,inc2);ixRmax3=ixR_r_max3(iib3,inc3)
            
+           isize_S = isize_S + (ixSmax1-ixSmin1+1) * (ixSmax2-ixSmin2+1) * (ixSmax3-ixSmin3+1)
+           isize_R = isize_R + (ixRmax1-ixRmin1+1) * (ixRmax2-ixRmin2+1) * (ixRmax3-ixRmin3+1)
+
+           self%f(inb)%ibuf_start(igrid) = ibuf_start
+           self%f(inb)%isize(igrid) = (ixSmax1-ixSmin1+1) * (ixSmax2-ixSmin2+1) * (ixSmax3-ixSmin3+1) * nwgc
+           
+           ibuf_start = ibuf_start + self%f(inb)%isize(igrid)
+
         end do
+        call self%f_send(inb)%alloc(isize_S*nwgc)
+        call self%f_rcv(inb)%alloc(isize_R*nwgc)
      end do
         
    end subroutine alloc_buffers_f

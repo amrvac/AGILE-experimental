@@ -116,7 +116,7 @@ module mod_functions_connectivity
                    if ((i1==0.or.i1==2*ic1-3).and.(i2==0.or.i2==&
                         2*ic2-3).and.(i3==0.or.i3==2*ic3-3)) then
                       ! avoid double counting of coarse neighbors
-                      call nbprocs_info%add_to_c(my_neighbor%node%ipe, igrid, i1, i2, i3, ic1, ic2, ic3)
+                      call nbprocs_info%add_to_c(my_neighbor%node%ipe, igrid, i1, i2, i3)
                      nrecv_bc_p=nrecv_bc_p+1
                      nsend_bc_r=nsend_bc_r+1
                      nbuff_bc_send_r=nbuff_bc_send_r+sizes_r_send_total(i1,i2,&
@@ -171,13 +171,13 @@ module mod_functions_connectivity
                    neighbor_child(1,inc1,inc2,inc3,igrid)=child%node%igrid
                    neighbor_child(2,inc1,inc2,inc3,igrid)=child%node%ipe
                    if (child%node%ipe/=mype) then
-                      call nbprocs_info%add_to_f(my_neighbor%node%ipe, igrid, i1, i2, i3, -2*i1+ih1, -2*i2+ih2, -2*i3+ih3)
-                     nrecv_bc_r=nrecv_bc_r+1
-                     nsend_bc_p=nsend_bc_p+1
-                     nbuff_bc_send_p=nbuff_bc_send_p+sizes_p_send_total(inc1,&
-                        inc2,inc3)
-                     nbuff_bc_recv_r=nbuff_bc_recv_r+sizes_r_recv_total(inc1,&
-                        inc2,inc3)
+                      call nbprocs_info%add_to_f(my_neighbor%node%ipe, igrid, inc1, inc2, inc3)
+                      nrecv_bc_r=nrecv_bc_r+1
+                      nsend_bc_p=nsend_bc_p+1
+                      nbuff_bc_send_p=nbuff_bc_send_p+sizes_p_send_total(inc1,&
+                           inc2,inc3)
+                      nbuff_bc_recv_r=nbuff_bc_recv_r+sizes_r_recv_total(inc1,&
+                           inc2,inc3)
                    end if
                 end do
                 end do
