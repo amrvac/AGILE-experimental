@@ -1480,8 +1480,8 @@ contains
 #endif
     end do
 
-    ! fill ghost-cell values of sibling blocks
-    !$OMP PARALLEL DO SCHEDULE(dynamic) PRIVATE(igrid,iib1,iib2,iib3)
+    ! fill ghost-cell values of sibling blocks and if neighbor is coarser (f2c)
+    ! same process case
     !$acc parallel loop gang collapse(2)
     do iigrid=1, igridstail
        do i=1, 27
@@ -1672,7 +1672,6 @@ contains
     end do
     
     ! fill coarse ghost-cell values of finer neighbors in the same processor
-    !$OMP PARALLEL DO SCHEDULE(dynamic) PRIVATE(igrid,iib1,iib2,iib3)
     !$acc parallel loop gang independent private(iib1,iib2,iib3,igrid)
     do iigrid=1,igridstail; igrid=igrids(iigrid);
        iib1=idphyb(1,igrid);iib2=idphyb(2,igrid);iib3=idphyb(3,igrid);
@@ -1756,7 +1755,7 @@ contains
        end do
     end if
     
-    ! do prolongation on the ghost-cell values based on the received coarse values from coarser neighbors
+    ! do prolongation on the ghost-cell values based on the received coarse values from coarser neighbors (f2c)
     !$OMP PARALLEL DO SCHEDULE(dynamic) PRIVATE(igrid)
     !$acc parallel loop gang
     do iigrid=1,igridstail; igrid=igrids(iigrid);
