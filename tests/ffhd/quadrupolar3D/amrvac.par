@@ -1,8 +1,10 @@
  &filelist
-    base_filename='output/quad3df'
+    !base_filename='output/quad3d'
+    base_filename='/scratch-shared/hwu/ffhd/quad3d'
     autoconvert = F
     saveprim=T
     convert_type='vtuBCCmpi'
+    firstprocess=F
  /
 
  &savelist
@@ -16,7 +18,7 @@
     dtsave_log=0.1d0
 
  &stoplist
-    time_max=500.d0
+    time_max=200.d0
     dtmin=1.d-7
  /
 
@@ -38,19 +40,19 @@
  /
 
  &meshlist
-    max_blocks=25000
+    max_blocks=15000
     block_nx1=16
     block_nx2=16
     block_nx3=16
-    domain_nx1=640
-    domain_nx2=256
-    domain_nx3=512
+    domain_nx1=480
+    domain_nx2=240
+    domain_nx3=480
     xprobmin1=-5.d0
     xprobmax1=5.d0
-    xprobmin2=-2.d0
-    xprobmax2=2.d0
+    xprobmin2=-5.d0
+    xprobmax2=5.d0
     xprobmin3=0.d0
-    xprobmax3=4.d0
+    xprobmax3=5.d0
  /
 
  &paramlist
@@ -78,10 +80,10 @@
  /
 
  &rh_list
-    vlim1=2000
+    vlim1=1000
     vlim2=1000
     vlim3=1000
-    trelax=90.d0
+    trelax=50.d0
     tramp=10.d0
     periods=300.d0
     variation=75.d0
@@ -92,7 +94,7 @@
  &usr_list
     B0=5.d0
     kx=0.31415926d0
-    y0=0.4d0
+    y0=-0.4d0
     lQ0=1.d-1
     bQ0=1.d-4
  /

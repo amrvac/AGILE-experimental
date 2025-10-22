@@ -173,20 +173,28 @@ module mod_usr
         integer :: ix1, ix2, ix3 ,na
 
         double precision :: xlocal(3)
-        double precision :: bx, by, bz
+        double precision :: bfield(1:ndir)
   
-        do ix3=ixOmin3,ixOmax3
-        do ix2=ixOmin2,ixOmax2
-        do ix1=ixOmin1,ixOmax1
-            na=floor((x(ix1,ix2,ix3,3)-xprobmin3+gzone)/dya+0.5d0)
-            res=x(ix1,ix2,ix3,3)-xprobmin3+gzone-(dble(na)-0.5d0)*dya
-            w(ix1,ix2,ix3,rho_)=ra(na)+(one-cos(dpi*res/dya))/two*(ra(na+1)-ra(na))
-            w(ix1,ix2,ix3,p_)  =pa(na)+(one-cos(dpi*res/dya))/two*(pa(na+1)-pa(na))
+        if (it == 0) then
+          do ix3=ixOmin3,ixOmax3
+          do ix2=ixOmin2,ixOmax2
+          do ix1=ixOmin1,ixOmax1
+              na=floor((x(ix1,ix2,ix3,3)-xprobmin3+gzone)/dya+0.5d0)
+              res=x(ix1,ix2,ix3,3)-xprobmin3+gzone-(dble(na)-0.5d0)*dya
+              w(ix1,ix2,ix3,rho_)=ra(na)+(one-cos(dpi*res/dya))/two*(ra(na+1)-ra(na))
+              w(ix1,ix2,ix3,p_)  =pa(na)+(one-cos(dpi*res/dya))/two*(pa(na+1)-pa(na))
 
-        end do
-        end do
-        end do
-        w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3,mom(:))=zero
+          end do
+          end do
+          end do
+          w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3,mom(:))=zero
+          #:if defined('HYPERTC')
+          w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3,q_)=zero
+          #:endif
+          call phys_to_conserved(ixImin1,ixImin2,ixImin3,ixImax1,ixImax2,ixImax3,&
+              ixOmin1,ixOmin2,ixOmin3,ixOmax1,ixOmax2,ixOmax3,w,x)
+        end if
+        ! be careful no ghostzone bfield loaded when restart from datfile, require firstprocess=T
         do ix3=ixImin3,ixImax3
         do ix2=ixImin2,ixImax2
         do ix1=ixImin1,ixImax1
@@ -194,23 +202,15 @@ module mod_usr
           xlocal(2) = x(ix1,ix2,ix3,2)
           xlocal(3) = x(ix1,ix2,ix3,3)
 
-          bx = B0 * cos(kx*xlocal(1))  * exp(-kx*(xlocal(3)-y0))   - &
-                B0 * cos(3*kx*xlocal(1))* exp(-3*kx*(xlocal(3)-y0))
-          by = B0
-          bz = -B0 * sin(kx*xlocal(1))   * exp(-kx*(xlocal(3)-y0)) + &
-                B0 * sin(3*kx*xlocal(1)) * exp(-3*kx*(xlocal(3)-y0))
+          call twoarcades(xlocal, bfield)
+          ! call quadrupolar_field(xlocal, bfield)
 
-          w(ix1,ix2,ix3,iw_b1) = bx/(bx**2+by**2+bz**2)**(1./2.)
-          w(ix1,ix2,ix3,iw_b2) = by/(bx**2+by**2+bz**2)**(1./2.)
-          w(ix1,ix2,ix3,iw_b3) = bz/(bx**2+by**2+bz**2)**(1./2.)
+          w(ix1,ix2,ix3,iw_b1) = bfield(1)/(bfield(1)**2+bfield(2)**2+bfield(3)**2)**(1./2.)
+          w(ix1,ix2,ix3,iw_b2) = bfield(2)/(bfield(1)**2+bfield(2)**2+bfield(3)**2)**(1./2.)
+          w(ix1,ix2,ix3,iw_b3) = bfield(3)/(bfield(1)**2+bfield(2)**2+bfield(3)**2)**(1./2.)
         end do
         end do
         end do
-        #:if defined('HYPERTC')
-        w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3,q_)=zero
-        #:endif
-        call phys_to_conserved(ixImin1,ixImin2,ixImin3,ixImax1,ixImax2,ixImax3,&
-            ixOmin1,ixOmin2,ixOmin3,ixOmax1,ixOmax2,ixOmax3,w,x)
     end subroutine initonegrid_usr
 
     subroutine specialbound_usr(qt, ixImin1,ixImin2,ixImin3,ixImax1,ixImax2,&
@@ -322,8 +322,59 @@ module mod_usr
     if (x(3) > 0.3d0) then
       lQgrid = lQgrid*exp(-(x(3)-0.2d0)**2/0.1d0)
     end if
+
     wnew(iw_e) = wnew(iw_e) + lQgrid*lQ0*qdt
     wnew(iw_e) = wnew(iw_e) + dexp(-x(3)/5.d0)*qdt*bQ0
   end subroutine addsource_usr
+
+  subroutine bipolar_field(x, bp)
+    double precision, intent(in) :: x(1:ndim)
+    double precision, intent(out) :: bp(1:ndir)
+    double precision :: tmp, d_para, L_para, q_para
+
+    q_para = 10.d0
+    d_para = 0.6d0
+    L_para = 1.6d0
+
+    tmp=sqrt(x(2)**2+(x(3)+d_para)**2+(x(1)+L_para)**2)**3
+    bp(1)=(x(1)+L_para)/tmp
+    bp(2)=x(2)/tmp
+    bp(3)=(x(3)+d_para)/tmp
+    tmp=sqrt(x(2)**2+(x(3)+d_para)**2+(x(1)-L_para)**2)**3
+    bp(1)=bp(1)-(x(1)-L_para)/tmp
+    bp(2)=bp(2)-x(2)/tmp
+    bp(3)=bp(3)-(x(3)+d_para)/tmp
+    bp(:)=q_para*bp(:)
+
+  end subroutine bipolar_field
+
+  subroutine quadrupolar_field(x, bq)
+    double precision, intent(in) :: x(1:ndim)
+    double precision, intent(out) :: bq(1:ndir)
+    double precision :: x1(1:ndim), x2(1:ndim), bp1(1:ndir), bp2(1:ndir)
+    double precision :: offset
+
+    offset = 2.0d0
+    x1(1:ndim) = x(1:ndim)
+    x1(1) = x(1) + offset
+    x2(1:ndim) = x(1:ndim)
+    x2(1) = x(1) - offset
+    call bipolar_field(x1, bp1)
+    call bipolar_field(x2, bp2)
+    bq(:) = (bp1(:) + bp2(:))
+
+  end subroutine quadrupolar_field
+  
+  subroutine twoarcades(x, ba)
+    double precision, intent(in) :: x(1:ndim)
+    double precision, intent(out) :: ba(1:ndir)
+    
+    ba(1) = B0 * cos(kx*x(1))  * exp(-kx*(x(3)-y0))   - &
+          B0 * cos(3*kx*x(1))* exp(-3*kx*(x(3)-y0))
+    ba(2) = 0.5*B0*exp(-kx*(x(3)-y0))
+    ba(3) = -B0 * sin(kx*x(1))   * exp(-kx*(x(3)-y0)) + &
+          B0 * sin(3*kx*x(1)) * exp(-3*kx*(x(3)-y0))
+
+  end subroutine twoarcades
 
   end module mod_usr
