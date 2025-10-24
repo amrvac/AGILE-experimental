@@ -1154,6 +1154,21 @@ contains
     if (present(req_diag)) req_diagonal = req_diag
     !$acc update device(req_diagonal)
 
+    ! get maximum inner list sizes in order to collapse the loops:
+    imaxigrids_srl = 0
+    do inb = 1, nbprocs_info%nbprocs_srl
+       imaxigrids_srl = max(nbprocs_info%srl(inb)%nigrids, imaxigrids_srl)
+    end do
+    imaxigrids_f = 0
+    do inb = 1, nbprocs_info%nbprocs_f
+       imaxigrids_f = max(nbprocs_info%f(inb)%nigrids, imaxigrids_f)
+    end do
+    imaxigrids_c = 0
+    do inb = 1, nbprocs_info%nbprocs_c
+       imaxigrids_c = max(nbprocs_info%c(inb)%nigrids, imaxigrids_c)
+    end do
+
+    
     ! fill internal physical boundary
     if (internalboundary) then
        call getintbc(time,ixGlo1,ixGlo2,ixGlo3,ixGhi1,ixGhi2,ixGhi3)
@@ -1163,8 +1178,8 @@ contains
     if(bcphys.and. .not.stagger_grid) then
        !$OMP PARALLEL DO SCHEDULE(dynamic) PRIVATE(igrid)
        !$acc parallel loop gang
-       do iigrid=1,igridstail; igrid=igrids(iigrid);
-          if(.not.phyboundblock(igrid)) cycle
+       do iigrid = 1, igridstail; igrid=igrids(iigrid);
+          if (.not.phyboundblock(igrid)) cycle
           call fill_boundary_before_gc(psb(igrid),igrid,time,qdt)
        end do
        !$OMP END PARALLEL DO
@@ -1174,12 +1189,12 @@ contains
     ! prepare coarse values to send to coarser neighbors
     !$OMP PARALLEL DO SCHEDULE(dynamic) PRIVATE(igrid)
     !$acc parallel loop gang
-    do iigrid=1,igridstail; igrid=igrids(iigrid);
-       if(any(neighbor_type(:,:,:,igrid)==neighbor_coarse)) then
+    do iigrid = 1, igridstail; igrid=igrids(iigrid);
+       if (any(neighbor_type(:,:,:,igrid)==neighbor_coarse)) then
 
           CoFiratio=one/dble(2**ndim)
           !$acc loop collapse(4) vector
-          do iw=nwhead,nwtail
+          do iw = nwhead, nwtail
              do ixCo3 = ixCoMmin3,ixCoMmax3
                 do ixCo2 = ixCoMmin2,ixCoMmax2
                    do ixCo1 = ixCoMmin1,ixCoMmax1
@@ -1208,11 +1223,11 @@ contains
 !               ixMmin1,ixMmin2,ixMmin3,ixMmax1,ixMmax2,ixMmax3,psc(igrid),&
 !               ixCoGmin1,ixCoGmin2,ixCoGmin3,ixCoGmax1,ixCoGmax2,ixCoGmax3,&
 !               ixCoMmin1,ixCoMmin2,ixCoMmin3,ixCoMmax1,ixCoMmax2,ixCoMmax3)
-          do i3=-1,1
-             do i2=-1,1
-                do i1=-1,1
-                   if(skip_direction([ i1,i2,i3 ])) cycle
-                   if(neighbor_type(i1,i2,i3,igrid)==neighbor_coarse) call &
+          do i3 = -1, 1
+             do i2 = -1, 1
+                do i1 = -1, 1
+                   if (skip_direction([ i1,i2,i3 ])) cycle
+                   if (neighbor_type(i1,i2,i3,igrid)==neighbor_coarse) call &
                         fill_coarse_boundary(time,igrid,i1,i2,i3)
                 end do
              end do
@@ -1270,10 +1285,6 @@ contains
     end do
     
     ! fill the SRL send buffers on GPU
-    imaxigrids_srl = 0
-    do inb = 1, nbprocs_info%nbprocs_srl
-       imaxigrids_srl = max(nbprocs_info%srl(inb)%nigrids, imaxigrids_srl)
-    end do
     !$acc parallel loop gang collapse(2) independent private(Nx1,Nx2,Nx3,ienc)
     do inb = 1, nbprocs_info%nbprocs_srl
        do i = 1, imaxigrids_srl
@@ -1314,10 +1325,6 @@ contains
     end do
 
     ! fill the C send buffers on GPU (send_restrict)
-    imaxigrids_c = 0
-    do inb = 1, nbprocs_info%nbprocs_c
-       imaxigrids_c = max(nbprocs_info%c(inb)%nigrids, imaxigrids_c)
-    end do
     !$acc parallel loop gang collapse(2) independent private(Nx1,Nx2,Nx3,i1,i2,i3,inc1,inc2,inc3)
     do inb = 1, nbprocs_info%nbprocs_c
        do i = 1, imaxigrids_c
@@ -1423,15 +1430,15 @@ contains
     ! fill ghost-cell values of sibling blocks and if neighbor is coarser (f2c)
     ! same process case
     !$acc parallel loop gang collapse(2)
-    do iigrid=1, igridstail
-       do i=1, 27
+    do iigrid = 1, igridstail
+       do i = 1, 27
           call idecode( i1, i2, i3, i)
           if (skip_direction([ i1,i2,i3 ])) cycle
           igrid=igrids(iigrid)
           iib1=idphyb(1,igrid); iib2=idphyb(2,igrid); iib3=idphyb(3,igrid)
           ipe_neighbor=neighbor(2,i1,i2,i3,igrid)
 
-          if(ipe_neighbor==mype) then
+          if (ipe_neighbor==mype) then
              ineighbor=neighbor(1,i1,i2,i3,igrid)
 
              select case (neighbor_type(i1,i2,i3,igrid))
@@ -1549,7 +1556,6 @@ contains
        end do
     end do
 
-
     call MPI_WAITALL(nbprocs_info%nbprocs_f*2, recv_f_nb, recvstatus_f_nb, ierrmpi)
     call MPI_WAITALL(nbprocs_info%nbprocs_c*2, send_c_nb, sendstatus_c_nb, ierrmpi)
 
@@ -1561,10 +1567,6 @@ contains
 #endif
 
     ! unpack the MPI buffers, fine neighbor, (f_recv), recv_restrict
-    imaxigrids_f = 0
-    do inb = 1, nbprocs_info%nbprocs_f
-       imaxigrids_srl = max(nbprocs_info%f(inb)%nigrids, imaxigrids_f)
-    end do
     !$acc parallel loop gang collapse(2) independent private(Nx1,Nx2,Nx3,ienc)
     do inb = 1, nbprocs_info%nbprocs_f
        do i = 1, imaxigrids_f
@@ -1635,7 +1637,7 @@ contains
       !$acc end host_data
 #endif
     end do
-    
+
     ! fill the F (neighbor is finer) send buffer on GPU (send_prolong)
     !$acc parallel loop gang collapse(2) independent private(Nx1,Nx2,Nx3,inc1,inc2,inc3,n_inc1,n_inc2,n_inc3)
     do inb = 1, nbprocs_info%nbprocs_f
@@ -1679,7 +1681,7 @@ contains
           if (n_inc2 == 0) n_inc2 = 3; if (n_inc2 == 3) n_inc2 = 0
           if (n_inc3 == 0) n_inc3 = 3; if (n_inc3 == 3) n_inc3 = 0
 
-          nbprocs_info%c_info_send(inb)%buffer( 1 + 5 * (i - 1) : 5 * i ) = &
+          nbprocs_info%f_info_send(inb)%buffer( 1 + 5 * (i - 1) : 5 * i ) = &
                [neighbor_child(1,inc1,inc2,inc3,igrid), n_inc1, n_inc2, n_inc3, ibuf_start]
        end do
     end do
@@ -1724,32 +1726,33 @@ contains
                 if (neighbor_type(i1,i2,i3,igrid)==neighbor_fine) then
                    !  inline of call bc_fill_prolong(igrid,i1,i2,i3,iib1,iib2,iib3) :
 
-                   do ic3=1+int((1-i3)/2),2-int((1+i3)/2)
-                      inc3=2*i3+ic3
-                      do ic2=1+int((1-i2)/2),2-int((1+i2)/2)
-                         inc2=2*i2+ic2
-                         do ic1=1+int((1-i1)/2),2-int((1+i1)/2)
-                            inc1=2*i1+ic1
-                            ipe_neighbor=neighbor_child(2,inc1,inc2,inc3,igrid)
+                   do ic3 = 1+int((1-i3)/2), 2-int((1+i3)/2)
+                      inc3 = 2*i3+ic3
+                      do ic2 = 1+int((1-i2)/2), 2-int((1+i2)/2)
+                         inc2 = 2*i2+ic2
+                         do ic1 = 1+int((1-i1)/2), 2-int((1+i1)/2)
+                            inc1 = 2*i1+ic1
+                            ipe_neighbor = neighbor_child(2,inc1,inc2,inc3,igrid)
                             if(ipe_neighbor==mype) then
                                ixSmin1=ixS_p_min1(iib1,inc1);ixSmin2=ixS_p_min2(iib2,inc2)
                                ixSmin3=ixS_p_min3(iib3,inc3);ixSmax1=ixS_p_max1(iib1,inc1)
-                               ixSmax2=ixS_p_max2(iib2,inc2);ixSmax3=ixS_p_max3(iib3,inc3);
-                               ineighbor=neighbor_child(1,inc1,inc2,inc3,igrid)
-                               ipole=neighbor_pole(i1,i2,i3,igrid)
-                               n_i1=-i1;n_i2=-i2;n_i3=-i3;
-                               n_inc1=ic1+n_i1;n_inc2=ic2+n_i2;n_inc3=ic3+n_i3;
+                               ixSmax2=ixS_p_max2(iib2,inc2);ixSmax3=ixS_p_max3(iib3,inc3)
+                               
+                               ineighbor = neighbor_child(1,inc1,inc2,inc3,igrid)
+                               n_i1=-i1; n_i2=-i2; n_i3=-i3
+                               n_inc1=ic1+n_i1; n_inc2=ic2+n_i2; n_inc3=ic3+n_i3
+                               
                                ixRmin1=ixR_p_min1(iib1,n_inc1)
                                ixRmin2=ixR_p_min2(iib2,n_inc2)
                                ixRmin3=ixR_p_min3(iib3,n_inc3)
                                ixRmax1=ixR_p_max1(iib1,n_inc1)
                                ixRmax2=ixR_p_max2(iib2,n_inc2)
-                               ixRmax3=ixR_p_max3(iib3,n_inc3);
+                               ixRmax3=ixR_p_max3(iib3,n_inc3)
 
                                do iw = nwhead, nwtail
-                                  do ix3=0,ixRmax3-ixRmin3
-                                     do ix2=0,ixRmax2-ixRmin2
-                                        do ix1=0,ixRmax1-ixRmin1
+                                  do ix3 =0, ixRmax3-ixRmin3
+                                     do ix2 = 0, ixRmax2-ixRmin2
+                                        do ix1 = 0, ixRmax1-ixRmin1
                                            psc(ineighbor)%w(ixRmin1+ix1,ixRmin2+ix2,&
                                                 ixRmin3+ix3,iw) = bg(bgstep)%w(ixSmin1+ix1,&
                                                 ixSmin2+ix2,ixSmin3+ix3,iw, igrid)
@@ -1810,7 +1813,7 @@ contains
                    do ix1 = ixRmin1, ixRmax1
                       ! going through a tempval is a workaround for Cray, which gives
                       ! a memory access fault on the GPUs otherwise
-                      tempval = nbprocs_info%f_rcv(inb)%buffer( &
+                      tempval = nbprocs_info%c_rcv(inb)%buffer( &
                            ibuf_start &
                            + (ix1-ixRmin1) &
                            + Nx1 * (ix2-ixRmin2) &
@@ -1829,13 +1832,13 @@ contains
     ! do prolongation on the ghost-cell values based on the received coarse values from coarser neighbors (f2c)
     !$OMP PARALLEL DO SCHEDULE(dynamic) PRIVATE(igrid)
     !$acc parallel loop gang
-    do iigrid=1,igridstail; igrid=igrids(iigrid);
-       iib1=idphyb(1,igrid);iib2=idphyb(2,igrid);iib3=idphyb(3,igrid);
+    do iigrid=1, igridstail; igrid=igrids(iigrid);
+       iib1=idphyb(1,igrid);iib2=idphyb(2,igrid);iib3=idphyb(3,igrid)
        !$acc loop collapse(3) vector independent private(slope)
        !      inline variant of call gc_prolong(igrid)
-       do i3=-1,1
-          do i2=-1,1
-             do i1=-1,1
+       do i3 = -1, 1
+          do i2 = -1, 1
+             do i1 = -1, 1
                 if (skip_direction([ i1,i2,i3 ])) cycle
                 if (neighbor_type(i1,i2,i3,igrid)==neighbor_coarse) then
                    !     inline variant of call bc_prolong(igrid,i1,i2,i3,iib1,iib2,iib3)

@@ -171,7 +171,7 @@ module mod_functions_connectivity
                    neighbor_child(1,inc1,inc2,inc3,igrid)=child%node%igrid
                    neighbor_child(2,inc1,inc2,inc3,igrid)=child%node%ipe
                    if (child%node%ipe/=mype) then
-                      call nbprocs_info%add_to_f(my_neighbor%node%ipe, igrid, inc1, inc2, inc3)
+                      call nbprocs_info%add_to_f(child%node%ipe, igrid, inc1, inc2, inc3)
                       nrecv_bc_r=nrecv_bc_r+1
                       nsend_bc_p=nsend_bc_p+1
                       nbuff_bc_send_p=nbuff_bc_send_p+sizes_p_send_total(inc1,&
@@ -404,16 +404,37 @@ module mod_functions_connectivity
          )
 
     ! allocate nbstructure srl requests and status
+    ! SRL:
     if (allocated(recvstatus_srl_nb)) then
        deallocate(recv_srl_nb, recvstatus_srl_nb)
     end if
     allocate(recv_srl_nb(nbprocs_info%nbprocs_srl*2), recvstatus_srl_nb(MPI_STATUS_SIZE,nbprocs_info%nbprocs_srl*2))
-
     if (allocated(sendstatus_srl_nb)) then
        deallocate(send_srl_nb, sendstatus_srl_nb)
     end if
     allocate(send_srl_nb(nbprocs_info%nbprocs_srl*2), sendstatus_srl_nb(MPI_STATUS_SIZE,nbprocs_info%nbprocs_srl*2))
 
+    ! F:
+    if (allocated(recvstatus_f_nb)) then
+       deallocate(recv_f_nb, recvstatus_f_nb)
+    end if
+    allocate(recv_f_nb(nbprocs_info%nbprocs_f*2), recvstatus_f_nb(MPI_STATUS_SIZE,nbprocs_info%nbprocs_f*2))
+    if (allocated(sendstatus_f_nb)) then
+       deallocate(send_f_nb, sendstatus_f_nb)
+    end if
+    allocate(send_f_nb(nbprocs_info%nbprocs_f*2), sendstatus_f_nb(MPI_STATUS_SIZE,nbprocs_info%nbprocs_f*2))
+
+    ! C:
+    if (allocated(recvstatus_c_nb)) then
+       deallocate(recv_c_nb, recvstatus_c_nb)
+    end if
+    allocate(recv_c_nb(nbprocs_info%nbprocs_c*2), recvstatus_c_nb(MPI_STATUS_SIZE,nbprocs_info%nbprocs_c*2))
+    if (allocated(sendstatus_c_nb)) then
+       deallocate(send_c_nb, sendstatus_c_nb)
+    end if
+    allocate(send_c_nb(nbprocs_info%nbprocs_c*2), sendstatus_c_nb(MPI_STATUS_SIZE,nbprocs_info%nbprocs_c*2))
+
+    
     ! allocate space for mpi recieve for siblings and restrict ghost cell filling
     nrecvs=nrecv_bc_srl+nrecv_bc_r
     if (allocated(recvstatus_c_sr)) then
