@@ -580,6 +580,8 @@ module mod_functions_connectivity
     !update the neighbor information on the device
     !$acc update device(neighbor, neighbor_type, neighbor_pole, neighbor_child, idphyb, nbprocs_info)
     !$acc enter data copyin(nbprocs_info%srl_rcv, nbprocs_info%srl_send, nbprocs_info%srl, nbprocs_info%srl_info_rcv, nbprocs_info%srl_info_send)
+    !$acc enter data copyin(nbprocs_info%c_rcv, nbprocs_info%c_send, nbprocs_info%c, nbprocs_info%c_info_rcv, nbprocs_info%c_info_send)
+    !$acc enter data copyin(nbprocs_info%f_rcv, nbprocs_info%f_send, nbprocs_info%f, nbprocs_info%f_info_rcv, nbprocs_info%f_info_send)
     do ipe_neighbor = 1, nbprocs_info%nbprocs_srl
        !$acc enter data copyin(nbprocs_info%srl_rcv(ipe_neighbor)%buffer, nbprocs_info%srl_info_rcv(ipe_neighbor)%buffer)
        !$acc enter data copyin(nbprocs_info%srl_send(ipe_neighbor)%buffer, nbprocs_info%srl_info_send(ipe_neighbor)%buffer)
@@ -588,6 +590,24 @@ module mod_functions_connectivity
        !$acc enter data copyin(nbprocs_info%srl(ipe_neighbor)%isize)
        !$acc enter data copyin(nbprocs_info%srl(ipe_neighbor)%ibuf_start)
        !$acc enter data copyin(nbprocs_info%srl(ipe_neighbor)%nigrids)
+    end do
+    do ipe_neighbor = 1, nbprocs_info%nbprocs_f
+       !$acc enter data copyin(nbprocs_info%f_rcv(ipe_neighbor)%buffer, nbprocs_info%f_info_rcv(ipe_neighbor)%buffer)
+       !$acc enter data copyin(nbprocs_info%f_send(ipe_neighbor)%buffer, nbprocs_info%f_info_send(ipe_neighbor)%buffer)
+       !$acc enter data copyin(nbprocs_info%f(ipe_neighbor)%igrid)
+       !$acc enter data copyin(nbprocs_info%f(ipe_neighbor)%iencode)
+       !$acc enter data copyin(nbprocs_info%f(ipe_neighbor)%isize)
+       !$acc enter data copyin(nbprocs_info%f(ipe_neighbor)%ibuf_start)
+       !$acc enter data copyin(nbprocs_info%f(ipe_neighbor)%nigrids)
+    end do
+    do ipe_neighbor = 1, nbprocs_info%nbprocs_c
+       !$acc enter data copyin(nbprocs_info%c_rcv(ipe_neighbor)%buffer, nbprocs_info%c_info_rcv(ipe_neighbor)%buffer)
+       !$acc enter data copyin(nbprocs_info%c_send(ipe_neighbor)%buffer, nbprocs_info%c_info_send(ipe_neighbor)%buffer)
+       !$acc enter data copyin(nbprocs_info%c(ipe_neighbor)%igrid)
+       !$acc enter data copyin(nbprocs_info%c(ipe_neighbor)%iencode)
+       !$acc enter data copyin(nbprocs_info%c(ipe_neighbor)%isize)
+       !$acc enter data copyin(nbprocs_info%c(ipe_neighbor)%ibuf_start)
+       !$acc enter data copyin(nbprocs_info%c(ipe_neighbor)%nigrids)
     end do
 
 
