@@ -71,7 +71,8 @@ module mod_functions_connectivity
 
     ! total size of buffer arrays
     integer :: nbuff_bc_recv_srl, nbuff_bc_send_srl, nbuff_bc_recv_r,&
-        nbuff_bc_send_r, nbuff_bc_recv_p, nbuff_bc_send_p
+         nbuff_bc_send_r, nbuff_bc_recv_p, nbuff_bc_send_p
+    logical :: first = .true.
 
     nrecv_bc_srl=0; nsend_bc_srl=0
     nrecv_bc_r=0; nsend_bc_r=0
@@ -597,40 +598,91 @@ module mod_functions_connectivity
       sendrequest_p=MPI_REQUEST_NULL
     end if
 
-
+    
     !update the neighbor information on the device
-    !$acc update device(neighbor, neighbor_type, neighbor_pole, neighbor_child, idphyb, nbprocs_info)
-    !$acc enter data copyin(nbprocs_info%srl_rcv, nbprocs_info%srl_send, nbprocs_info%srl, nbprocs_info%srl_info_rcv, nbprocs_info%srl_info_send)
-    !$acc enter data copyin(nbprocs_info%c_rcv, nbprocs_info%c_send, nbprocs_info%c, nbprocs_info%c_info_rcv, nbprocs_info%c_info_send)
-    !$acc enter data copyin(nbprocs_info%f_rcv, nbprocs_info%f_send, nbprocs_info%f, nbprocs_info%f_info_rcv, nbprocs_info%f_info_send)
-    do ipe_neighbor = 1, nbprocs_info%nbprocs_srl
-       !$acc enter data copyin(nbprocs_info%srl_rcv(ipe_neighbor)%buffer, nbprocs_info%srl_info_rcv(ipe_neighbor)%buffer)
-       !$acc enter data copyin(nbprocs_info%srl_send(ipe_neighbor)%buffer, nbprocs_info%srl_info_send(ipe_neighbor)%buffer)
-       !$acc enter data copyin(nbprocs_info%srl(ipe_neighbor)%igrid)
-       !$acc enter data copyin(nbprocs_info%srl(ipe_neighbor)%iencode)
-       !$acc enter data copyin(nbprocs_info%srl(ipe_neighbor)%isize)
-       !$acc enter data copyin(nbprocs_info%srl(ipe_neighbor)%ibuf_start)
-       !$acc enter data copyin(nbprocs_info%srl(ipe_neighbor)%nigrids)
-    end do
-    do ipe_neighbor = 1, nbprocs_info%nbprocs_f
-       !$acc enter data copyin(nbprocs_info%f_rcv(ipe_neighbor)%buffer, nbprocs_info%f_info_rcv(ipe_neighbor)%buffer)
-       !$acc enter data copyin(nbprocs_info%f_send(ipe_neighbor)%buffer, nbprocs_info%f_info_send(ipe_neighbor)%buffer)
-       !$acc enter data copyin(nbprocs_info%f(ipe_neighbor)%igrid)
-       !$acc enter data copyin(nbprocs_info%f(ipe_neighbor)%iencode)
-       !$acc enter data copyin(nbprocs_info%f(ipe_neighbor)%isize)
-       !$acc enter data copyin(nbprocs_info%f(ipe_neighbor)%ibuf_start)
-       !$acc enter data copyin(nbprocs_info%f(ipe_neighbor)%nigrids)
-    end do
-    do ipe_neighbor = 1, nbprocs_info%nbprocs_c
-       !$acc enter data copyin(nbprocs_info%c_rcv(ipe_neighbor)%buffer, nbprocs_info%c_info_rcv(ipe_neighbor)%buffer)
-       !$acc enter data copyin(nbprocs_info%c_send(ipe_neighbor)%buffer, nbprocs_info%c_info_send(ipe_neighbor)%buffer)
-       !$acc enter data copyin(nbprocs_info%c(ipe_neighbor)%igrid)
-       !$acc enter data copyin(nbprocs_info%c(ipe_neighbor)%iencode)
-       !$acc enter data copyin(nbprocs_info%c(ipe_neighbor)%isize)
-       !$acc enter data copyin(nbprocs_info%c(ipe_neighbor)%ibuf_start)
-       !$acc enter data copyin(nbprocs_info%c(ipe_neighbor)%nigrids)
-    end do
+    !$acc update device(neighbor, neighbor_type, neighbor_pole, neighbor_child, idphyb)
+    if (first) then
+       !$acc update device(nbprocs_info)
+       !$acc enter data copyin(nbprocs_info%srl_rcv, nbprocs_info%srl_send, nbprocs_info%srl, nbprocs_info%srl_info_rcv, nbprocs_info%srl_info_send)
+       !$acc enter data copyin(nbprocs_info%c_rcv, nbprocs_info%c_send, nbprocs_info%c, nbprocs_info%c_info_rcv, nbprocs_info%c_info_send)
+       !$acc enter data copyin(nbprocs_info%f_rcv, nbprocs_info%f_send, nbprocs_info%f, nbprocs_info%f_info_rcv, nbprocs_info%f_info_send)
+       do ipe_neighbor = 1, nbprocs_info%max_nbprocs
+          !$acc enter data copyin(nbprocs_info%srl_rcv(ipe_neighbor)%buffer, nbprocs_info%srl_info_rcv(ipe_neighbor)%buffer)
+          !$acc enter data copyin(nbprocs_info%srl_send(ipe_neighbor)%buffer, nbprocs_info%srl_info_send(ipe_neighbor)%buffer)
+          !$acc enter data copyin(nbprocs_info%srl(ipe_neighbor)%igrid)
+          !$acc enter data copyin(nbprocs_info%srl(ipe_neighbor)%iencode)
+          !$acc enter data copyin(nbprocs_info%srl(ipe_neighbor)%isize)
+          !$acc enter data copyin(nbprocs_info%srl(ipe_neighbor)%ibuf_start)
+          !$acc enter data copyin(nbprocs_info%srl(ipe_neighbor)%nigrids)
+       end do
+       do ipe_neighbor = 1, nbprocs_info%max_nbprocs
+          !$acc enter data copyin(nbprocs_info%f_rcv(ipe_neighbor)%buffer, nbprocs_info%f_info_rcv(ipe_neighbor)%buffer)
+          !$acc enter data copyin(nbprocs_info%f_send(ipe_neighbor)%buffer, nbprocs_info%f_info_send(ipe_neighbor)%buffer)
+          !$acc enter data copyin(nbprocs_info%f(ipe_neighbor)%igrid)
+          !$acc enter data copyin(nbprocs_info%f(ipe_neighbor)%i1)
+          !$acc enter data copyin(nbprocs_info%f(ipe_neighbor)%i2)
+          !$acc enter data copyin(nbprocs_info%f(ipe_neighbor)%i3)
+          !$acc enter data copyin(nbprocs_info%f(ipe_neighbor)%inc1)
+          !$acc enter data copyin(nbprocs_info%f(ipe_neighbor)%inc2)
+          !$acc enter data copyin(nbprocs_info%f(ipe_neighbor)%inc3)
+          !$acc enter data copyin(nbprocs_info%f(ipe_neighbor)%isize)
+          !$acc enter data copyin(nbprocs_info%f(ipe_neighbor)%ibuf_start)
+          !$acc enter data copyin(nbprocs_info%f(ipe_neighbor)%nigrids)
+       end do
+       do ipe_neighbor = 1, nbprocs_info%max_nbprocs
+          !$acc enter data copyin(nbprocs_info%c_rcv(ipe_neighbor)%buffer, nbprocs_info%c_info_rcv(ipe_neighbor)%buffer)
+          !$acc enter data copyin(nbprocs_info%c_send(ipe_neighbor)%buffer, nbprocs_info%c_info_send(ipe_neighbor)%buffer)
+          !$acc enter data copyin(nbprocs_info%c(ipe_neighbor)%igrid)
+          !$acc enter data copyin(nbprocs_info%c(ipe_neighbor)%i1)
+          !$acc enter data copyin(nbprocs_info%c(ipe_neighbor)%i2)
+          !$acc enter data copyin(nbprocs_info%c(ipe_neighbor)%i3)
+          !$acc enter data copyin(nbprocs_info%c(ipe_neighbor)%inc1)
+          !$acc enter data copyin(nbprocs_info%c(ipe_neighbor)%inc2)
+          !$acc enter data copyin(nbprocs_info%c(ipe_neighbor)%inc3)       
+          !$acc enter data copyin(nbprocs_info%c(ipe_neighbor)%isize)
+          !$acc enter data copyin(nbprocs_info%c(ipe_neighbor)%ibuf_start)
+          !$acc enter data copyin(nbprocs_info%c(ipe_neighbor)%nigrids)
+       end do
 
+       first = .false.
+       
+    else
+       !$acc update device(nbprocs_info%nbprocs_srl)
+       do ipe_neighbor = 1, nbprocs_info%nbprocs_srl
+          !$acc update device(nbprocs_info%srl(ipe_neighbor)%nigrids)
+          !$acc update device(nbprocs_info%srl(ipe_neighbor)%igrid)
+          !$acc update device(nbprocs_info%srl(ipe_neighbor)%iencode)
+          !$acc update device(nbprocs_info%srl(ipe_neighbor)%isize)
+          !$acc update device(nbprocs_info%srl(ipe_neighbor)%ibuf_start)
+       end do
+       !$acc update device(nbprocs_info%nbprocs_f)
+       do ipe_neighbor = 1, nbprocs_info%nbprocs_f
+          !$acc update device(nbprocs_info%f(ipe_neighbor)%nigrids)
+          !$acc update device(nbprocs_info%f(ipe_neighbor)%igrid)
+          !$acc update device(nbprocs_info%f(ipe_neighbor)%i1)
+          !$acc update device(nbprocs_info%f(ipe_neighbor)%i2)
+          !$acc update device(nbprocs_info%f(ipe_neighbor)%i3)
+          !$acc update device(nbprocs_info%f(ipe_neighbor)%inc1)
+          !$acc update device(nbprocs_info%f(ipe_neighbor)%inc2)
+          !$acc update device(nbprocs_info%f(ipe_neighbor)%inc3)
+          !$acc update device(nbprocs_info%f(ipe_neighbor)%isize)
+          !$acc update device(nbprocs_info%f(ipe_neighbor)%ibuf_start)
+       end do
+       !$acc update device(nbprocs_info%nbprocs_c)
+       do ipe_neighbor = 1, nbprocs_info%nbprocs_c
+          !$acc update device(nbprocs_info%c(ipe_neighbor)%nigrids)
+          !$acc update device(nbprocs_info%c(ipe_neighbor)%igrid)
+          !$acc update device(nbprocs_info%c(ipe_neighbor)%i1)
+          !$acc update device(nbprocs_info%c(ipe_neighbor)%i2)
+          !$acc update device(nbprocs_info%c(ipe_neighbor)%i3)
+          !$acc update device(nbprocs_info%c(ipe_neighbor)%inc1)
+          !$acc update device(nbprocs_info%c(ipe_neighbor)%inc2)
+          !$acc update device(nbprocs_info%c(ipe_neighbor)%inc3)       
+          !$acc update device(nbprocs_info%c(ipe_neighbor)%isize)
+          !$acc update device(nbprocs_info%c(ipe_neighbor)%ibuf_start)
+       end do
+
+    end if
 
 
   end subroutine build_connectivity

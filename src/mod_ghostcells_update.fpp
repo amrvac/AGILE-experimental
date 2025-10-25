@@ -1142,6 +1142,7 @@ contains
     real(dp) :: xFimin1, xFimin2, xFimin3, xComin1, xComin2, xComin3
     real(dp) :: xFi1, xFi2, xFi3, xCo3, xCo2, xCo1
     real(dp) :: eta1, eta2, eta3, slopeL, slopeR, slopeC, signR, signC
+    integer  :: idbg = 0
 
     time_bcin=MPI_WTIME()
     call nvtxStartRange("getbc",2)
@@ -1254,10 +1255,10 @@ contains
 #endif
 #endif
        call MPI_IRECV(nbprocs_info%srl_rcv(inb)%buffer, &
-            size(nbprocs_info%srl_rcv(inb)%buffer), &
+            nbprocs_info%srl_rcv(inb)%size, &
             MPI_DOUBLE_PRECISION, nbprocs_info%nbprocs_srl_list(inb), 1, icomm, recv_srl_nb(inb), ierrmpi)
        call MPI_IRECV(nbprocs_info%srl_info_rcv(inb)%buffer, &
-            size(nbprocs_info%srl_info_rcv(inb)%buffer), &
+            nbprocs_info%srl_info_rcv(inb)%size, &
             MPI_INTEGER, nbprocs_info%nbprocs_srl_list(inb), 2, icomm, recv_srl_nb(nbprocs_info%nbprocs_srl + inb), ierrmpi)
 #ifndef NOGPUDIRECT
       !$acc end host_data
@@ -1274,53 +1275,52 @@ contains
 #endif
 #endif
        call MPI_IRECV(nbprocs_info%f_rcv(inb)%buffer, &
-            size(nbprocs_info%f_rcv(inb)%buffer), &
+            nbprocs_info%f_rcv(inb)%size, &
             MPI_DOUBLE_PRECISION, nbprocs_info%nbprocs_f_list(inb), 1, icomm, recv_f_nb(inb), ierrmpi)
        call MPI_IRECV(nbprocs_info%f_info_rcv(inb)%buffer, &
-            size(nbprocs_info%f_info_rcv(inb)%buffer), &
+            nbprocs_info%f_info_rcv(inb)%size, &
             MPI_INTEGER, nbprocs_info%nbprocs_f_list(inb), 2, icomm, recv_f_nb(nbprocs_info%nbprocs_f + inb), ierrmpi)
 #ifndef NOGPUDIRECT
       !$acc end host_data
 #endif
     end do
-    
+
     ! fill the SRL send buffers on GPU
-    !$acc parallel loop gang collapse(2) independent private(Nx1,Nx2,Nx3,ienc)
+    !$acc parallel loop gang collapse(2) private(Nx1,Nx2,Nx3,ienc)
     do inb = 1, nbprocs_info%nbprocs_srl
        do i = 1, imaxigrids_srl
           if (i > nbprocs_info%srl(inb)%nigrids) cycle
 
-          igrid = nbprocs_info%srl(inb)%igrid(i)
-          ienc = nbprocs_info%srl(inb)%iencode(i)
-          ibuf_start = nbprocs_info%srl(inb)%ibuf_start(i)
-          call idecode( i1, i2, i3, ienc )
-          iib1=idphyb(1,igrid); iib2=idphyb(2,igrid); iib3=idphyb(3,igrid)
+             igrid = nbprocs_info%srl(inb)%igrid(i)
+             ienc = nbprocs_info%srl(inb)%iencode(i)
+             ibuf_start = nbprocs_info%srl(inb)%ibuf_start(i)
+             call idecode( i1, i2, i3, ienc )
+             iib1=idphyb(1,igrid); iib2=idphyb(2,igrid); iib3=idphyb(3,igrid)
 
-          ! now fill the data and info buffers
-          ixSmin1=ixS_srl_min1(iib1,i1); ixSmax1=ixS_srl_max1(iib1,i1)
-          ixSmin2=ixS_srl_min2(iib2,i2); ixSmax2=ixS_srl_max2(iib2,i2)
-          ixSmin3=ixS_srl_min3(iib3,i3); ixSmax3=ixS_srl_max3(iib3,i3)
-          Nx1=ixSmax1-ixSmin1+1; Nx2=ixSmax2-ixSmin2+1; Nx3=ixSmax3-ixSmin3+1
+             ! now fill the data and info buffers
+             ixSmin1=ixS_srl_min1(iib1,i1); ixSmax1=ixS_srl_max1(iib1,i1)
+             ixSmin2=ixS_srl_min2(iib2,i2); ixSmax2=ixS_srl_max2(iib2,i2)
+             ixSmin3=ixS_srl_min3(iib3,i3); ixSmax3=ixS_srl_max3(iib3,i3)
+             Nx1=ixSmax1-ixSmin1+1; Nx2=ixSmax2-ixSmin2+1; Nx3=ixSmax3-ixSmin3+1
 
-          !$acc loop collapse(4) vector independent
-          do iw = nwhead, nwtail
-             do ix3 = ixSmin3, ixSmax3
-                do ix2 = ixSmin2, ixSmax2
-                   do ix1 = ixSmin1, ixSmax1
-                      nbprocs_info%srl_send(inb)%buffer( &
-                           ibuf_start &
-                           + (ix1-ixSmin1) &
-                           + Nx1 * (ix2-ixSmin2) &
-                           + Nx1*Nx2 * (ix3-ixSmin3) &
-                           + Nx1*Nx2*Nx3 * (iw-nwhead) &
-                           ) = bg(bgstep)%w( ix1, ix2, ix3, iw, igrid)
+             !$acc loop collapse(4) vector independent
+             do iw = nwhead, nwtail
+                do ix3 = ixSmin3, ixSmax3
+                   do ix2 = ixSmin2, ixSmax2
+                      do ix1 = ixSmin1, ixSmax1
+                         nbprocs_info%srl_send(inb)%buffer( &
+                              ibuf_start &
+                              + (ix1-ixSmin1) &
+                              + Nx1 * (ix2-ixSmin2) &
+                              + Nx1*Nx2 * (ix3-ixSmin3) &
+                              + Nx1*Nx2*Nx3 * (iw-nwhead) &
+                              ) = bg(bgstep)%w( ix1, ix2, ix3, iw, igrid)
+                      end do
                    end do
                 end do
              end do
-          end do
-
-          nbprocs_info%srl_info_send(inb)%buffer( 1 + 3 * (i - 1) : 3 * i ) = &
-               [neighbor(1,i1,i2,i3,igrid), ienc, ibuf_start]
+             nbprocs_info%srl_info_send(inb)%buffer( 1 + 3 * (i - 1) : 3 * i ) = &
+                  [neighbor(1,i1,i2,i3,igrid), ienc, ibuf_start]
        end do
     end do
 
@@ -1378,12 +1378,12 @@ contains
     
 #ifdef NOGPUDIRECT
     do inb = 1, nbprocs_info%nbprocs_srl
-      !$acc update host(nbprocs_info%srl_info_send(inb)%buffer)
-      !$acc update host(nbprocs_info%srl_send(inb)%buffer)
+      !$acc update host(nbprocs_info%srl_info_send(inb)%buffer(1:nbprocs_info%srl_info_send(inb)%size))
+      !$acc update host(nbprocs_info%srl_send(inb)%buffer(1:nbprocs_info%srl_send(inb)%size))
     end do
     do inb = 1, nbprocs_info%nbprocs_c
-      !$acc update host(nbprocs_info%c_info_send(inb)%buffer)
-      !$acc update host(nbprocs_info%c_send(inb)%buffer)
+      !$acc update host(nbprocs_info%c_info_send(inb)%buffer(1:nbprocs_info%c_info_send(inb)%size))
+      !$acc update host(nbprocs_info%c_send(inb)%buffer(1:nbprocs_info%c_send(inb)%size))
     end do
 #endif
 
@@ -1397,10 +1397,10 @@ contains
 #endif
 #endif
        call MPI_ISEND(nbprocs_info%srl_send(inb)%buffer, &
-            size(nbprocs_info%srl_send(inb)%buffer), &
+            nbprocs_info%srl_send(inb)%size, &
             MPI_DOUBLE_PRECISION, nbprocs_info%nbprocs_srl_list(inb), 1, icomm, send_srl_nb(inb), ierrmpi)
        call MPI_ISEND(nbprocs_info%srl_info_send(inb)%buffer, &
-            size(nbprocs_info%srl_info_send(inb)%buffer), &
+            nbprocs_info%srl_info_send(inb)%size, &
             MPI_INTEGER, nbprocs_info%nbprocs_srl_list(inb), 2, icomm, send_srl_nb(nbprocs_info%nbprocs_srl + inb), ierrmpi)
 #ifndef NOGPUDIRECT
       !$acc end host_data
@@ -1417,16 +1417,16 @@ contains
 #endif
 #endif
        call MPI_ISEND(nbprocs_info%c_send(inb)%buffer, &
-            size(nbprocs_info%c_send(inb)%buffer), &
+            nbprocs_info%c_send(inb)%size, &
             MPI_DOUBLE_PRECISION, nbprocs_info%nbprocs_c_list(inb), 1, icomm, send_c_nb(inb), ierrmpi)
        call MPI_ISEND(nbprocs_info%c_info_send(inb)%buffer, &
-            size(nbprocs_info%c_info_send(inb)%buffer), &
+            nbprocs_info%c_info_send(inb)%size, &
             MPI_INTEGER, nbprocs_info%nbprocs_c_list(inb), 2, icomm, send_c_nb(nbprocs_info%nbprocs_c + inb), ierrmpi)
 #ifndef NOGPUDIRECT
       !$acc end host_data
 #endif
     end do
-
+    
     ! fill ghost-cell values of sibling blocks and if neighbor is coarser (f2c)
     ! same process case
     !$acc parallel loop gang collapse(2)
@@ -1508,8 +1508,8 @@ contains
 
 #ifdef NOGPUDIRECT
     do inb = 1, nbprocs_info%nbprocs_srl
-      !$acc update device(nbprocs_info%srl_info_rcv(inb)%buffer)
-      !$acc update device(nbprocs_info%srl_rcv(inb)%buffer)
+      !$acc update device(nbprocs_info%srl_info_rcv(inb)%buffer(1:nbprocs_info%srl_info_rcv(inb)%size))
+      !$acc update device(nbprocs_info%srl_rcv(inb)%buffer(1:nbprocs_info%srl_rcv(inb)%size))
     end do
 #endif
 
@@ -1561,8 +1561,8 @@ contains
 
 #ifdef NOGPUDIRECT
     do inb = 1, nbprocs_info%nbprocs_f
-      !$acc update device(nbprocs_info%f_info_rcv(inb)%buffer)
-      !$acc update device(nbprocs_info%f_rcv(inb)%buffer)
+      !$acc update device(nbprocs_info%f_info_rcv(inb)%buffer(1:nbprocs_info%f_info_rcv(inb)%size))
+      !$acc update device(nbprocs_info%f_rcv(inb)%buffer(1:nbprocs_info%f_rcv(inb)%size))
     end do
 #endif
 
@@ -1608,7 +1608,6 @@ contains
        end do
     end do
     
-    
     do ipwbuf=1,npwbuf
        if (isend_buf(ipwbuf)/=0) deallocate(pwbuf(ipwbuf)%w)
     end do
@@ -1628,10 +1627,10 @@ contains
 #endif
 #endif
        call MPI_IRECV(nbprocs_info%c_rcv(inb)%buffer, &
-            size(nbprocs_info%c_rcv(inb)%buffer), &
+            nbprocs_info%c_rcv(inb)%size, &
             MPI_DOUBLE_PRECISION, nbprocs_info%nbprocs_c_list(inb), 1, icomm, recv_c_nb(inb), ierrmpi)
        call MPI_IRECV(nbprocs_info%c_info_rcv(inb)%buffer, &
-            size(nbprocs_info%c_info_rcv(inb)%buffer), &
+            nbprocs_info%c_info_rcv(inb)%size, &
             MPI_INTEGER, nbprocs_info%nbprocs_c_list(inb), 2, icomm, recv_c_nb(nbprocs_info%nbprocs_c + inb), ierrmpi)
 #ifndef NOGPUDIRECT
       !$acc end host_data
@@ -1688,8 +1687,8 @@ contains
 
 #ifdef NOGPUDIRECT
     do inb = 1, nbprocs_info%nbprocs_f
-      !$acc update host(nbprocs_info%f_info_send(inb)%buffer)
-      !$acc update host(nbprocs_info%f_send(inb)%buffer)
+      !$acc update host(nbprocs_info%f_info_send(inb)%buffer(1:nbprocs_info%f_info_send(inb)%size))
+      !$acc update host(nbprocs_info%f_send(inb)%buffer(1:nbprocs_info%f_send(inb)%size))
     end do
 #endif
     
@@ -1703,10 +1702,10 @@ contains
 #endif
 #endif
        call MPI_ISEND(nbprocs_info%f_send(inb)%buffer, &
-            size(nbprocs_info%f_send(inb)%buffer), &
+            nbprocs_info%f_send(inb)%size, &
             MPI_DOUBLE_PRECISION, nbprocs_info%nbprocs_f_list(inb), 1, icomm, send_f_nb(inb), ierrmpi)
        call MPI_ISEND(nbprocs_info%f_info_send(inb)%buffer, &
-            size(nbprocs_info%f_info_send(inb)%buffer), &
+            nbprocs_info%f_info_send(inb)%size, &
             MPI_INTEGER, nbprocs_info%nbprocs_f_list(inb), 2, icomm, send_f_nb(nbprocs_info%nbprocs_f + inb), ierrmpi)
 #ifndef NOGPUDIRECT
       !$acc end host_data
@@ -1782,8 +1781,8 @@ contains
 
 #ifdef NOGPUDIRECT
     do inb = 1, nbprocs_info%nbprocs_c
-      !$acc update device(nbprocs_info%c_info_rcv(inb)%buffer)
-      !$acc update device(nbprocs_info%c_rcv(inb)%buffer)
+      !$acc update device(nbprocs_info%c_info_rcv(inb)%buffer(1:nbprocs_info%c_info_rcv(inb)%size))
+      !$acc update device(nbprocs_info%c_rcv(inb)%buffer(1:nbprocs_info%c_rcv(inb)%size))
     end do
 #endif
 

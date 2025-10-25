@@ -58,12 +58,14 @@ module mod_connectivity
    ! buffer
    type nbinfo_buffer_t
       double precision, allocatable, dimension(:) :: buffer
+      integer                                     :: size = -1
     contains
       procedure, non_overridable :: alloc => alloc_buffer
    end type nbinfo_buffer_t
    
    type nbinfo_buffer_i_t
       integer, allocatable, dimension(:) :: buffer
+      integer                            :: size = -1
     contains
       procedure, non_overridable :: alloc => alloc_buffer_info
    end type nbinfo_buffer_i_t
@@ -97,6 +99,9 @@ module mod_connectivity
       type(nbinfo_buffer_t), allocatable   :: c_rcv(:)             ! double precision receive data
       type(nbinfo_buffer_i_t), allocatable :: c_info_send(:)       ! info package send
       type(nbinfo_buffer_i_t), allocatable :: c_info_rcv(:)        ! info package receive
+      integer                              :: max_size = 4194304   ! maximum buffer size
+      integer                              :: max_nbprocs = 64     ! maximum nr of neighbor procs
+      integer                              :: max_igrids = 4096    ! maximum nr of igrids per neighbor proc
     contains
       procedure, non_overridable :: add_ipe_to_srl_list, add_ipe_to_c_list, add_ipe_to_f_list
       procedure, non_overridable :: init, reset
@@ -205,7 +210,6 @@ module mod_connectivity
      allocate(self%igrid(nigrids), self%inc1(nigrids), self%inc2(nigrids), &
           self%inc3(nigrids), self%ibuf_start(nigrids), self%isize(nigrids), &
           self%i1(nigrids), self%i2(nigrids), self%i3(nigrids))
-
    end subroutine init_cf
 
    subroutine reset(self)
@@ -236,11 +240,15 @@ module mod_connectivity
      
    end subroutine reset
    
-   subroutine init(self, npe, nigrids)
+   subroutine init(self, npe, nigrids, max_size)
      class(nbprocs_info_t) :: self
-     integer, intent(in)   :: npe, nigrids
+     integer, intent(in)   :: npe, nigrids, max_size
      ! .. local ..
      integer               :: i
+
+     self%max_nbprocs = npe-1
+     self%max_igrids  = nigrids
+     self%max_size    = max_size
 
      allocate(self%nbprocs_srl_list(npe-1), &
           self%srl(npe-1))
@@ -261,11 +269,43 @@ module mod_connectivity
      self%ipe_to_inbpe_c(:) = -1
      
      do i = 1, npe-1
-        call self%srl(i)%init(nigrids)
-        call self%f(i)%init(nigrids)
-        call self%c(i)%init(nigrids)
+        call self%srl(i)%init(self%max_igrids)
+        call self%f(i)%init(self%max_igrids)
+        call self%c(i)%init(self%max_igrids)        
      end do
 
+     ! pre-allocate buffers
+     allocate( &
+          self%srl_send(1:self%max_nbprocs), &
+          self%srl_rcv(1:self%max_nbprocs), &
+          self%srl_info_send(1:self%max_nbprocs), &
+          self%srl_info_rcv(1:self%max_nbprocs), &
+          self%f_send(1:self%max_nbprocs), &
+          self%f_rcv(1:self%max_nbprocs), &
+          self%f_info_send(1:self%max_nbprocs), &
+          self%f_info_rcv(1:self%max_nbprocs), &
+          self%c_send(1:self%max_nbprocs), &
+          self%c_rcv(1:self%max_nbprocs), &
+          self%c_info_send(1:self%max_nbprocs), &
+          self%c_info_rcv(1:self%max_nbprocs) &          
+          )
+     
+     do i = 1, self%max_nbprocs
+        call self%f_info_send(i)%alloc( 5 * self%max_igrids )
+        call self%f_info_rcv(i)%alloc( 5 * self%max_igrids )
+        call self%c_info_send(i)%alloc( 5 * self%max_igrids )
+        call self%c_info_rcv(i)%alloc( 5 * self%max_igrids )
+        call self%srl_info_send(i)%alloc( 3 * self%max_igrids )
+        call self%srl_info_rcv(i)%alloc( 3 * self%max_igrids )
+        
+        call self%srl_send(i)%alloc(self%max_size)
+        call self%srl_rcv(i)%alloc(self%max_size)
+        call self%c_send(i)%alloc(self%max_size)
+        call self%c_rcv(i)%alloc(self%max_size)
+        call self%f_send(i)%alloc(self%max_size)
+        call self%f_rcv(i)%alloc(self%max_size)
+     end do
+     
    end subroutine init   
 
    subroutine add_to_srl(self, ipe, igrid, i1, i2, i3)
@@ -274,7 +314,7 @@ module mod_connectivity
      
      call self%add_ipe_to_srl_list(ipe)
      call self%add_igrid_to_srl(ipe, igrid, i1, i2, i3)
-     
+
    end subroutine add_to_srl
    
    subroutine add_to_c(self, ipe, igrid, i1, i2, i3, inc1, inc2, inc3)
@@ -303,12 +343,19 @@ module mod_connectivity
      
         ! enlarge counter
         self%nbprocs_srl = self%nbprocs_srl + 1
+        
+        if (self%nbprocs_srl > self%max_nbprocs) then
+           print *, 'add_ipe_to_srl_list: nbprocs_srl exceeding max_nbprocs'
+           stop
+        end if
+        
         ! add the process
         self%nbprocs_srl_list(self%nbprocs_srl) = ipe
         ! add to inverse list
         self%ipe_to_inbpe_srl(ipe) = self%nbprocs_srl
         
      end if
+
      
    end subroutine add_ipe_to_srl_list
 
@@ -320,6 +367,12 @@ module mod_connectivity
      
         ! enlarge counter
         self%nbprocs_c = self%nbprocs_c + 1
+        
+        if (self%nbprocs_c > self%max_nbprocs) then
+           print *, 'add_ipe_to_c_list: nbprocs_c exceeding max_nbprocs'
+           stop
+        end if
+        
         ! add the process
         self%nbprocs_c_list(self%nbprocs_c) = ipe
         ! add to inverse list
@@ -337,6 +390,12 @@ module mod_connectivity
      
         ! enlarge counter
         self%nbprocs_f = self%nbprocs_f + 1
+        
+        if (self%nbprocs_f > self%max_nbprocs) then
+           print *, 'add_ipe_to_c_list: nbprocs_f exceeding max_nbprocs'
+           stop
+        end if
+        
         ! add the process
         self%nbprocs_f_list(self%nbprocs_f) = ipe
         ! add to inverse list
@@ -359,7 +418,12 @@ module mod_connectivity
      self%srl(inbpe)%nigrids = self%srl(inbpe)%nigrids + 1
 
      ! need to enlarge storage
-     if ( self%srl(inbpe)%nigrids > size( self%srl(inbpe)%igrid ) ) call self%srl(inbpe)%expand
+     if ( self%srl(inbpe)%nigrids > self%max_igrids ) then
+        !call self%srl(inbpe)%expand
+        print *, 'add_igrid_to_srl: nigrids exceeding max_igrids'
+        stop
+     end if
+
 
      call self%iencode(i1,i2,i3,i)
      ! add the data at the counter
@@ -381,8 +445,12 @@ module mod_connectivity
      self%c(inbpe)%nigrids = self%c(inbpe)%nigrids + 1
 
      ! need to enlarge storage
-     if ( self%c(inbpe)%nigrids > size( self%c(inbpe)%igrid ) ) call self%c(inbpe)%expand
-
+     if ( self%c(inbpe)%nigrids > self%max_igrids ) then
+        !call self%c(inbpe)%expand
+        print *, 'add_igrid_to_c: nigrids exceeding max_igrids'
+        stop
+     end if
+     
      ! add the data at the counter
      self%c(inbpe)%igrid( self%c(inbpe)%nigrids )    = igrid
      self%c(inbpe)%i1( self%c(inbpe)%nigrids )       = i1
@@ -407,8 +475,13 @@ module mod_connectivity
      self%f(inbpe)%nigrids = self%f(inbpe)%nigrids + 1
 
      ! need to enlarge storage
-     if ( self%f(inbpe)%nigrids > size( self%f(inbpe)%igrid ) ) call self%f(inbpe)%expand
-
+!     if ( self%f(inbpe)%nigrids > size( self%f(inbpe)%igrid ) ) call self%f(inbpe)%expand
+     if ( self%f(inbpe)%nigrids > self%max_igrids ) then
+        !call self%f(inbpe)%expand
+        print *, 'add_igrid_to_f: nigrids exceeding max_igrids'
+        stop
+     end if
+     
      ! add the data at the counter
      self%f(inbpe)%igrid( self%f(inbpe)%nigrids )    = igrid
      self%f(inbpe)%inc1( self%f(inbpe)%nigrids )     = inc1
@@ -443,20 +516,7 @@ module mod_connectivity
      integer         :: ixRmax1, ixRmax2, ixRmax3
      integer         :: iib1, iib2, iib3, ibuf_start
 
-     if (allocated(self%srl_send)) then
-        deallocate( self%srl_send, self%srl_rcv, self%srl_info_send, self%srl_info_rcv )
-     end if
-     
-     allocate( &
-          self%srl_send(1:self%nbprocs_srl), &
-          self%srl_rcv(1:self%nbprocs_srl), &
-          self%srl_info_send(1:self%nbprocs_srl), &
-          self%srl_info_rcv(1:self%nbprocs_srl) &
-          )
-
      do inb = 1, self%nbprocs_srl
-        call self%srl_info_send(inb)%alloc( 3 * self%srl(inb)%nigrids )
-        call self%srl_info_rcv(inb)%alloc( 3 * self%srl(inb)%nigrids ) 
         
         isize_S = 0; isize_R = 0; ibuf_start = 1
         do igrid = 1, self%srl(inb)%nigrids
@@ -477,14 +537,27 @@ module mod_connectivity
            isize_S = isize_S + (ixSmax1-ixSmin1+1) * (ixSmax2-ixSmin2+1) * (ixSmax3-ixSmin3+1)
            isize_R = isize_R + (ixRmax1-ixRmin1+1) * (ixRmax2-ixRmin2+1) * (ixRmax3-ixRmin3+1)
 
+           if (isize_S*nwgc > self%max_size .or. isize_R*nwgc > self%max_size) then
+              print *, 'alloc_buffers_srl: exceeding max_size for ghost-cell buffer', isize_S*nwgc, isize_R*nwgc
+              stop
+           end if
+           
            self%srl(inb)%ibuf_start(igrid) = ibuf_start
            self%srl(inb)%isize(igrid) = (ixSmax1-ixSmin1+1) * (ixSmax2-ixSmin2+1) * (ixSmax3-ixSmin3+1) * nwgc
            
            ibuf_start = ibuf_start + self%srl(inb)%isize(igrid)
 
         end do
-        call self%srl_send(inb)%alloc(isize_S*nwgc)
-        call self%srl_rcv(inb)%alloc(isize_R*nwgc)
+        self%srl_rcv(inb)%size       = isize_R * nwgc
+        self%srl_send(inb)%size      = isize_S * nwgc
+        self%srl_info_send(inb)%size = 3 * self%srl(inb)%nigrids
+        self%srl_info_rcv(inb)%size  = 3 * self%srl(inb)%nigrids
+        if (self%srl_info_send(inb)%size > size(self%srl_info_send(inb)%buffer)) then
+           print *, 'alloc_buffers_srl: exceeding send info buffer size',self%srl_info_send(inb)%size, size(self%srl_info_send(inb)%buffer)
+        end if
+        if (self%srl_info_rcv(inb)%size > size(self%srl_info_rcv(inb)%buffer)) then
+           print *, 'alloc_buffers_srl: exceeding rcv info buffer size',self%srl_info_rcv(inb)%size, size(self%srl_info_rcv(inb)%buffer)
+        end if
      end do
 
    end subroutine alloc_buffers_srl
@@ -519,20 +592,7 @@ module mod_connectivity
      integer         :: ixSmax1, ixSmax2, ixSmax3
      integer         :: ixRmax1, ixRmax2, ixRmax3
 
-     if (allocated(self%f_send)) then
-        deallocate( self%f_send, self%f_rcv, self%f_info_send, self%f_info_rcv )
-     end if
-     
-     allocate( &
-          self%f_send(1:self%nbprocs_f), &
-          self%f_rcv(1:self%nbprocs_f), &
-          self%f_info_send(1:self%nbprocs_f), &
-          self%f_info_rcv(1:self%nbprocs_f) &
-          )
-
      do inb = 1, self%nbprocs_f
-        call self%f_info_send(inb)%alloc( 5 * self%f(inb)%nigrids )
-        call self%f_info_rcv(inb)%alloc( 5 * self%f(inb)%nigrids )
 
         isize_S = 0; isize_R = 0; ibuf_start = 1
         do igrid = 1, self%f(inb)%nigrids
@@ -554,14 +614,21 @@ module mod_connectivity
            isize_S = isize_S + (ixSmax1-ixSmin1+1) * (ixSmax2-ixSmin2+1) * (ixSmax3-ixSmin3+1)
            isize_R = isize_R + (ixRmax1-ixRmin1+1) * (ixRmax2-ixRmin2+1) * (ixRmax3-ixRmin3+1)
 
+           if (isize_S*nwgc > self%max_size .or. isize_R*nwgc > self%max_size) then
+              print *, 'alloc_buffers_f: exceeding max_size for ghost-cell buffer', isize_S*nwgc, isize_R*nwgc
+              stop
+           end if
+
            self%f(inb)%ibuf_start(igrid) = ibuf_start
            self%f(inb)%isize(igrid) = (ixSmax1-ixSmin1+1) * (ixSmax2-ixSmin2+1) * (ixSmax3-ixSmin3+1) * nwgc
            
            ibuf_start = ibuf_start + self%f(inb)%isize(igrid)
 
         end do
-        call self%f_send(inb)%alloc(isize_S*nwgc)
-        call self%f_rcv(inb)%alloc(isize_R*nwgc)
+        self%f_rcv(inb)%size       = isize_R*nwgc
+        self%f_send(inb)%size      = isize_S*nwgc
+        self%f_info_send(inb)%size = 5 * self%srl(inb)%nigrids
+        self%f_info_rcv(inb)%size  = 5 * self%srl(inb)%nigrids
      end do
         
    end subroutine alloc_buffers_f
@@ -599,21 +666,8 @@ module mod_connectivity
      integer         :: ixSmax1, ixSmax2, ixSmax3
      integer         :: ixRmax1, ixRmax2, ixRmax3
 
-     if (allocated(self%c_send)) then
-        deallocate( self%c_send, self%c_rcv, self%c_info_send, self%c_info_rcv )
-     end if
-     
-     allocate( &
-          self%c_send(1:self%nbprocs_c), &
-          self%c_rcv(1:self%nbprocs_c), &
-          self%c_info_send(1:self%nbprocs_c), &
-          self%c_info_rcv(1:self%nbprocs_c) &
-          )
-
      do inb = 1, self%nbprocs_c
-        call self%c_info_send(inb)%alloc( 5 * self%c(inb)%nigrids )
-        call self%c_info_rcv(inb)%alloc( 5 * self%c(inb)%nigrids )
-
+        
         isize_S = 0; isize_R = 0; ibuf_start = 1
         do igrid = 1, self%c(inb)%nigrids
            iib1 = idphyb(1,self%c(inb)%igrid(igrid))
@@ -637,14 +691,21 @@ module mod_connectivity
            isize_S = isize_S + (ixSmax1-ixSmin1+1) * (ixSmax2-ixSmin2+1) * (ixSmax3-ixSmin3+1)
            isize_R = isize_R + (ixRmax1-ixRmin1+1) * (ixRmax2-ixRmin2+1) * (ixRmax3-ixRmin3+1)
 
+           if (isize_S*nwgc > self%max_size .or. isize_R*nwgc > self%max_size) then
+              print *, 'alloc_buffers_c: exceeding max_size for ghost-cell buffer', isize_S*nwgc, isize_R*nwgc
+              stop
+           end if
+
            self%c(inb)%ibuf_start(igrid) = ibuf_start
            self%c(inb)%isize(igrid) = (ixSmax1-ixSmin1+1) * (ixSmax2-ixSmin2+1) * (ixSmax3-ixSmin3+1) * nwgc
            
            ibuf_start = ibuf_start + self%c(inb)%isize(igrid)
 
         end do
-        call self%c_send(inb)%alloc(isize_S*nwgc)
-        call self%c_rcv(inb)%alloc(isize_R*nwgc)
+        self%c_rcv(inb)%size       = isize_R*nwgc
+        self%c_send(inb)%size      = isize_S*nwgc
+        self%c_info_send(inb)%size = 5 * self%srl(inb)%nigrids
+        self%c_info_rcv(inb)%size  = 5 * self%srl(inb)%nigrids
      end do
      
    end subroutine alloc_buffers_c
