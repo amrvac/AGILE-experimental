@@ -1321,7 +1321,7 @@ contains
                 end do
              end do
           end do
-
+        
           nbprocs_info%c_info_send(inb)%buffer( 1 + 5 * (i - 1) : 5 * i ) = &
                [neighbor(1,i1,i2,i3,igrid), inc1, inc2, inc3, ibuf_start]
        end do
@@ -1330,12 +1330,12 @@ contains
     
 #ifdef NOGPUDIRECT
     do inb = 1, nbprocs_info%nbprocs_srl
-      !$acc update host(nbprocs_info%srl_info_send(inb)%buffer(1:nbprocs_info%srl_info_send(inb)%size))
-      !$acc update host(nbprocs_info%srl_send(inb)%buffer(1:nbprocs_info%srl_send(inb)%size))
+       !$acc update host(nbprocs_info%srl_info_send(inb)%buffer(1:nbprocs_info%srl_info_send(inb)%size))
+       !$acc update host(nbprocs_info%srl_send(inb)%buffer(1:nbprocs_info%srl_send(inb)%size))
     end do
     do inb = 1, nbprocs_info%nbprocs_c
-      !$acc update host(nbprocs_info%c_info_send(inb)%buffer(1:nbprocs_info%c_info_send(inb)%size))
-      !$acc update host(nbprocs_info%c_send(inb)%buffer(1:nbprocs_info%c_send(inb)%size))
+       !$acc update host(nbprocs_info%c_info_send(inb)%buffer(1:nbprocs_info%c_info_send(inb)%size))
+       !$acc update host(nbprocs_info%c_send(inb)%buffer(1:nbprocs_info%c_send(inb)%size))
     end do
 #endif
 
@@ -1465,7 +1465,7 @@ contains
 #endif
 
     ! unpack the MPI buffers
-    !$acc parallel loop gang collapse(2) independent private(Nx1,Nx2,Nx3,ienc)
+    !$acc parallel loop gang collapse(2)
     do inb = 1, nbprocs_info%nbprocs_srl
        do i = 1, nbprocs_info%imaxigrids_srl
           if (i > nbprocs_info%srl(inb)%nigrids) cycle
@@ -1512,13 +1512,13 @@ contains
 
 #ifdef NOGPUDIRECT
     do inb = 1, nbprocs_info%nbprocs_f
-      !$acc update device(nbprocs_info%f_info_rcv(inb)%buffer(1:nbprocs_info%f_info_rcv(inb)%size))
-      !$acc update device(nbprocs_info%f_rcv(inb)%buffer(1:nbprocs_info%f_rcv(inb)%size))
+       !$acc update device(nbprocs_info%f_info_rcv(inb)%buffer(1:nbprocs_info%f_info_rcv(inb)%size))
+       !$acc update device(nbprocs_info%f_rcv(inb)%buffer(1:nbprocs_info%f_rcv(inb)%size))
     end do
 #endif
 
     ! unpack the MPI buffers, fine neighbor, (f_recv), recv_restrict
-    !$acc parallel loop gang collapse(2) independent private(Nx1,Nx2,Nx3,ienc)
+    !$acc parallel loop gang collapse(2)
     do inb = 1, nbprocs_info%nbprocs_f
        do i = 1, nbprocs_info%imaxigrids_f
           if (i > nbprocs_info%f(inb)%nigrids) cycle

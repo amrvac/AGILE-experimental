@@ -445,27 +445,23 @@ module mod_connectivity
            isize_S = isize_S + (ixSmax1-ixSmin1+1) * (ixSmax2-ixSmin2+1) * (ixSmax3-ixSmin3+1)
            isize_R = isize_R + (ixRmax1-ixRmin1+1) * (ixRmax2-ixRmin2+1) * (ixRmax3-ixRmin3+1)
 
-           if (isize_S*nwgc > self%max_size .or. isize_R*nwgc > self%max_size) then
-              print *, 'alloc_buffers_srl: exceeding max_size for ghost-cell buffer', isize_S*nwgc, isize_R*nwgc
-              stop
-           end if
-           
            self%srl(inb)%ibuf_start(igrid) = ibuf_start
            self%srl(inb)%isize(igrid) = (ixSmax1-ixSmin1+1) * (ixSmax2-ixSmin2+1) * (ixSmax3-ixSmin3+1) * nwgc
            
            ibuf_start = ibuf_start + self%srl(inb)%isize(igrid)
 
         end do
+        
+        if (isize_S*nwgc > self%max_size .or. isize_R*nwgc > self%max_size) then
+           print *, 'alloc_buffers_srl: exceeding max_size for ghost-cell buffer', isize_S*nwgc, isize_R*nwgc
+           stop
+        end if
+
         self%srl_rcv(inb)%size       = isize_R * nwgc
         self%srl_send(inb)%size      = isize_S * nwgc
         self%srl_info_send(inb)%size = 3 * self%srl(inb)%nigrids
         self%srl_info_rcv(inb)%size  = 3 * self%srl(inb)%nigrids
-        if (self%srl_info_send(inb)%size > size(self%srl_info_send(inb)%buffer)) then
-           print *, 'alloc_buffers_srl: exceeding send info buffer size',self%srl_info_send(inb)%size, size(self%srl_info_send(inb)%buffer)
-        end if
-        if (self%srl_info_rcv(inb)%size > size(self%srl_info_rcv(inb)%buffer)) then
-           print *, 'alloc_buffers_srl: exceeding rcv info buffer size',self%srl_info_rcv(inb)%size, size(self%srl_info_rcv(inb)%buffer)
-        end if
+        
      end do
 
    end subroutine alloc_buffers_srl
@@ -524,21 +520,23 @@ module mod_connectivity
            isize_S = isize_S + (ixSmax1-ixSmin1+1) * (ixSmax2-ixSmin2+1) * (ixSmax3-ixSmin3+1)
            isize_R = isize_R + (ixRmax1-ixRmin1+1) * (ixRmax2-ixRmin2+1) * (ixRmax3-ixRmin3+1)
 
-           if (isize_S*nwgc > self%max_size .or. isize_R*nwgc > self%max_size) then
-              print *, 'alloc_buffers_f: exceeding max_size for ghost-cell buffer', isize_S*nwgc, isize_R*nwgc
-              stop
-           end if
-
            self%f(inb)%ibuf_start(igrid) = ibuf_start
            self%f(inb)%isize(igrid) = (ixSmax1-ixSmin1+1) * (ixSmax2-ixSmin2+1) * (ixSmax3-ixSmin3+1) * nwgc
            
            ibuf_start = ibuf_start + self%f(inb)%isize(igrid)
 
         end do
+
+        if (isize_S*nwgc > self%max_size .or. isize_R*nwgc > self%max_size) then
+           print *, 'alloc_buffers_f: exceeding max_size for ghost-cell buffer', isize_S*nwgc, isize_R*nwgc
+           stop
+        end if
+
         self%f_rcv(inb)%size       = isize_R*nwgc
         self%f_send(inb)%size      = isize_S*nwgc
-        self%f_info_send(inb)%size = 5 * self%srl(inb)%nigrids
-        self%f_info_rcv(inb)%size  = 5 * self%srl(inb)%nigrids
+        self%f_info_send(inb)%size = 5 * self%f(inb)%nigrids
+        self%f_info_rcv(inb)%size  = 5 * self%f(inb)%nigrids
+        
      end do
         
    end subroutine alloc_buffers_f
@@ -603,21 +601,23 @@ module mod_connectivity
            isize_S = isize_S + (ixSmax1-ixSmin1+1) * (ixSmax2-ixSmin2+1) * (ixSmax3-ixSmin3+1)
            isize_R = isize_R + (ixRmax1-ixRmin1+1) * (ixRmax2-ixRmin2+1) * (ixRmax3-ixRmin3+1)
 
-           if (isize_S*nwgc > self%max_size .or. isize_R*nwgc > self%max_size) then
-              print *, 'alloc_buffers_c: exceeding max_size for ghost-cell buffer', isize_S*nwgc, isize_R*nwgc
-              stop
-           end if
-
            self%c(inb)%ibuf_start(igrid) = ibuf_start
            self%c(inb)%isize(igrid) = (ixSmax1-ixSmin1+1) * (ixSmax2-ixSmin2+1) * (ixSmax3-ixSmin3+1) * nwgc
            
            ibuf_start = ibuf_start + self%c(inb)%isize(igrid)
 
         end do
+        
+        if (isize_S*nwgc > self%max_size .or. isize_R*nwgc > self%max_size) then
+           print *, 'alloc_buffers_c: exceeding max_size for ghost-cell buffer', isize_S*nwgc, isize_R*nwgc
+           stop
+        end if
+
         self%c_rcv(inb)%size       = isize_R*nwgc
         self%c_send(inb)%size      = isize_S*nwgc
-        self%c_info_send(inb)%size = 5 * self%srl(inb)%nigrids
-        self%c_info_rcv(inb)%size  = 5 * self%srl(inb)%nigrids
+        self%c_info_send(inb)%size = 5 * self%c(inb)%nigrids
+        self%c_info_rcv(inb)%size  = 5 * self%c(inb)%nigrids
+        
      end do
      
    end subroutine alloc_buffers_c
