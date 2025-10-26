@@ -20,8 +20,6 @@ module mod_ghostcells_update
   !$acc declare create(ixCoMmin1,ixCoMmin2,ixCoMmin3,ixCoMmax1,ixCoMmax2,ixCoMmax3)
   !$acc declare create(ixCoGsmin1,ixCoGsmin2,ixCoGsmin3,ixCoGsmax1,ixCoGsmax2,ixCoGsmax3)
 
-  ! The number of interleaving sending buffers for ghost cells
-  integer, parameter :: npwbuf=2
   logical  :: req_diagonal = .true.
   !$acc declare copyin(req_diagonal)
 
@@ -87,12 +85,6 @@ module mod_ghostcells_update
   ! count of times of send and receive
   integer :: isend_srl, irecv_srl, isend_r, irecv_r, isend_p, irecv_p
 
-  ! count of times of send and receive for cell center ghost cells
-  integer :: isend_c, irecv_c
-
-  ! tag of MPI send and recv
-  integer, private :: itag
-
   ! total sizes = cell-center normal flux + stagger-grid flux of send and receive
   integer, dimension(-1:1,-1:1,-1:1) :: sizes_srl_send_total,&
        sizes_srl_recv_total
@@ -150,22 +142,22 @@ module mod_ghostcells_update
 
 
 contains
-
+  
   subroutine idecode(i1, i2, i3, i)
     !$acc routine seq
-     integer, intent(in)                       :: i
-     integer, intent(out)                      :: i1, i2, i3
-     ! .. local ..
-     integer, parameter                        :: i1min=-1, i2min=-1, i3min=-1
-     integer                                   :: id, idd
+    integer, intent(in)                       :: i
+    integer, intent(out)                      :: i1, i2, i3
+    ! .. local ..
+    integer, parameter                        :: i1min=-1, i2min=-1, i3min=-1
+    integer                                   :: id, idd
 
-     i3  = ceiling(dble(i)/9.0d0) - 1 + i3min
-     id  = i - 9 * (i3-i3min)
-     i2  = ceiling(dble(id)/3.0d0) -1 + i2min
-     idd = id - 3 * (i2-i2min)
-     i1  = idd + i1min - 1
+    i3  = ceiling(dble(i)/9.0d0) - 1 + i3min
+    id  = i - 9 * (i3-i3min)
+    i2  = ceiling(dble(id)/3.0d0) -1 + i2min
+    idd = id - 3 * (i2-i2min)
+    i1  = idd + i1min - 1
 
-   end subroutine idecode
+  end subroutine idecode
 
   subroutine init_bc()
     use mod_global_parameters
@@ -1116,22 +1108,15 @@ contains
     logical, intent(in), optional     :: req_diag !If false, skip diagonal ghost cells
 
     double precision :: time_bcin
-    integer :: ipole, nwhead, nwtail, bgstep
-    integer :: iigrid, igrid, ineighbor, ipe_neighbor, isizes
+    integer :: nwhead, nwtail, bgstep
+    integer :: iigrid, igrid, ineighbor, ipe_neighbor
     integer :: ixRmin1,ixRmin2,ixRmin3,ixRmax1,ixRmax2,ixRmax3, ixSmin1,&
          ixSmin2,ixSmin3,ixSmax1,ixSmax2,ixSmax3
     integer :: i1,i2,i3, n_i1,n_i2,n_i3, ic1,ic2,ic3, inc1,inc2,inc3, n_inc1,&
-         n_inc2,n_inc3, iib1,iib2,iib3, idir, istage
-    integer :: isend_buf(npwbuf), ipwbuf, nghostcellsco
-    ! index pointer for buffer arrays as a start for a segment
-    integer :: ibuf_start, ibuf_next
-    ! shapes of reshape
-    integer, dimension(1) :: shapes
-    logical  :: update
-    type(wbuffer) :: pwbuf(npwbuf)
+         n_inc2, n_inc3, iib1, iib2, iib3
     real(dp) :: tempval
 
-    integer :: ix1,ix2,ix3, iw, inb, i, Nx1, Nx2, Nx3, ienc, imaxigrids_srl, imaxigrids_c, imaxigrids_f
+    integer :: ix1,ix2,ix3, iw, inb, i, Nx1, Nx2, Nx3, ienc, ibuf_start
     double precision :: CoFiratio
     ! for prolongation:
     integer  :: ixCo1, ixCo2, ixCo3, ixFi1, ixFi2, ixFi3, idims
@@ -1142,7 +1127,6 @@ contains
     real(dp) :: xFimin1, xFimin2, xFimin3, xComin1, xComin2, xComin3
     real(dp) :: xFi1, xFi2, xFi3, xCo3, xCo2, xCo1
     real(dp) :: eta1, eta2, eta3, slopeL, slopeR, slopeC, signR, signC
-    integer  :: idbg = 0
 
     time_bcin=MPI_WTIME()
     call nvtxStartRange("getbc",2)
@@ -1154,22 +1138,7 @@ contains
     req_diagonal = .true.
     if (present(req_diag)) req_diagonal = req_diag
     !$acc update device(req_diagonal)
-
-    ! get maximum inner list sizes in order to collapse the loops:
-    imaxigrids_srl = 0
-    do inb = 1, nbprocs_info%nbprocs_srl
-       imaxigrids_srl = max(nbprocs_info%srl(inb)%nigrids, imaxigrids_srl)
-    end do
-    imaxigrids_f = 0
-    do inb = 1, nbprocs_info%nbprocs_f
-       imaxigrids_f = max(nbprocs_info%f(inb)%nigrids, imaxigrids_f)
-    end do
-    imaxigrids_c = 0
-    do inb = 1, nbprocs_info%nbprocs_c
-       imaxigrids_c = max(nbprocs_info%c(inb)%nigrids, imaxigrids_c)
-    end do
-
-    
+   
     ! fill internal physical boundary
     if (internalboundary) then
        call getintbc(time,ixGlo1,ixGlo2,ixGlo3,ixGhi1,ixGhi2,ixGhi3)
@@ -1177,18 +1146,15 @@ contains
     
     ! fill physical-boundary ghost cells before internal ghost-cell values exchange
     if(bcphys.and. .not.stagger_grid) then
-       !$OMP PARALLEL DO SCHEDULE(dynamic) PRIVATE(igrid)
        !$acc parallel loop gang
        do iigrid = 1, igridstail; igrid=igrids(iigrid);
           if (.not.phyboundblock(igrid)) cycle
           call fill_boundary_before_gc(psb(igrid),igrid,time,qdt)
        end do
-       !$OMP END PARALLEL DO
     end if
 
     
     ! prepare coarse values to send to coarser neighbors
-    !$OMP PARALLEL DO SCHEDULE(dynamic) PRIVATE(igrid)
     !$acc parallel loop gang
     do iigrid = 1, igridstail; igrid=igrids(iigrid);
        if (any(neighbor_type(:,:,:,igrid)==neighbor_coarse)) then
@@ -1219,11 +1185,6 @@ contains
              end do
           end do
           
-          !eventually replace with generic implementation here:
-!          call coarsen_grid(psb(igrid),ixGlo1,ixGlo2,ixGlo3,ixGhi1,ixGhi2,ixGhi3,&
-!               ixMmin1,ixMmin2,ixMmin3,ixMmax1,ixMmax2,ixMmax3,psc(igrid),&
-!               ixCoGmin1,ixCoGmin2,ixCoGmin3,ixCoGmax1,ixCoGmax2,ixCoGmax3,&
-!               ixCoMmin1,ixCoMmin2,ixCoMmin3,ixCoMmax1,ixCoMmax2,ixCoMmax3)
           do i3 = -1, 1
              do i2 = -1, 1
                 do i1 = -1, 1
@@ -1235,15 +1196,6 @@ contains
           end do
        end if
     end do
-    !$OMP END PARALLEL DO
-
-    
-    ! default : no singular axis
-    ipole=0
-    irecv_c=0
-    isend_c=0
-    isend_buf=0
-    ipwbuf=1
 
     ! MPI receive SRL
     do inb = 1, nbprocs_info%nbprocs_srl
@@ -1288,7 +1240,7 @@ contains
     ! fill the SRL send buffers on GPU
     !$acc parallel loop gang collapse(2) private(Nx1,Nx2,Nx3,ienc)
     do inb = 1, nbprocs_info%nbprocs_srl
-       do i = 1, imaxigrids_srl
+       do i = 1, nbprocs_info%imaxigrids_srl
           if (i > nbprocs_info%srl(inb)%nigrids) cycle
 
              igrid = nbprocs_info%srl(inb)%igrid(i)
@@ -1327,7 +1279,7 @@ contains
     ! fill the C send buffers on GPU (send_restrict)
     !$acc parallel loop gang collapse(2) independent private(Nx1,Nx2,Nx3,i1,i2,i3,inc1,inc2,inc3)
     do inb = 1, nbprocs_info%nbprocs_c
-       do i = 1, imaxigrids_c
+       do i = 1, nbprocs_info%imaxigrids_c
           if (i > nbprocs_info%c(inb)%nigrids) cycle
 
           igrid = nbprocs_info%c(inb)%igrid(i)
@@ -1501,7 +1453,6 @@ contains
 
          end do
     end do
-    !$OMP END PARALLEL DO
 
     call MPI_WAITALL(nbprocs_info%nbprocs_srl*2, recv_srl_nb, recvstatus_srl_nb, ierrmpi)
     call MPI_WAITALL(nbprocs_info%nbprocs_srl*2, send_srl_nb, sendstatus_srl_nb, ierrmpi)
@@ -1516,7 +1467,7 @@ contains
     ! unpack the MPI buffers
     !$acc parallel loop gang collapse(2) independent private(Nx1,Nx2,Nx3,ienc)
     do inb = 1, nbprocs_info%nbprocs_srl
-       do i = 1, imaxigrids_srl
+       do i = 1, nbprocs_info%imaxigrids_srl
           if (i > nbprocs_info%srl(inb)%nigrids) cycle
 
           igrid       = nbprocs_info%srl_info_rcv(inb)%buffer( 3 * (i - 1) + 1 )
@@ -1569,7 +1520,7 @@ contains
     ! unpack the MPI buffers, fine neighbor, (f_recv), recv_restrict
     !$acc parallel loop gang collapse(2) independent private(Nx1,Nx2,Nx3,ienc)
     do inb = 1, nbprocs_info%nbprocs_f
-       do i = 1, imaxigrids_f
+       do i = 1, nbprocs_info%imaxigrids_f
           if (i > nbprocs_info%f(inb)%nigrids) cycle
 
           igrid       = nbprocs_info%f_info_rcv(inb)%buffer( 5 * (i - 1) + 1 )
@@ -1608,15 +1559,6 @@ contains
        end do
     end do
     
-    do ipwbuf=1,npwbuf
-       if (isend_buf(ipwbuf)/=0) deallocate(pwbuf(ipwbuf)%w)
-    end do
-
-    irecv_c=0
-    isend_c=0
-    isend_buf=0
-    ipwbuf=1
-
     ! MPI receive prolong (neighbor is coarser)
     do inb = 1, nbprocs_info%nbprocs_c
 #ifndef NOGPUDIRECT
@@ -1640,7 +1582,7 @@ contains
     ! fill the F (neighbor is finer) send buffer on GPU (send_prolong)
     !$acc parallel loop gang collapse(2) independent private(Nx1,Nx2,Nx3,inc1,inc2,inc3,n_inc1,n_inc2,n_inc3)
     do inb = 1, nbprocs_info%nbprocs_f
-       do i = 1, imaxigrids_f
+       do i = 1, nbprocs_info%imaxigrids_f
           if (i > nbprocs_info%f(inb)%nigrids) cycle
 
           igrid = nbprocs_info%f(inb)%igrid(i)
@@ -1789,7 +1731,7 @@ contains
     ! unpack the MPI buffers, coarse neighbor, (c_recv), recv_prolong
     !$acc parallel loop gang collapse(2) independent private(Nx1,Nx2,Nx3,inc1,inc2,inc3)
     do inb = 1, nbprocs_info%nbprocs_c
-       do i = 1, imaxigrids_c
+       do i = 1, nbprocs_info%imaxigrids_c
           if (i > nbprocs_info%c(inb)%nigrids) cycle
 
           igrid       = nbprocs_info%c_info_rcv(inb)%buffer( 5 * (i - 1) + 1 )
@@ -1829,7 +1771,6 @@ contains
     end do
     
     ! do prolongation on the ghost-cell values based on the received coarse values from coarser neighbors (f2c)
-    !$OMP PARALLEL DO SCHEDULE(dynamic) PRIVATE(igrid)
     !$acc parallel loop gang
     do iigrid=1, igridstail; igrid=igrids(iigrid);
        iib1=idphyb(1,igrid);iib2=idphyb(2,igrid);iib3=idphyb(3,igrid)
@@ -1918,20 +1859,13 @@ contains
           end do
        end do
     end do
-    !$OMP END PARALLEL DO
-    
-    do ipwbuf=1,npwbuf
-       if (isend_buf(ipwbuf)/=0) deallocate(pwbuf(ipwbuf)%w)
-    end do
     
     ! modify normal component of magnetic field to fix divB=0
     if(bcphys.and.associated(phys_boundary_adjust)) then
-       !$OMP PARALLEL DO SCHEDULE(dynamic) PRIVATE(igrid)
        do iigrid=1,igridstail; igrid=igrids(iigrid);
           if(.not.phyboundblock(igrid)) cycle
           call phys_boundary_adjust(igrid,psb)
        end do
-       !$OMP END PARALLEL DO
     end if
 
     time_bc=time_bc+(MPI_WTIME()-time_bcin)
