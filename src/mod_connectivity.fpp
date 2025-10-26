@@ -42,7 +42,6 @@ module mod_connectivity
       integer, allocatable, dimension(:) :: igrid, iencode, isize, ibuf_start
     contains
       procedure, non_overridable         :: init => init_srl
-      procedure, non_overridable         :: expand => expand_srl
    end type nbinfo_srl_t
 
    ! c and f neighbor info
@@ -52,22 +51,17 @@ module mod_connectivity
       integer, allocatable, dimension(:) :: igrid, inc1, inc2, inc3, isize, ibuf_start, i1, i2, i3
     contains
       procedure, non_overridable         :: init => init_cf
-      procedure, non_overridable         :: expand => expand_cf
    end type nbinfo_cf_t
 
    ! buffer
    type nbinfo_buffer_t
       double precision, allocatable, dimension(:) :: buffer
       integer                                     :: size = -1
-    contains
-      procedure, non_overridable :: alloc => alloc_buffer
    end type nbinfo_buffer_t
    
    type nbinfo_buffer_i_t
       integer, allocatable, dimension(:) :: buffer
       integer                            :: size = -1
-    contains
-      procedure, non_overridable :: alloc => alloc_buffer_info
    end type nbinfo_buffer_i_t
 
    ! neighbor cpu info structure
@@ -103,7 +97,6 @@ module mod_connectivity
       integer                              :: max_nbprocs = 64     ! maximum nr of neighbor procs
       integer                              :: max_igrids = 4096    ! maximum nr of igrids per neighbor proc
     contains
-      procedure, non_overridable :: add_ipe_to_srl_list, add_ipe_to_c_list, add_ipe_to_f_list
       procedure, non_overridable :: init, reset
       procedure, non_overridable :: add_igrid_to_srl, add_igrid_to_c, add_igrid_to_f
       procedure, non_overridable :: add_to_srl, add_to_f, add_to_c
@@ -115,78 +108,11 @@ module mod_connectivity
    !$acc declare create(nbprocs_info)
 
    public  :: nbprocs_info_t, nbprocs_info
-   private :: alloc_buffer, alloc_buffer_info, expand_srl, init_srl, reset, init, add_to_srl, add_to_f, add_to_c  
-   private :: add_ipe_to_srl_list, add_igrid_to_srl, alloc_buffers_srl, iencode, idecode
-   private :: add_ipe_to_c_list, add_igrid_to_c, add_ipe_to_f_list, add_igrid_to_f
+   private :: init_srl, reset, init, add_to_srl, add_to_f, add_to_c  
+   private :: add_igrid_to_srl, alloc_buffers_srl, iencode, idecode
+   private :: add_igrid_to_c, add_igrid_to_f
    
  contains
-
-   subroutine alloc_buffer(self, isize)
-     class(nbinfo_buffer_t) :: self
-     integer, intent(in)    :: isize
-
-     if (allocated(self%buffer)) deallocate(self%buffer)
-
-     allocate(self%buffer(1:isize))
-     
-   end subroutine alloc_buffer
-   
-   subroutine alloc_buffer_info(self, isize)
-     class(nbinfo_buffer_i_t) :: self
-     integer, intent(in)    :: isize
-
-     if (allocated(self%buffer)) deallocate(self%buffer)
-
-     allocate(self%buffer(1:isize))
-     
-   end subroutine alloc_buffer_info
-
-   subroutine expand_srl(self)
-     class(nbinfo_srl_t) :: self
-     type(nbinfo_srl_t)  :: tmp
-     ! .. local ..
-     integer             :: size_old
-
-     ! make a copy:
-     size_old = size( self%igrid )
-     call tmp%init( size_old )
-     tmp = self
-
-     ! reallocate and copy back ( cumbersome in fortran :-( )
-     call self%init( size(self%igrid) * self%iexpand )
-     self%nigrids                 = tmp%nigrids
-     self%igrid(1:size_old)       = tmp%igrid
-     self%iencode(1:size_old)     = tmp%iencode
-     self%ibuf_start(1:size_old)  = tmp%ibuf_start
-     self%isize(1:size_old)       = tmp%isize
-
-   end subroutine expand_srl
-
-   subroutine expand_cf(self)
-     class(nbinfo_cf_t) :: self
-     type(nbinfo_cf_t)  :: tmp
-     ! .. local ..
-     integer             :: size_old
-
-     ! make a copy:
-     size_old = size( self%igrid )
-     call tmp%init( size_old )
-     tmp = self
-
-     ! reallocate and copy back ( cumbersome in fortran :-( )
-     call self%init( size(self%igrid) * self%iexpand )
-     self%nigrids                 = tmp%nigrids
-     self%igrid(1:size_old)       = tmp%igrid
-     self%ibuf_start(1:size_old)  = tmp%ibuf_start
-     self%isize(1:size_old)       = tmp%isize
-     self%inc1(1:size_old)        = tmp%inc1
-     self%inc2(1:size_old)        = tmp%inc2
-     self%inc3(1:size_old)        = tmp%inc3
-     self%i1(1:size_old)          = tmp%i1
-     self%i2(1:size_old)          = tmp%i2
-     self%i3(1:size_old)          = tmp%i3
-
-   end subroutine expand_cf
 
    subroutine init_srl(self, nigrids)
      class(nbinfo_srl_t)   :: self
@@ -291,19 +217,20 @@ module mod_connectivity
           )
      
      do i = 1, self%max_nbprocs
-        call self%f_info_send(i)%alloc( 5 * self%max_igrids )
-        call self%f_info_rcv(i)%alloc( 5 * self%max_igrids )
-        call self%c_info_send(i)%alloc( 5 * self%max_igrids )
-        call self%c_info_rcv(i)%alloc( 5 * self%max_igrids )
-        call self%srl_info_send(i)%alloc( 3 * self%max_igrids )
-        call self%srl_info_rcv(i)%alloc( 3 * self%max_igrids )
-        
-        call self%srl_send(i)%alloc(self%max_size)
-        call self%srl_rcv(i)%alloc(self%max_size)
-        call self%c_send(i)%alloc(self%max_size)
-        call self%c_rcv(i)%alloc(self%max_size)
-        call self%f_send(i)%alloc(self%max_size)
-        call self%f_rcv(i)%alloc(self%max_size)
+        allocate( &
+             self%f_info_send(i)%buffer( 5 * self%max_igrids ), &
+             self%f_info_rcv(i)%buffer( 5 * self%max_igrids ), &
+             self%c_info_send(i)%buffer( 5 * self%max_igrids ), &
+             self%c_info_rcv(i)%buffer( 5 * self%max_igrids ), &
+             self%srl_info_send(i)%buffer( 3 * self%max_igrids ), &
+             self%srl_info_rcv(i)%buffer( 3 * self%max_igrids ), &        
+             self%srl_send(i)%buffer(self%max_size), & 
+             self%srl_rcv(i)%buffer(self%max_size), & 
+             self%c_send(i)%buffer(self%max_size), & 
+             self%c_rcv(i)%buffer(self%max_size), & 
+             self%f_send(i)%buffer(self%max_size), & 
+             self%f_rcv(i)%buffer(self%max_size) &
+        )
      end do
      
    end subroutine init   
@@ -311,8 +238,25 @@ module mod_connectivity
    subroutine add_to_srl(self, ipe, igrid, i1, i2, i3)
      class(nbprocs_info_t) :: self
      integer, intent(in)   :: ipe, igrid, i1, i2, i3
-     
-     call self%add_ipe_to_srl_list(ipe)
+
+     ! add the procesor id if not already present:
+     if (self%ipe_to_inbpe_srl(ipe) == -1) then
+
+        ! enlarge counter
+        self%nbprocs_srl = self%nbprocs_srl + 1
+
+        if (self%nbprocs_srl > self%max_nbprocs) then
+           print *, 'add_ipe_to_srl_list: nbprocs_srl exceeding max_nbprocs', self%nbprocs_srl, self%max_nbprocs
+           stop
+        end if
+
+        ! add the process
+        self%nbprocs_srl_list(self%nbprocs_srl) = ipe
+        ! add to inverse list
+        self%ipe_to_inbpe_srl(ipe) = self%nbprocs_srl
+
+     end if
+
      call self%add_igrid_to_srl(ipe, igrid, i1, i2, i3)
 
    end subroutine add_to_srl
@@ -321,7 +265,24 @@ module mod_connectivity
      class(nbprocs_info_t) :: self
      integer, intent(in)   :: ipe, igrid, i1, i2, i3, inc1, inc2, inc3
      
-     call self%add_ipe_to_c_list(ipe)
+     ! add the procesor id if not already present:
+     if (self%ipe_to_inbpe_c(ipe) == -1) then
+
+        ! enlarge counter
+        self%nbprocs_c = self%nbprocs_c + 1
+
+        if (self%nbprocs_c > self%max_nbprocs) then
+           print *, 'add_ipe_to_c_list: nbprocs_c exceeding max_nbprocs', self%nbprocs_c, self%max_nbprocs
+           stop
+        end if
+
+        ! add the process
+        self%nbprocs_c_list(self%nbprocs_c) = ipe
+        ! add to inverse list
+        self%ipe_to_inbpe_c(ipe) = self%nbprocs_c
+
+     end if
+
      call self%add_igrid_to_c(ipe, igrid, i1, i2, i3, inc1, inc2, inc3)
      
    end subroutine add_to_c
@@ -330,69 +291,14 @@ module mod_connectivity
      class(nbprocs_info_t) :: self
      integer, intent(in)   :: ipe, igrid, inc1, inc2, inc3
      
-     call self%add_ipe_to_f_list(ipe)
-     call self%add_igrid_to_f(ipe, igrid, inc1, inc2, inc3)
-     
-   end subroutine add_to_f
-
-   subroutine add_ipe_to_srl_list(self, ipe)
-     class(nbprocs_info_t) :: self
-     integer, intent(in)   :: ipe
-
-     if (self%ipe_to_inbpe_srl(ipe) == -1) then
-     
-        ! enlarge counter
-        self%nbprocs_srl = self%nbprocs_srl + 1
-        
-        if (self%nbprocs_srl > self%max_nbprocs) then
-           print *, 'add_ipe_to_srl_list: nbprocs_srl exceeding max_nbprocs'
-           stop
-        end if
-        
-        ! add the process
-        self%nbprocs_srl_list(self%nbprocs_srl) = ipe
-        ! add to inverse list
-        self%ipe_to_inbpe_srl(ipe) = self%nbprocs_srl
-        
-     end if
-
-     
-   end subroutine add_ipe_to_srl_list
-
-   subroutine add_ipe_to_c_list(self, ipe)
-     class(nbprocs_info_t) :: self
-     integer, intent(in)   :: ipe
-
-     if (self%ipe_to_inbpe_c(ipe) == -1) then
-     
-        ! enlarge counter
-        self%nbprocs_c = self%nbprocs_c + 1
-        
-        if (self%nbprocs_c > self%max_nbprocs) then
-           print *, 'add_ipe_to_c_list: nbprocs_c exceeding max_nbprocs'
-           stop
-        end if
-        
-        ! add the process
-        self%nbprocs_c_list(self%nbprocs_c) = ipe
-        ! add to inverse list
-        self%ipe_to_inbpe_c(ipe) = self%nbprocs_c
-        
-     end if
-     
-   end subroutine add_ipe_to_c_list
-
-   subroutine add_ipe_to_f_list(self, ipe)
-     class(nbprocs_info_t) :: self
-     integer, intent(in)   :: ipe
-
+     ! add the procesor id if not already present:
      if (self%ipe_to_inbpe_f(ipe) == -1) then
      
         ! enlarge counter
         self%nbprocs_f = self%nbprocs_f + 1
         
         if (self%nbprocs_f > self%max_nbprocs) then
-           print *, 'add_ipe_to_c_list: nbprocs_f exceeding max_nbprocs'
+           print *, 'add_ipe_to_c_list: nbprocs_f exceeding max_nbprocs', self%nbprocs_f, self%max_nbprocs
            stop
         end if
         
@@ -402,9 +308,11 @@ module mod_connectivity
         self%ipe_to_inbpe_f(ipe) = self%nbprocs_f
         
      end if
+
+     call self%add_igrid_to_f(ipe, igrid, inc1, inc2, inc3)
      
-   end subroutine add_ipe_to_f_list
-   
+   end subroutine add_to_f
+
    subroutine add_igrid_to_srl(self, ipe, igrid, i1, i2, i3)
      class(nbprocs_info_t) :: self
      integer, intent(in)   :: ipe, igrid, i1, i2, i3
