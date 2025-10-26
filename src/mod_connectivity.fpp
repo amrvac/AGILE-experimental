@@ -325,7 +325,6 @@ module mod_connectivity
 
      ! need to enlarge storage
      if ( self%srl(inbpe)%nigrids > self%max_igrids ) then
-        !call self%srl(inbpe)%expand
         print *, 'add_igrid_to_srl: nigrids exceeding max_igrids'
         stop
      end if
@@ -352,7 +351,6 @@ module mod_connectivity
 
      ! need to enlarge storage
      if ( self%c(inbpe)%nigrids > self%max_igrids ) then
-        !call self%c(inbpe)%expand
         print *, 'add_igrid_to_c: nigrids exceeding max_igrids'
         stop
      end if
@@ -381,9 +379,7 @@ module mod_connectivity
      self%f(inbpe)%nigrids = self%f(inbpe)%nigrids + 1
 
      ! need to enlarge storage
-!     if ( self%f(inbpe)%nigrids > size( self%f(inbpe)%igrid ) ) call self%f(inbpe)%expand
      if ( self%f(inbpe)%nigrids > self%max_igrids ) then
-        !call self%f(inbpe)%expand
         print *, 'add_igrid_to_f: nigrids exceeding max_igrids'
         stop
      end if
