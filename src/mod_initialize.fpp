@@ -35,8 +35,7 @@ contains
     call read_par_files()
     call initialize_vars()
     call init_comm_types()
-    call nbprocs_info%init(npe=npe, nigrids=4)
-    !$acc update device(nbprocs_info)
+    call nbprocs_info%init(npe=npe, nigrids=4*max_blocks, max_size=4194304)
 
     ! Possibly load boundary condition data or initial data
     call bc_data_init()
@@ -252,15 +251,8 @@ contains
     end do
     end do
 
-    ! define index ranges and MPI send/receive derived datatype for ghost-cell swap
+    ! define index ranges for ghost-cell swap
     call init_bc()
-    type_send_srl=>type_send_srl_f
-    type_recv_srl=>type_recv_srl_f
-    type_send_r=>type_send_r_f
-    type_recv_r=>type_recv_r_f
-    type_send_p=>type_send_p_f
-    type_recv_p=>type_recv_p_f
-    call create_bc_mpi_datatype(iwstart,nwgc)
 
   end subroutine initialize_vars
 

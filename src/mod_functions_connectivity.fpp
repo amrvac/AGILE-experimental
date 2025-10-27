@@ -71,7 +71,7 @@ module mod_functions_connectivity
 
     ! total size of buffer arrays
     integer :: nbuff_bc_recv_srl, nbuff_bc_send_srl, nbuff_bc_recv_r,&
-        nbuff_bc_send_r, nbuff_bc_recv_p, nbuff_bc_send_p
+         nbuff_bc_send_r, nbuff_bc_recv_p, nbuff_bc_send_p
 
     nrecv_bc_srl=0; nsend_bc_srl=0
     nrecv_bc_r=0; nsend_bc_r=0
@@ -113,14 +113,16 @@ module mod_functions_connectivity
                    ic1=1+modulo(tree%node%ig1-1,2)
                    ic2=1+modulo(tree%node%ig2-1,2)
                    ic3=1+modulo(tree%node%ig3-1,2);
+                   ! avoid double counting of coarse neighbors
                    if ((i1==0.or.i1==2*ic1-3).and.(i2==0.or.i2==&
-                      2*ic2-3).and.(i3==0.or.i3==2*ic3-3)) then
+                        2*ic2-3).and.(i3==0.or.i3==2*ic3-3)) then
+                     ! This is the local index of the prolonged ghost zone
+                     inc1=ic1+i1;inc2=ic2+i2;inc3=ic3+i3;
+                      call nbprocs_info%add_to_c(my_neighbor%node%ipe, igrid, i1, i2, i3, inc1, inc2, inc3)
                      nrecv_bc_p=nrecv_bc_p+1
                      nsend_bc_r=nsend_bc_r+1
                      nbuff_bc_send_r=nbuff_bc_send_r+sizes_r_send_total(i1,i2,&
                         i3)
-                     ! This is the local index of the prolonged ghost zone
-                     inc1=ic1+i1;inc2=ic2+i2;inc3=ic3+i3;
                      nbuff_bc_recv_p=nbuff_bc_recv_p+sizes_p_recv_total(inc1,&
                         inc2,inc3)
                    end if
@@ -169,12 +171,13 @@ module mod_functions_connectivity
                    neighbor_child(1,inc1,inc2,inc3,igrid)=child%node%igrid
                    neighbor_child(2,inc1,inc2,inc3,igrid)=child%node%ipe
                    if (child%node%ipe/=mype) then
-                     nrecv_bc_r=nrecv_bc_r+1
-                     nsend_bc_p=nsend_bc_p+1
-                     nbuff_bc_send_p=nbuff_bc_send_p+sizes_p_send_total(inc1,&
-                        inc2,inc3)
-                     nbuff_bc_recv_r=nbuff_bc_recv_r+sizes_r_recv_total(inc1,&
-                        inc2,inc3)
+                      call nbprocs_info%add_to_f(child%node%ipe, igrid, inc1, inc2, inc3)
+                      nrecv_bc_r=nrecv_bc_r+1
+                      nsend_bc_p=nsend_bc_p+1
+                      nbuff_bc_send_p=nbuff_bc_send_p+sizes_p_send_total(inc1,&
+                           inc2,inc3)
+                      nbuff_bc_recv_r=nbuff_bc_recv_r+sizes_r_recv_total(inc1,&
+                           inc2,inc3)
                    end if
                 end do
                 end do
@@ -383,18 +386,55 @@ module mod_functions_connectivity
          ixR_srl_min2, ixR_srl_max2, &
          ixR_srl_min3, ixR_srl_max3 &
          )
+    call nbprocs_info%alloc_buffers_f(nwgc, &
+         ixS_p_min1, ixS_p_max1, &
+         ixS_p_min2, ixS_p_max2, &
+         ixS_p_min3, ixS_p_max3, &
+         ixR_r_min1, ixR_r_max1, &
+         ixR_r_min2, ixR_r_max2, &
+         ixR_r_min3, ixR_r_max3 &
+         )
+    call nbprocs_info%alloc_buffers_c(nwgc, &
+         ixS_r_min1, ixS_r_max1, &
+         ixS_r_min2, ixS_r_max2, &
+         ixS_r_min3, ixS_r_max3, &
+         ixR_p_min1, ixR_p_max1, &
+         ixR_p_min2, ixR_p_max2, &
+         ixR_p_min3, ixR_p_max3 &
+         )
 
     ! allocate nbstructure srl requests and status
+    ! SRL:
     if (allocated(recvstatus_srl_nb)) then
        deallocate(recv_srl_nb, recvstatus_srl_nb)
     end if
     allocate(recv_srl_nb(nbprocs_info%nbprocs_srl*2), recvstatus_srl_nb(MPI_STATUS_SIZE,nbprocs_info%nbprocs_srl*2))
-
     if (allocated(sendstatus_srl_nb)) then
        deallocate(send_srl_nb, sendstatus_srl_nb)
     end if
     allocate(send_srl_nb(nbprocs_info%nbprocs_srl*2), sendstatus_srl_nb(MPI_STATUS_SIZE,nbprocs_info%nbprocs_srl*2))
 
+    ! F:
+    if (allocated(recvstatus_f_nb)) then
+       deallocate(recv_f_nb, recvstatus_f_nb)
+    end if
+    allocate(recv_f_nb(nbprocs_info%nbprocs_f*2), recvstatus_f_nb(MPI_STATUS_SIZE,nbprocs_info%nbprocs_f*2))
+    if (allocated(sendstatus_f_nb)) then
+       deallocate(send_f_nb, sendstatus_f_nb)
+    end if
+    allocate(send_f_nb(nbprocs_info%nbprocs_f*2), sendstatus_f_nb(MPI_STATUS_SIZE,nbprocs_info%nbprocs_f*2))
+
+    ! C:
+    if (allocated(recvstatus_c_nb)) then
+       deallocate(recv_c_nb, recvstatus_c_nb)
+    end if
+    allocate(recv_c_nb(nbprocs_info%nbprocs_c*2), recvstatus_c_nb(MPI_STATUS_SIZE,nbprocs_info%nbprocs_c*2))
+    if (allocated(sendstatus_c_nb)) then
+       deallocate(send_c_nb, sendstatus_c_nb)
+    end if
+    allocate(send_c_nb(nbprocs_info%nbprocs_c*2), sendstatus_c_nb(MPI_STATUS_SIZE,nbprocs_info%nbprocs_c*2))
+
+    
     ! allocate space for mpi recieve for siblings and restrict ghost cell filling
     nrecvs=nrecv_bc_srl+nrecv_bc_r
     if (allocated(recvstatus_c_sr)) then
@@ -557,20 +597,10 @@ module mod_functions_connectivity
       sendrequest_p=MPI_REQUEST_NULL
     end if
 
-
+    
     !update the neighbor information on the device
-    !$acc update device(neighbor, neighbor_type, neighbor_pole, neighbor_child, idphyb, nbprocs_info)
-    !$acc enter data copyin(nbprocs_info%srl_rcv, nbprocs_info%srl_send, nbprocs_info%srl, nbprocs_info%srl_info_rcv, nbprocs_info%srl_info_send)
-    do ipe_neighbor = 1, nbprocs_info%nbprocs_srl
-       !$acc enter data copyin(nbprocs_info%srl_rcv(ipe_neighbor)%buffer, nbprocs_info%srl_info_rcv(ipe_neighbor)%buffer)
-       !$acc enter data copyin(nbprocs_info%srl_send(ipe_neighbor)%buffer, nbprocs_info%srl_info_send(ipe_neighbor)%buffer)
-       !$acc enter data copyin(nbprocs_info%srl(ipe_neighbor)%igrid)
-       !$acc enter data copyin(nbprocs_info%srl(ipe_neighbor)%iencode)
-       !$acc enter data copyin(nbprocs_info%srl(ipe_neighbor)%isize)
-       !$acc enter data copyin(nbprocs_info%srl(ipe_neighbor)%ibuf_start)
-       !$acc enter data copyin(nbprocs_info%srl(ipe_neighbor)%nigrids)
-    end do
-
+    !$acc update device(neighbor, neighbor_type, neighbor_pole, neighbor_child, idphyb)
+    call nbprocs_update_device
 
 
   end subroutine build_connectivity
