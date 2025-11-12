@@ -39,6 +39,13 @@ default = false
 implies = ["components.source_local"]
 
 [ffhd_list]
+[ffhd_list.ffhd_pdivb]
+type = "flag"
+name = "PDIVB"
+flags = ["fypp", "hash"]
+default = false
+implies = ["components.source_nonlocal"]
+
 [ffhd_list.ffhd_hyperbolic_thermal_conduction]
 type = "flag"
 name = "HYPERTC"

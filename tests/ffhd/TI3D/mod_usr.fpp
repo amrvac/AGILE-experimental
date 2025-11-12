@@ -87,6 +87,10 @@ contains
     w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3, q_) = zero
     #:endif
 
+    w(ixImin1:ixImax1,ixImin2:ixImax2,ixImin3:ixImax3,iw_b1) = zero
+    w(ixImin1:ixImax1,ixImin2:ixImax2,ixImin3:ixImax3,iw_b2) = zero
+    w(ixImin1:ixImax1,ixImin2:ixImax2,ixImin3:ixImax3,iw_b3) = -1.0_dp
+
     call phys_to_conserved(ixImin1,ixImin2,ixImin3,ixImax1,ixImax2,ixImax3,&
        ixOmin1,ixOmin2,ixOmin3,ixOmax1,ixOmax2,ixOmax3,w,x)
 
@@ -109,18 +113,6 @@ contains
     if (idim == 3) field = -1.0_dp
 
   end function gravity_field
-
-  !> analytical fomula for the unit vectors along B
-  pure real(dp) function bfield(x, idim) result(field)
-    !$acc routine seq
-    real(dp), intent(in)    :: x(1:ndim)
-    integer, value, intent(in)     :: idim
-
-    if (idim == 1) field =  0.0_dp
-    if (idim == 2) field =  0.0_dp
-    if (idim == 3) field = -1.0_dp
-
-  end function bfield
 
   subroutine addsource_usr(qdt, qt, wCT, wCTprim, wnew, x, qsourcesplit)
     !$acc routine seq
