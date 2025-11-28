@@ -58,7 +58,7 @@ module mod_usr_methods
   procedure(hd_pthermal), pointer     :: usr_set_pthermal     => null()
 
   ! Refinement related procedures
-  procedure(refine_grid), pointer     :: usr_refine_grid      => null()
+!  procedure(refine_grid), pointer     :: usr_refine_grid      => null()
   procedure(var_for_errest), pointer  :: usr_var_for_errest   => null()
   procedure(a_refine_threshold), pointer :: usr_refine_threshold => null()
   procedure(flag_grid), pointer       :: usr_flag_grid        => null()

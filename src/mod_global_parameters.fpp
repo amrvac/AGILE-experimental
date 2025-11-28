@@ -437,7 +437,11 @@ module mod_global_parameters
 
   !> Maximal number of AMR levels
   integer :: refine_max_level
+  !$acc declare create(refine_max_level)
 
+  !> Specify to use user-defined refinement criterion
+  logical :: refine_usr = .false.
+  
   !> Weights of variables used to calculate error for mesh refinement
   double precision, allocatable :: w_refine_weight(:)
 
@@ -498,6 +502,7 @@ module mod_global_parameters
   !$acc declare create(kr,lvc,dt)
 
   logical :: time_advance
+  !$acc declare create(time_advance)
 
   !> The Courant (CFL) number used for the simulation
   double precision :: courantpar

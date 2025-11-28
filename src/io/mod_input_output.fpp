@@ -274,7 +274,7 @@ contains
         amr_wavefilter,max_blocks,block_nx1,block_nx2,block_nx3,domain_nx1,&
        domain_nx2,domain_nx3,iprob,xprobmin1,xprobmin2,xprobmin3,xprobmax1,&
        xprobmax2,xprobmax3, w_refine_weight, prolongprimitive,coarsenprimitive,&
-        typeprolonglimit, logflag,tfixgrid,itfixgrid,ditregrid
+        typeprolonglimit, logflag,tfixgrid,itfixgrid,ditregrid, refine_usr
     namelist /paramlist/  courantpar, dtpar, dtdiffpar, typecourant, slowsteps
 
     namelist /emissionlist/ filename_euv,wavelength,filename_sxr,emin_sxr,&
@@ -2103,7 +2103,7 @@ contains
  !$acc update device(rk_beta11,rk_beta22,rk_beta33,rk_beta44,rk_c2,rk_c3,rk_c4)
  !$acc update device(rk_alfa21,rk_alfa22,rk_alfa31,rk_alfa33,rk_alfa41,rk_alfa44)
  !$acc update device(rk_beta54,rk_beta55,rk_alfa53,rk_alfa54,rk_alfa55,rk_c5)
- !$acc update device(typeboundary, specialboundary)   
+ !$acc update device(typeboundary, specialboundary, refine_max_level)   
   end subroutine read_par_files
 
   !> Routine to find entries in a string
