@@ -15,7 +15,6 @@ contains
      ixFiGmax2,ixFiGmax3,ixFimin1,ixFimin2,ixFimin3,ixFimax1,ixFimax2,ixFimax3,&
      sCo,ixCoGmin1,ixCoGmin2,ixCoGmin3,ixCoGmax1,ixCoGmax2,ixCoGmax3,ixComin1,&
      ixComin2,ixComin3,ixComax1,ixComax2,ixComax3)
-    !$acc routine vector
 
     type(state), intent(inout)      :: sFi, sCo
     integer, intent(in) :: ixFiGmin1,ixFiGmin2,ixFiGmin3,ixFiGmax1,ixFiGmax2,&
@@ -40,35 +39,39 @@ contains
 !       ixFimax2,ixFimax3,wFi,sFi%x)
 
     if(slab_uniform) then
-      CoFiratio=one/dble(2**ndim)
-      do iw=1,nw
-         do ixCo3 = ixComin3,ixComax3
-            ixFi3=2*(ixCo3-ixComin3)+ixFimin3
-         do ixCo2 = ixComin2,ixComax2
-            ixFi2=2*(ixCo2-ixComin2)+ixFimin2
-         do ixCo1 = ixComin1,ixComax1
-            ixFi1=2*(ixCo1-ixComin1)+ixFimin1
-            wCo(ixCo1,ixCo2,ixCo3,iw)=sum(wFi(ixFi1:ixFi1+1,ixFi2:ixFi2+1,&
-               ixFi3:ixFi3+1,iw))*CoFiratio
-         end do
-         end do
-         end do
+       CoFiratio=one/dble(2**ndim)
+       !$acc parallel loop gang
+       do iw=1,nw
+          !$acc loop collapse(3) vector
+          do ixCo3 = ixComin3,ixComax3
+             do ixCo2 = ixComin2,ixComax2
+                do ixCo1 = ixComin1,ixComax1
+                   ixFi3=2*(ixCo3-ixComin3)+ixFimin3
+                   ixFi2=2*(ixCo2-ixComin2)+ixFimin2
+                   ixFi1=2*(ixCo1-ixComin1)+ixFimin1
+                   wCo(ixCo1,ixCo2,ixCo3,iw)=sum(wFi(ixFi1:ixFi1+1,ixFi2:ixFi2+1,&
+                        ixFi3:ixFi3+1,iw))*CoFiratio
+                end do
+             end do
+          end do
       end do
     else
-      do iw=1,nw
-        do ixCo3 = ixComin3,ixComax3
-           ixFi3=2*(ixCo3-ixComin3)+ixFimin3
-        do ixCo2 = ixComin2,ixComax2
-           ixFi2=2*(ixCo2-ixComin2)+ixFimin2
-        do ixCo1 = ixComin1,ixComax1
-           ixFi1=2*(ixCo1-ixComin1)+ixFimin1
-           wCo(ixCo1,ixCo2,ixCo3,iw)= sum(sFi%dvolume(ixFi1:ixFi1+1,&
-              ixFi2:ixFi2+1,ixFi3:ixFi3+1)*wFi(ixFi1:ixFi1+1,ixFi2:ixFi2+1,&
-              ixFi3:ixFi3+1,iw)) /sCo%dvolume(ixCo1,ixCo2,ixCo3)
-        end do
-        end do
-        end do
-      end do
+       !$acc parallel loop gang
+       do iw=1,nw
+          !$acc loop collapse(3) vector
+          do ixCo3 = ixComin3,ixComax3
+             do ixCo2 = ixComin2,ixComax2
+                do ixCo1 = ixComin1,ixComax1
+                   ixFi3=2*(ixCo3-ixComin3)+ixFimin3
+                   ixFi2=2*(ixCo2-ixComin2)+ixFimin2
+                   ixFi1=2*(ixCo1-ixComin1)+ixFimin1
+                   wCo(ixCo1,ixCo2,ixCo3,iw)= sum(sFi%dvolume(ixFi1:ixFi1+1,&
+                        ixFi2:ixFi2+1,ixFi3:ixFi3+1)*wFi(ixFi1:ixFi1+1,ixFi2:ixFi2+1,&
+                        ixFi3:ixFi3+1,iw)) /sCo%dvolume(ixCo1,ixCo2,ixCo3)
+                end do
+             end do
+          end do
+       end do
     end if
 
 ! AGILE: tbd

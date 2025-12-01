@@ -46,7 +46,7 @@
    refine_max_level   =  2
    refine_criterion   =  1 ! user-defined criterion only (in mod_usr)
    refine_usr         =  .true. ! user-defined criterion is defined
-   itfixgrid          =  0 
+!   itfixgrid          =  0 
    block_nx1          =  16
    block_nx2          =  16
    block_nx3          =  16

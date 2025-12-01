@@ -67,7 +67,7 @@ contains
     qt,w,x,refine,coarsen)
 
     use mod_global_parameters
-    !$acc routine vector
+!    !$acc routine vector
     ! Enforce additional refinement or coarsening
     ! One can use the coordinate info in x and/or time qt=t_n and w(t_n) values w.
 
@@ -94,7 +94,7 @@ contains
     logical                         :: has_sphere
 
     has_sphere = .false.
-    !$acc loop collapse(3) reduction(.or.:has_sphere)
+!    !$acc loop collapse(3) reduction(.or.:has_sphere)
     do ix3 = ixmin3, ixmax3
        do ix2 = ixmin2, ixmax2
           do ix1 = ixmin1, ixmax1
@@ -109,8 +109,8 @@ contains
        coarsen = -1
        refine  = 1
     else 
-       coarsen = 0
-       refine  = 0
+       coarsen = 1
+       refine  = -1
     end if
 
   end subroutine usr_refine_grid

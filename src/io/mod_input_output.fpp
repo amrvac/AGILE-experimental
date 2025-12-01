@@ -2103,7 +2103,9 @@ contains
  !$acc update device(rk_beta11,rk_beta22,rk_beta33,rk_beta44,rk_c2,rk_c3,rk_c4)
  !$acc update device(rk_alfa21,rk_alfa22,rk_alfa31,rk_alfa33,rk_alfa41,rk_alfa44)
  !$acc update device(rk_beta54,rk_beta55,rk_alfa53,rk_alfa54,rk_alfa55,rk_c5)
- !$acc update device(typeboundary, specialboundary, refine_max_level)   
+ !$acc update device(typeboundary, specialboundary, refine_max_level)
+ !$acc update device(slab, slab_uniform)
+    
   end subroutine read_par_files
 
   !> Routine to find entries in a string

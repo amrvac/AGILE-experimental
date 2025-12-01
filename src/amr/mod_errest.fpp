@@ -15,7 +15,6 @@ contains
     integer :: igrid, iigrid, ixCoGmin1,ixCoGmin2,ixCoGmin3,ixCoGmax1,&
        ixCoGmax2,ixCoGmax3
     double precision :: factor
-    logical, dimension(:,:), allocatable :: refine2
 
     if (igridstail==0) return
 
@@ -33,23 +32,17 @@ contains
        call mpistop("Unknown error estimator")
     end select
 
-    ! enforce additional refinement on e.g. coordinate and/or time info here
-    if (nbufferx1/=0.or.nbufferx2/=0.or.nbufferx3/=0) then
-       allocate(refine2(max_blocks,npe))
-       call MPI_ALLREDUCE(refine,refine2,max_blocks*npe,MPI_LOGICAL,MPI_LOR,&
-           icomm,ierrmpi)
-       refine=refine2
-    end if
-
     if ( refine_usr ) then
-       !$acc parallel loop gang
+!      !$acc parallel loop gang
        do iigrid=1,igridstail; igrid=igrids(iigrid);
+          !$acc update host(ps(igrid)%w)
           call forcedrefine_grid(igrid,ps(igrid)%w)
        end do
-       !$acc update host(refine, coarsen)
     end if
 
-    if (nbufferx1/=0.or.nbufferx2/=0.or.nbufferx3/=0) buffer=.false.
+    !AGILE: don't use buffers for now:
+    buffer=.false.
+!   !$acc update host(refine, coarsen)
 
   end subroutine errest
 
@@ -269,7 +262,7 @@ contains
   end subroutine lohner_grid
 
   subroutine forcedrefine_grid(igrid,w)
-    !$acc routine vector
+!   !$acc routine vector
     #:if defined('REFINE_USR')
     use mod_usr, only: usr_refine_grid
     #:endif
@@ -284,6 +277,8 @@ contains
     integer :: my_refine, my_coarsen
     double precision :: qt
 
+    print *, 'fref: 0'
+    
     level=node(plevel_,igrid)
 
     ! initialize to 0
@@ -296,11 +291,15 @@ contains
        qt=global_time
     end if
 
+    print *, 'fref: A'
+    
 #:if defined('REFINE_USR')
         call usr_refine_grid(igrid,level,ixGlo1,ixGlo2,ixGlo3,ixGhi1,ixGhi2,&
            ixGhi3,ixMlo1,ixMlo2,ixMlo3,ixMhi1,ixMhi2,ixMhi3,qt,w,ps(igrid)%x,&
            my_refine,my_coarsen)
 #:endif
+
+    print *, 'fref: B'
 
     if (my_coarsen==1) then
        if (level>1) then
@@ -315,7 +314,7 @@ contains
     if (my_coarsen==-1)then
        coarsen(igrid,mype)=.false.
     end if
-
+    
     if (my_refine==1) then
        if (level<refine_max_level) then
           refine(igrid,mype)=.true.
@@ -329,6 +328,7 @@ contains
     if (my_refine==-1) then
       refine(igrid,mype)=.false.
     end if
+    print *, 'fref: C'
   
   end subroutine forcedrefine_grid
   

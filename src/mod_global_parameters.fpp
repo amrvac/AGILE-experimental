@@ -81,12 +81,12 @@ module mod_global_parameters
   !$acc declare copyin(sdim)
 
   !> Cartesian geometry or not
-  logical :: slab
-  !$acc declare create(slab)
+  logical :: slab = .true.
+  !$acc declare copyin(slab)
 
   !> uniform Cartesian geometry or not (stretched Cartesian)
   logical :: slab_uniform=.true.
-  !$acc declare create(slab_uniform)
+  !$acc declare copyin(slab_uniform)
   
   !> each cell has its own timestep or not
   logical :: local_timestep = .false.

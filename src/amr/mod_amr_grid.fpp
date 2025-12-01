@@ -61,7 +61,11 @@ contains
   
     call errest
 
+    print *, 'done with errest'
+    
     call amr_coarsen_refine
+
+    print *, 'done with amr_coarsen_refine'
 
     ! set up boundary flux conservation arrays
     if(levmax>levmin) call allocateBflux
