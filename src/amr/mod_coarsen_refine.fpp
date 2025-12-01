@@ -43,12 +43,8 @@ contains
     type(tree_node_ptr) :: tree, sibling
     logical             :: active
 
-    print *, 'entering amr_coarsen_refine'
-    
     call proper_nesting
 
-    print *, 'done with proper_nesting'
-    
     if(stagger_grid) then
       call store_faces
       call comm_faces
@@ -73,12 +69,9 @@ contains
       sendrequest_stg=MPI_REQUEST_NULL
     end if
 
-    print *, 'entering coarsening loop'
     
     do ipe=0,npe-1
-       print *, 'coarsening-loop', ipe
        do igrid=1,max_blocks
-          print *, 'coarsening-loop', ipe, igrid, coarsen(igrid,ipe)
           if (coarsen(igrid,ipe)) then
              if (.not.associated(igrid_to_node(igrid,ipe)%node)) cycle
 
@@ -96,10 +89,8 @@ contains
              ipeCo=ipeFi(1,1,1)
              igridCo=getnode(ipeCo)
 
-             print *, 'calling coarsen_tree_leaf'
              call coarsen_tree_leaf(igridCo,ipeCo,igridFi,ipeFi,active)
 
-             print *, 'calling coarsen_grid_siblings', igridCo
              call coarsen_grid_siblings(igridCo,ipeCo,igridFi,ipeFi,active)
 
              ! local coarsening done
@@ -117,8 +108,6 @@ contains
        end do
     end do
 
-    print *, 'after coarsening-loop'
-    
     if (irecv>0) then
       call MPI_WAITALL(irecv,recvrequest,recvstatus,ierrmpi)
       if(stagger_grid) call MPI_WAITALL(irecv,recvrequest_stg,recvstatus_stg,&
@@ -149,8 +138,6 @@ contains
        end do
     end do
 
-    print *, 'after non-local coarsening'
-    
     do ipe=0,npe-1
        do igrid=1,max_blocks
           if (refine(igrid,ipe)) then
@@ -174,8 +161,6 @@ contains
           end if
        end do
     end do
-
-    print *, 'after refine loop'
 
     ! A crash occurs in later MPI_WAITALL when initial condition comsumes too 
     ! much time to filling new blocks with both gfortran and intel fortran compiler.

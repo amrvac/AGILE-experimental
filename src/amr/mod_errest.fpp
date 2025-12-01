@@ -33,16 +33,15 @@ contains
     end select
 
     if ( refine_usr ) then
-!      !$acc parallel loop gang
+       !$acc parallel loop gang
        do iigrid=1,igridstail; igrid=igrids(iigrid);
-          !$acc update host(ps(igrid)%w)
-          call forcedrefine_grid(igrid,ps(igrid)%w)
+          call forcedrefine_grid(igrid)
        end do
     end if
 
     !AGILE: don't use buffers for now:
     buffer=.false.
-!   !$acc update host(refine, coarsen)
+   !$acc update host(refine, coarsen)
 
   end subroutine errest
 
@@ -261,8 +260,8 @@ contains
 
   end subroutine lohner_grid
 
-  subroutine forcedrefine_grid(igrid,w)
-!   !$acc routine vector
+  subroutine forcedrefine_grid(igrid)
+    !$acc routine vector
     #:if defined('REFINE_USR')
     use mod_usr, only: usr_refine_grid
     #:endif
@@ -270,15 +269,11 @@ contains
     use mod_global_parameters
 
     integer, intent(in) :: igrid
-    double precision, intent(in) :: w(ixGlo1:ixGhi1,ixGlo2:ixGhi2,&
-       ixGlo3:ixGhi3,nw)
 
     integer :: level
     integer :: my_refine, my_coarsen
     double precision :: qt
 
-    print *, 'fref: 0'
-    
     level=node(plevel_,igrid)
 
     ! initialize to 0
@@ -291,15 +286,12 @@ contains
        qt=global_time
     end if
 
-    print *, 'fref: A'
-    
 #:if defined('REFINE_USR')
-        call usr_refine_grid(igrid,level,ixGlo1,ixGlo2,ixGlo3,ixGhi1,ixGhi2,&
-           ixGhi3,ixMlo1,ixMlo2,ixMlo3,ixMhi1,ixMhi2,ixMhi3,qt,w,ps(igrid)%x,&
-           my_refine,my_coarsen)
+    call usr_refine_grid(igrid,level,ixGlo1,ixGlo2,ixGlo3,ixGhi1,ixGhi2, &
+         ixGhi3,ixMlo1,ixMlo2,ixMlo3,ixMhi1,ixMhi2,ixMhi3,qt, &
+         bg(1)%w(:,:,:,:, igrid), ps(igrid)%x, &
+         my_refine,my_coarsen)
 #:endif
-
-    print *, 'fref: B'
 
     if (my_coarsen==1) then
        if (level>1) then
@@ -328,7 +320,6 @@ contains
     if (my_refine==-1) then
       refine(igrid,mype)=.false.
     end if
-    print *, 'fref: C'
   
   end subroutine forcedrefine_grid
   

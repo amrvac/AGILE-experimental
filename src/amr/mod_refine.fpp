@@ -20,8 +20,6 @@ contains
   
     integer :: ic1,ic2,ic3
 
-    print *, 'entering refine_grids'
-    
     ! allocate solution space for new children
     do ic3=1,2
        do ic2=1,2
@@ -31,8 +29,6 @@ contains
        end do
     end do
 
-    print *, 'before prolong_grid'
-    
     if ((time_advance .and. active).or.convert.or.reset_grid) then
        ! prolong igrid to new children
        call prolong_grid(child_igrid,child_ipe,igrid,ipe)
