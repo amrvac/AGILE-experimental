@@ -76,33 +76,34 @@ contains
     dxCo3=rnode(rpdx3_,igrid)
   
     if(stagger_grid) call old_neighbors(child_igrid,child_ipe,igrid,ipe)
-  
+    
     do ic3=1,2
-    do ic2=1,2
-    do ic1=1,2
-      ichild=child_igrid(ic1,ic2,ic3)
-  
-      ixComin1=ixMlo1+(ic1-1)*block_nx1/2
-      ixComin2=ixMlo2+(ic2-1)*block_nx2/2
-      ixComin3=ixMlo3+(ic3-1)*block_nx3/2
-      ixComax1=ixMhi1+(ic1-2)*block_nx1/2
-      ixComax2=ixMhi2+(ic2-2)*block_nx2/2
-      ixComax3=ixMhi3+(ic3-2)*block_nx3/2
-  
-      xFimin1=rnode(rpxmin1_,ichild)
-      xFimin2=rnode(rpxmin2_,ichild)
-      xFimin3=rnode(rpxmin3_,ichild)
-      dxFi1=rnode(rpdx1_,ichild)
-      dxFi2=rnode(rpdx2_,ichild)
-      dxFi3=rnode(rpdx3_,ichild)
-      call prolong_2nd(ps(igrid),ixComin1,ixComin2,ixComin3,ixComax1,ixComax2,&
-         ixComax3,ps(ichild), dxCo1,dxCo2,dxCo3,xComin1,xComin2,xComin3,dxFi1,&
-         dxFi2,dxFi3,xFimin1,xFimin2,xFimin3,igrid,ichild)
-      !call prolong_1st(ps(igrid)%w,ixCo^L,ps(ichild)%w,ps(ichild)%x)
+       do ic2=1,2
+          do ic1=1,2
+             ichild=child_igrid(ic1,ic2,ic3)
+
+             ixComin1=ixMlo1+(ic1-1)*block_nx1/2
+             ixComin2=ixMlo2+(ic2-1)*block_nx2/2
+             ixComin3=ixMlo3+(ic3-1)*block_nx3/2
+             ixComax1=ixMhi1+(ic1-2)*block_nx1/2
+             ixComax2=ixMhi2+(ic2-2)*block_nx2/2
+             ixComax3=ixMhi3+(ic3-2)*block_nx3/2
+
+             xFimin1=rnode(rpxmin1_,ichild)
+             xFimin2=rnode(rpxmin2_,ichild)
+             xFimin3=rnode(rpxmin3_,ichild)
+             dxFi1=rnode(rpdx1_,ichild)
+             dxFi2=rnode(rpdx2_,ichild)
+             dxFi3=rnode(rpdx3_,ichild)
+             call prolong_2nd(ps(igrid),ixComin1,ixComin2,ixComin3,ixComax1,ixComax2,&
+                  ixComax3,ps(ichild), dxCo1,dxCo2,dxCo3,xComin1,xComin2,xComin3,dxFi1,&
+                  dxFi2,dxFi3,xFimin1,xFimin2,xFimin3,igrid,ichild)
+             !      call prolong_1st(ps(igrid)%w,ixComin1,ixComin2,ixComin3,ixComax1,ixComax2,&
+             !         ixComax3,ps(ichild)%w,ps(ichild)%x)
+          end do
+       end do
     end do
-    end do
-    end do
-  
+
     if (prolongprimitive) call phys_to_conserved(ixGlo1,ixGlo2,ixGlo3,ixGhi1,&
        ixGhi2,ixGhi3,ixmin1,ixmin2,ixmin3,ixmax1,ixmax2,ixmax3,ps(igrid)%w,&
        ps(igrid)%x)
@@ -136,7 +137,7 @@ contains
     ixCgmin1=ixComin1;ixCgmin2=ixComin2;ixCgmin3=ixComin3;ixCgmax1=ixComax1
     ixCgmax2=ixComax2;ixCgmax3=ixComax3;
 
-    !$acc parallel loop collapse(3)
+    !$acc parallel loop collapse(3) private(slope)
     do ixCo3 = ixCgmin3,ixCgmax3
        do ixCo2 = ixCgmin2,ixCgmax2
           do ixCo1 = ixCgmin1,ixCgmax1
@@ -153,8 +154,8 @@ contains
                 jxCo3=ixCo3+kr(3,idim)
 
                 do iw=1,nw
-                   slopeL=wCo(ixCo1,ixCo2,ixCo3,iw)-wCo(hxCo1,hxCo2,hxCo3,iw)
-                   slopeR=wCo(jxCo1,jxCo2,jxCo3,iw)-wCo(ixCo1,ixCo2,ixCo3,iw)
+                   slopeL=bg(1)%w(ixCo1,ixCo2,ixCo3,iw, igridCo) - bg(1)%w(hxCo1,hxCo2,hxCo3,iw, igridCo)
+                   slopeR=bg(1)%w(jxCo1,jxCo2,jxCo3,iw, igridCo) - bg(1)%w(ixCo1,ixCo2,ixCo3,iw, igridCo)
                    slopeC=half*(slopeR+slopeL)
 
                    ! get limited slope
@@ -209,7 +210,7 @@ contains
                          eta3=(dble(ix3-ixFi3)-0.5d0)*(one-sFi%dvolume(ix1,ix2,&
                               ix3) /sum(sFi%dvolume(ix1,ix2,ixFi3:ixFi3+1)))  
                       end if
-                      wFi(ix1,ix2,ix3,1:nw) = wCo(ixCo1,ixCo2,ixCo3,1:nw) + (slope(1:nw,&
+                      bg(1)%w(ix1,ix2,ix3,1:nw, igridFi) = bg(1)%w(ixCo1,ixCo2,ixCo3,1:nw, igridCo) + (slope(1:nw,&
                            1)*eta1)+(slope(1:nw,2)*eta2)+(slope(1:nw,3)*eta3)
                    end do
                 end do
@@ -238,7 +239,7 @@ contains
   
   !> do 1st order prolongation
   subroutine prolong_1st(wCo,ixComin1,ixComin2,ixComin3,ixComax1,ixComax2,&
-     ixComax3,wFi,xFi)
+       ixComax3,wFi,xFi)
     use mod_global_parameters
   
     integer, intent(in) :: ixComin1,ixComin2,ixComin3,ixComax1,ixComax2,&
@@ -251,19 +252,20 @@ contains
   
     integer :: ixCo1,ixCo2,ixCo3, ixFi1,ixFi2,ixFi3, iw
     integer :: ixFimin1,ixFimin2,ixFimin3,ixFimax1,ixFimax2,ixFimax3
-  
+
+    !$acc parallel loop collapse(3)
     do ixCo3 = ixComin3,ixComax3
-       ixFi3=2*(ixCo3-ixComin3)+ixMlo3
-    do ixCo2 = ixComin2,ixComax2
-       ixFi2=2*(ixCo2-ixComin2)+ixMlo2
-    do ixCo1 = ixComin1,ixComax1
-       ixFi1=2*(ixCo1-ixComin1)+ixMlo1
-       forall(iw=1:nw) wFi(ixFi1:ixFi1+1,ixFi2:ixFi2+1,ixFi3:ixFi3+1,&
-          iw)=wCo(ixCo1,ixCo2,ixCo3,iw)
+       do ixCo2 = ixComin2,ixComax2
+          do ixCo1 = ixComin1,ixComax1
+             ixFi3=2*(ixCo3-ixComin3)+ixMlo3
+             ixFi2=2*(ixCo2-ixComin2)+ixMlo2
+             ixFi1=2*(ixCo1-ixComin1)+ixMlo1
+             forall(iw=1:nw) wFi(ixFi1:ixFi1+1,ixFi2:ixFi2+1,ixFi3:ixFi3+1,&
+                  iw)=wCo(ixCo1,ixCo2,ixCo3,iw)
+          end do
+       end do
     end do
-    end do
-    end do
-  
+
   end subroutine prolong_1st
 
 end module mod_refine
