@@ -56,7 +56,7 @@ module mod_ghostcells_update
   integer, dimension(-1:1, 0:3) :: ixR_r_min1,ixR_r_min2,ixR_r_min3,ixR_r_max1,&
        ixR_r_max2,ixR_r_max3
   !$acc declare create(ixR_r_min1,ixR_r_min2,ixR_r_min3,ixR_r_max1,ixR_r_max2,ixR_r_max3)
-  
+
   ! index ranges of staggered variables to receive restriced ghost cells from finer blocks
   integer, dimension(3,0:3)  :: ixR_r_stg_min1,ixR_r_stg_min2,ixR_r_stg_min3,&
        ixR_r_stg_max1,ixR_r_stg_max2,ixR_r_stg_max3
@@ -142,9 +142,9 @@ module mod_ghostcells_update
 
 
 contains
-  
+
   subroutine idecode(i1, i2, i3, i)
-    !$acc routine seq
+    !$acc routine vector
     integer, intent(in)                       :: i
     integer, intent(out)                      :: i1, i2, i3
     ! .. local ..
@@ -1088,7 +1088,7 @@ contains
     !$acc update device(ixR_r_min1,ixR_r_min2,ixR_r_min3,ixR_r_max1,ixR_r_max2,ixR_r_max3)
     !$acc update device(ixS_p_min1,ixS_p_min2,ixS_p_min3,ixS_p_max1,ixS_p_max2,ixS_p_max3)
     !$acc update device(ixR_p_min1,ixR_p_min2,ixR_p_min3,ixR_p_max1,ixR_p_max2,ixR_p_max3)
-    
+
   end subroutine init_bc
 
 
@@ -1138,12 +1138,12 @@ contains
     req_diagonal = .true.
     if (present(req_diag)) req_diagonal = req_diag
     !$acc update device(req_diagonal)
-   
+
     ! fill internal physical boundary
     if (internalboundary) then
        call getintbc(time,ixGlo1,ixGlo2,ixGlo3,ixGhi1,ixGhi2,ixGhi3)
     end if
-    
+
     ! fill physical-boundary ghost cells before internal ghost-cell values exchange
     if(bcphys.and. .not.stagger_grid) then
        !$acc parallel loop gang
@@ -1153,7 +1153,7 @@ contains
        end do
     end if
 
-    
+
     ! prepare coarse values to send to coarser neighbors
     !$acc parallel loop gang
     do iigrid = 1, igridstail; igrid=igrids(iigrid);
@@ -1168,7 +1168,7 @@ contains
                       ixFi3=2*(ixCo3-ixCoMmin3)+ixMmin3
                       ixFi2=2*(ixCo2-ixCoMmin2)+ixMmin2
                       ixFi1=2*(ixCo1-ixCoMmin1)+ixMmin1
-                      
+
                       psc(igrid)%w(ixCo1,ixCo2,ixCo3,iw) = 0.0d0
                       do ix3 = ixFi3,ixFi3+1
                          do ix2 = ixFi2,ixFi2+1
@@ -1184,7 +1184,7 @@ contains
                 end do
              end do
           end do
-          
+
           do i3 = -1, 1
              do i2 = -1, 1
                 do i1 = -1, 1
@@ -1216,7 +1216,7 @@ contains
       !$acc end host_data
 #endif
     end do
-    
+
     ! MPI receive restrict (neighbor is finer)
     do inb = 1, nbprocs_info%nbprocs_f
 #ifndef NOGPUDIRECT
@@ -1289,13 +1289,13 @@ contains
 
           inc1 = nbprocs_info%c(inb)%inc1(i)
           if (inc1 == 0) then; inc1 = 3; else if (inc1 == 3) then; inc1 = 0; end if ! how they will be used at the receiving end
-          
+
           inc2 = nbprocs_info%c(inb)%inc2(i)
           if (inc2 == 0) then; inc2 = 3; else if (inc2 == 3) then; inc2 = 0; end if ! how they will be used at the receiving end
-          
+
           inc3 = nbprocs_info%c(inb)%inc3(i)
           if (inc3 == 0) then; inc3 = 3; else if (inc3 == 3) then; inc3 = 0; end if ! how they will be used at the receiving end
-          
+
           ibuf_start = nbprocs_info%c(inb)%ibuf_start(i)
           iib1=idphyb(1,igrid); iib2=idphyb(2,igrid); iib3=idphyb(3,igrid)
 
@@ -1321,13 +1321,13 @@ contains
                 end do
              end do
           end do
-        
+
           nbprocs_info%c_info_send(inb)%buffer( 1 + 5 * (i - 1) : 5 * i ) = &
                [neighbor(1,i1,i2,i3,igrid), inc1, inc2, inc3, ibuf_start]
        end do
     end do
 
-    
+
 #ifdef NOGPUDIRECT
     do inb = 1, nbprocs_info%nbprocs_srl
        !$acc update host(nbprocs_info%srl_info_send(inb)%buffer(1:nbprocs_info%srl_info_send(inb)%size))
@@ -1358,7 +1358,7 @@ contains
       !$acc end host_data
 #endif
     end do
-    
+
     ! MPI send C (send_restrict)
     do inb = 1, nbprocs_info%nbprocs_c
 #ifndef NOGPUDIRECT
@@ -1378,7 +1378,7 @@ contains
       !$acc end host_data
 #endif
     end do
-    
+
     ! fill ghost-cell values of sibling blocks and if neighbor is coarser (f2c)
     ! same process case
     !$acc parallel loop gang collapse(2)
@@ -1416,7 +1416,7 @@ contains
                          end do
                       end do
                    end do
-                
+
               case(neighbor_coarse)
 
                  ic1=1+modulo(node(pig1_,igrid)-1,2)
@@ -1558,7 +1558,7 @@ contains
 
        end do
     end do
-    
+
     ! MPI receive prolong (neighbor is coarser)
     do inb = 1, nbprocs_info%nbprocs_c
 #ifndef NOGPUDIRECT
@@ -1633,7 +1633,7 @@ contains
       !$acc update host(nbprocs_info%f_send(inb)%buffer(1:nbprocs_info%f_send(inb)%size))
     end do
 #endif
-    
+
     ! MPI send F (send_prolong)
     do inb = 1, nbprocs_info%nbprocs_f
 #ifndef NOGPUDIRECT
@@ -1654,7 +1654,7 @@ contains
 #endif
     end do
 
-    
+
     ! fill coarse ghost-cell values of finer neighbors in the same processor
     !$acc parallel loop gang independent private(iib1,iib2,iib3,igrid)
     do iigrid=1,igridstail; igrid=igrids(iigrid);
@@ -1678,11 +1678,11 @@ contains
                                ixSmin1=ixS_p_min1(iib1,inc1);ixSmin2=ixS_p_min2(iib2,inc2)
                                ixSmin3=ixS_p_min3(iib3,inc3);ixSmax1=ixS_p_max1(iib1,inc1)
                                ixSmax2=ixS_p_max2(iib2,inc2);ixSmax3=ixS_p_max3(iib3,inc3)
-                               
+
                                ineighbor = neighbor_child(1,inc1,inc2,inc3,igrid)
                                n_i1=-i1; n_i2=-i2; n_i3=-i3
                                n_inc1=ic1+n_i1; n_inc2=ic2+n_i2; n_inc3=ic3+n_i3
-                               
+
                                ixRmin1=ixR_p_min1(iib1,n_inc1)
                                ixRmin2=ixR_p_min2(iib2,n_inc2)
                                ixRmin3=ixR_p_min3(iib3,n_inc3)
@@ -1701,19 +1701,19 @@ contains
                                      end do
                                   end do
                                end do
-                               
+
                             end if
-                            
+
                          end do
                       end do
                    end do
-                   
+
                 end if
-                
+
              end do
           end do
        end do
-       
+
     end do
     !$OMP END PARALLEL DO
 
@@ -1769,7 +1769,7 @@ contains
 
        end do
     end do
-    
+
     ! do prolongation on the ghost-cell values based on the received coarse values from coarser neighbors (f2c)
     !$acc parallel loop gang
     do iigrid=1, igridstail; igrid=igrids(iigrid);
@@ -1830,10 +1830,10 @@ contains
 
                                   slopeL = psc(igrid)%w(ixCo1,ixCo2,ixCo3,iw) &
                                        - psc(igrid)%w(hxCo1,hxCo2,hxCo3,iw)
-                                  
+
                                   slopeR = psc(igrid)%w(jxCo1,jxCo2,jxCo3,iw) &
                                        - psc(igrid)%w(ixCo1,ixCo2,ixCo3,iw)
-                                  
+
                                   slopeC = half * ( slopeR + slopeL )
 
                                   ! get limited slope
@@ -1843,23 +1843,23 @@ contains
                                   slope(idims) = signC * max(zero,min(dabs(slopeC),&
                                        signC*slopeL,signC*slopeR))
                                end do
-                               
+
                                ! Interpolate from coarse cell using limited slopes
                                bg(bgstep)%w(ixFi1,ixFi2,ixFi3,iw,igrid) = &
                                     psc(igrid)%w(ixCo1,ixCo2,ixCo3,iw) &
                                     + (slope(1)*eta1) + (slope(2)*eta2) + (slope(3)*eta3)
                             end do
-                            
+
                          end do
                       end do
                    end do
-                                   
+
                 end if
              end do
           end do
        end do
     end do
-    
+
     ! modify normal component of magnetic field to fix divB=0
     if(bcphys.and.associated(phys_boundary_adjust)) then
        do iigrid=1,igridstail; igrid=igrids(iigrid);
@@ -1872,9 +1872,9 @@ contains
 
     call nvtxEndRange
 
-    
+
   end subroutine getbc
-  
+
   logical function skip_direction(dir)
     !$acc routine vector
     integer, intent(in) :: dir(3)
@@ -1888,7 +1888,7 @@ contains
     end if
   end function skip_direction
 
-  
+
   subroutine fill_coarse_boundary(time,igrid,i1,i2,i3)
     !$acc routine vector
     use mod_global_parameters
@@ -2026,7 +2026,7 @@ contains
     end do
 
   end subroutine fill_boundary_before_gc
-  
+
   !> Physical boundary conditions
   subroutine fill_boundary_after_gc(s,igrid,time,qdt)
     !$acc routine vector
