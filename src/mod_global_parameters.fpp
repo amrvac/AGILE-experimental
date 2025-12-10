@@ -444,6 +444,7 @@ module mod_global_parameters
   
   !> Weights of variables used to calculate error for mesh refinement
   double precision, allocatable :: w_refine_weight(:)
+  !$acc declare create(w_refine_weight)
 
   !> Fix the AMR grid after this time
   double precision :: tfixgrid
@@ -459,6 +460,7 @@ module mod_global_parameters
 
   !> refinement: lohner estimate wavefilter setting
   double precision, allocatable :: amr_wavefilter(:)
+  !$acc declare create(amr_wavefilter)
 
   integer                       :: refine_criterion
   logical                       :: prolongprimitive=.false.
@@ -468,6 +470,7 @@ module mod_global_parameters
   !> Error tolerance for refinement decision
   double precision, allocatable :: refine_threshold(:)
   double precision, allocatable :: derefine_ratio(:)
+  !$acc declare create(refine_threshold, derefine_ratio)
 
   !> If true, rebuild the AMR grid upon restarting
   logical :: reset_grid

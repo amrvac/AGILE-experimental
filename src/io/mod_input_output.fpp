@@ -2098,14 +2098,16 @@ contains
 
     deallocate(flux_scheme)
 
- !$acc update device(tvdlfeps,ixGhi1,ixGhi2,ixGhi3,ixGshi1,ixGshi2,ixGshi3,schmid_rad1,schmid_rad2,schmid_rad3,cada3_radius)
- !$acc update device(fix_small_values,H_correction,type_limiter, boundspeed, max_blocks)    
- !$acc update device(rk_beta11,rk_beta22,rk_beta33,rk_beta44,rk_c2,rk_c3,rk_c4)
- !$acc update device(rk_alfa21,rk_alfa22,rk_alfa31,rk_alfa33,rk_alfa41,rk_alfa44)
- !$acc update device(rk_beta54,rk_beta55,rk_alfa53,rk_alfa54,rk_alfa55,rk_c5)
- !$acc update device(typeboundary, specialboundary, refine_max_level)
- !$acc update device(slab, slab_uniform)
-    
+    !$acc update device(tvdlfeps,ixGhi1,ixGhi2,ixGhi3,ixGshi1,ixGshi2,ixGshi3,schmid_rad1,schmid_rad2,schmid_rad3,cada3_radius)
+    !$acc update device(fix_small_values,H_correction,type_limiter, boundspeed, max_blocks)    
+    !$acc update device(rk_beta11,rk_beta22,rk_beta33,rk_beta44,rk_c2,rk_c3,rk_c4)
+    !$acc update device(rk_alfa21,rk_alfa22,rk_alfa31,rk_alfa33,rk_alfa41,rk_alfa44)
+    !$acc update device(rk_beta54,rk_beta55,rk_alfa53,rk_alfa54,rk_alfa55,rk_c5)
+    !$acc update device(typeboundary, specialboundary, refine_max_level)
+    !$acc update device(slab, slab_uniform)
+    !$acc update device(w_refine_weight, amr_wavefilter)
+    !$acc update device(refine_threshold, derefine_ratio)
+
   end subroutine read_par_files
 
   !> Routine to find entries in a string

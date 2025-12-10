@@ -12,9 +12,7 @@ contains
     use mod_forest, only: refine, buffer, coarsen
     use mod_global_parameters
 
-    integer :: igrid, iigrid, ixCoGmin1,ixCoGmin2,ixCoGmin3,ixCoGmax1,&
-       ixCoGmax2,ixCoGmax3
-    double precision :: factor
+    integer :: igrid, iigrid
 
     if (igridstail==0) return
 
@@ -23,11 +21,10 @@ contains
        ! all refinement solely based on user routine usr_refine_grid
     case (3)
        ! Error estimation is based on Lohner's scheme
-    !$OMP PARALLEL DO PRIVATE(igrid)
+       !$acc parallel loop gang
        do iigrid=1,igridstail; igrid=igrids(iigrid);
           call lohner_grid(igrid)
        end do
-    !$OMP END PARALLEL DO
     case default
        call mpistop("Unknown error estimator")
     end select
@@ -41,11 +38,12 @@ contains
 
     !AGILE: don't use buffers for now:
     buffer=.false.
-   !$acc update host(refine, coarsen)
+    !$acc update host(refine, coarsen)
 
   end subroutine errest
 
   subroutine lohner_grid(igrid)
+    !$acc routine vector
     use mod_usr_methods, only: usr_var_for_errest, usr_refine_threshold
     use mod_forest, only: coarsen, refine
     use mod_physics, only: phys_energy
@@ -58,12 +56,11 @@ contains
        ixmax3, hxmin1,hxmin2,hxmin3,hxmax1,hxmax2,hxmax3, jxmin1,jxmin2,jxmin3,&
        jxmax1,jxmax2,jxmax3, h2xmin1,h2xmin2,h2xmin3,h2xmax1,h2xmax2,h2xmax3,&
         j2xmin1,j2xmin2,j2xmin3,j2xmax1,j2xmax2,j2xmax3, ix1,ix2,ix3
-    double precision                   :: epsilon, threshold, wtol(1:nw),&
-        xtol(1:ndim)
+    double precision                   :: epsilon, threshold
     double precision, dimension(ixMlo1:ixMhi1,ixMlo2:ixMhi2,&
        ixMlo3:ixMhi3) :: numerator, denominator, error
     double precision, dimension(ixGlo1:ixGhi1,ixGlo2:ixGhi2,&
-       ixGlo3:ixGhi3) :: tmp, tmp1, tmp2
+       ixGlo3:ixGhi3) :: tmp, tmp2
     double precision                   :: w(ixGlo1:ixGhi1,ixGlo2:ixGhi2,&
        ixGlo3:ixGhi3,1:nw)
     logical, dimension(ixGlo1:ixGhi1,ixGlo2:ixGhi2,&
@@ -77,35 +74,15 @@ contains
     error=zero
 
     w(ixGlo1:ixGhi1,ixGlo2:ixGhi2,ixGlo3:ixGhi3,&
-       1:nw)=ps(igrid)%w(ixGlo1:ixGhi1,ixGlo2:ixGhi2,ixGlo3:ixGhi3,1:nw)
+       1:nw) = bg(1)%w(ixGlo1:ixGhi1,ixGlo2:ixGhi2,ixGlo3:ixGhi3,1:nw, igrid)
 
-    if(B0field) then
-      if(phys_energy) w(ixGlo1:ixGhi1,ixGlo2:ixGhi2,ixGlo3:ixGhi3,&
-         iw_e)=w(ixGlo1:ixGhi1,ixGlo2:ixGhi2,ixGlo3:ixGhi3,&
-         iw_e)+0.5d0*sum(ps(igrid)%B0(ixGlo1:ixGhi1,ixGlo2:ixGhi2,&
-         ixGlo3:ixGhi3,:,0)**2,dim=ndim+1) + sum(w(ixGlo1:ixGhi1,ixGlo2:ixGhi2,&
-         ixGlo3:ixGhi3,iw_mag(:))*ps(igrid)%B0(ixGlo1:ixGhi1,ixGlo2:ixGhi2,&
-         ixGlo3:ixGhi3,:,0),dim=ndim+1)
-      w(ixGlo1:ixGhi1,ixGlo2:ixGhi2,ixGlo3:ixGhi3,iw_mag(:))=w(ixGlo1:ixGhi1,&
-         ixGlo2:ixGhi2,ixGlo3:ixGhi3,iw_mag(:))+ps(igrid)%B0(ixGlo1:ixGhi1,&
-         ixGlo2:ixGhi2,ixGlo3:ixGhi3,:,0)
-    end if
-
-    do iflag=1,nw+1
+    !$acc loop seq
+    do iflag=1,nw
 
        if(w_refine_weight(iflag)==0.d0) cycle
        numerator=zero
 
-       if (iflag > nw) then
-          if (.not. associated(usr_var_for_errest)) then
-             call mpistop("usr_var_for_errest not defined")
-          else
-             call usr_var_for_errest(ixGlo1,ixGlo2,ixGlo3,ixGhi1,ixGhi2,ixGhi3,&
-                ixGlo1,ixGlo2,ixGlo3,ixGhi1,ixGhi2,ixGhi3,iflag,ps(igrid)%w,&
-                ps(igrid)%x,tmp1)
-          end if
-       end if
-
+       !$acc loop seq
        do idims=1,ndim
           hxmin1=ixmin1-kr(1,idims);hxmin2=ixmin2-kr(2,idims)
           hxmin3=ixmin3-kr(3,idims);hxmax1=ixmax1-kr(1,idims)
@@ -113,30 +90,11 @@ contains
           jxmin1=ixmin1+kr(1,idims);jxmin2=ixmin2+kr(2,idims)
           jxmin3=ixmin3+kr(3,idims);jxmax1=ixmax1+kr(1,idims)
           jxmax2=ixmax2+kr(2,idims);jxmax3=ixmax3+kr(3,idims);
-          if (iflag<=nw) then
-            if (logflag(iflag)) then
-              tmp(ixmin1:ixmax1,ixmin2:ixmax2,&
-                 ixmin3:ixmax3)=dlog10(w(jxmin1:jxmax1,jxmin2:jxmax2,&
-                 jxmin3:jxmax3,iflag))-dlog10(w(hxmin1:hxmax1,hxmin2:hxmax2,&
-                 hxmin3:hxmax3,iflag))
-            else
-              tmp(ixmin1:ixmax1,ixmin2:ixmax2,ixmin3:ixmax3)=w(jxmin1:jxmax1,&
-                 jxmin2:jxmax2,jxmin3:jxmax3,iflag)-w(hxmin1:hxmax1,&
-                 hxmin2:hxmax2,hxmin3:hxmax3,iflag)
-            end if
-          else
-            if (logflag(iflag)) then
-              tmp(ixmin1:ixmax1,ixmin2:ixmax2,&
-                 ixmin3:ixmax3)=dlog10(tmp1(jxmin1:jxmax1,jxmin2:jxmax2,&
-                 jxmin3:jxmax3))-dlog10(tmp1(hxmin1:hxmax1,hxmin2:hxmax2,&
-                 hxmin3:hxmax3))
-            else
-              tmp(ixmin1:ixmax1,ixmin2:ixmax2,&
-                 ixmin3:ixmax3)=tmp1(jxmin1:jxmax1,jxmin2:jxmax2,&
-                 jxmin3:jxmax3)-tmp1(hxmin1:hxmax1,hxmin2:hxmax2,&
-                 hxmin3:hxmax3)
-            end if
-          end if
+
+          tmp(ixmin1:ixmax1,ixmin2:ixmax2,ixmin3:ixmax3)=w(jxmin1:jxmax1,&
+               jxmin2:jxmax2,jxmin3:jxmax3,iflag)-w(hxmin1:hxmax1,&
+               hxmin2:hxmax2,hxmin3:hxmax3,iflag)
+          
           do idims2=1,ndim
              h2xmin1=ixMlo1-kr(1,idims2);h2xmin2=ixMlo2-kr(2,idims2)
              h2xmin3=ixMlo3-kr(3,idims2);h2xmax1=ixMhi1-kr(1,idims2)
@@ -144,76 +102,46 @@ contains
              j2xmin1=ixMlo1+kr(1,idims2);j2xmin2=ixMlo2+kr(2,idims2)
              j2xmin3=ixMlo3+kr(3,idims2);j2xmax1=ixMhi1+kr(1,idims2)
              j2xmax2=ixMhi2+kr(2,idims2);j2xmax3=ixMhi3+kr(3,idims2);
+             
              numerator=numerator+(tmp(j2xmin1:j2xmax1,j2xmin2:j2xmax2,&
                 j2xmin3:j2xmax3)-tmp(h2xmin1:h2xmax1,h2xmin2:h2xmax2,&
                 h2xmin3:h2xmax3))**2
           end do
+          
        end do
        denominator=zero
+       
+       !$acc loop seq
        do idims=1,ndim
-          if (iflag<=nw) then
-             if (logflag(iflag)) then
-              tmp=dabs(dlog10(w(ixGlo1:ixGhi1,ixGlo2:ixGhi2,ixGlo3:ixGhi3,&
-                 iflag)))
-             else
-              tmp=dabs(w(ixGlo1:ixGhi1,ixGlo2:ixGhi2,ixGlo3:ixGhi3,iflag))
-             end if
-          else
-             if (logflag(iflag)) then
-              tmp=dabs(dlog10(tmp1(ixGlo1:ixGhi1,ixGlo2:ixGhi2,&
-                 ixGlo3:ixGhi3)))
-             else
-              tmp=dabs(tmp1(ixGlo1:ixGhi1,ixGlo2:ixGhi2,ixGlo3:ixGhi3))
-             end if
-          end if
+          
+          tmp=dabs(w(ixGlo1:ixGhi1,ixGlo2:ixGhi2,ixGlo3:ixGhi3,iflag))
+          
           hxmin1=ixmin1-kr(1,idims);hxmin2=ixmin2-kr(2,idims)
           hxmin3=ixmin3-kr(3,idims);hxmax1=ixmax1-kr(1,idims)
           hxmax2=ixmax2-kr(2,idims);hxmax3=ixmax3-kr(3,idims);
           jxmin1=ixmin1+kr(1,idims);jxmin2=ixmin2+kr(2,idims)
           jxmin3=ixmin3+kr(3,idims);jxmax1=ixmax1+kr(1,idims)
           jxmax2=ixmax2+kr(2,idims);jxmax3=ixmax3+kr(3,idims);
+          
           tmp2(ixmin1:ixmax1,ixmin2:ixmax2,ixmin3:ixmax3)=tmp(jxmin1:jxmax1,&
              jxmin2:jxmax2,jxmin3:jxmax3)+tmp(hxmin1:hxmax1,hxmin2:hxmax2,&
              hxmin3:hxmax3)
+          
           hxmin1=ixMlo1-2*kr(1,idims);hxmin2=ixMlo2-2*kr(2,idims)
           hxmin3=ixMlo3-2*kr(3,idims);hxmax1=ixMhi1-2*kr(1,idims)
           hxmax2=ixMhi2-2*kr(2,idims);hxmax3=ixMhi3-2*kr(3,idims);
           jxmin1=ixMlo1+2*kr(1,idims);jxmin2=ixMlo2+2*kr(2,idims)
           jxmin3=ixMlo3+2*kr(3,idims);jxmax1=ixMhi1+2*kr(1,idims)
           jxmax2=ixMhi2+2*kr(2,idims);jxmax3=ixMhi3+2*kr(3,idims);
-          if (iflag<=nw) then
-            if (logflag(iflag)) then
-              tmp(ixMlo1:ixMhi1,ixMlo2:ixMhi2,&
-                 ixMlo3:ixMhi3)=dabs(dlog10(w(jxmin1:jxmax1,jxmin2:jxmax2,&
-                 jxmin3:jxmax3,iflag))-dlog10(w(ixMlo1:ixMhi1,ixMlo2:ixMhi2,&
-                 ixMlo3:ixMhi3,iflag))) +dabs(dlog10(w(ixMlo1:ixMhi1,&
-                 ixMlo2:ixMhi2,ixMlo3:ixMhi3,iflag))-dlog10(w(hxmin1:hxmax1,&
-                 hxmin2:hxmax2,hxmin3:hxmax3,iflag)))
-            else
-               tmp(ixMlo1:ixMhi1,ixMlo2:ixMhi2,&
-                  ixMlo3:ixMhi3)=dabs(w(jxmin1:jxmax1,jxmin2:jxmax2,&
-                  jxmin3:jxmax3,iflag)-w(ixMlo1:ixMhi1,ixMlo2:ixMhi2,&
-                  ixMlo3:ixMhi3,iflag)) +dabs(w(ixMlo1:ixMhi1,ixMlo2:ixMhi2,&
-                  ixMlo3:ixMhi3,iflag)-w(hxmin1:hxmax1,hxmin2:hxmax2,&
-                  hxmin3:hxmax3,iflag))
-            end if
-          else
-            if (logflag(iflag)) then
-              tmp(ixMlo1:ixMhi1,ixMlo2:ixMhi2,&
-                 ixMlo3:ixMhi3)=dabs(dlog10(tmp1(jxmin1:jxmax1,jxmin2:jxmax2,&
-                 jxmin3:jxmax3))-dlog10(tmp1(ixMlo1:ixMhi1,ixMlo2:ixMhi2,&
-                 ixMlo3:ixMhi3))) +dabs(dlog10(tmp1(ixMlo1:ixMhi1,&
-                 ixMlo2:ixMhi2,ixMlo3:ixMhi3))-dlog10(tmp1(hxmin1:hxmax1,&
-                 hxmin2:hxmax2,hxmin3:hxmax3)))
-            else
-               tmp(ixMlo1:ixMhi1,ixMlo2:ixMhi2,&
-                  ixMlo3:ixMhi3)=dabs(tmp1(jxmin1:jxmax1,jxmin2:jxmax2,&
-                  jxmin3:jxmax3)-tmp1(ixMlo1:ixMhi1,ixMlo2:ixMhi2,&
-                  ixMlo3:ixMhi3)) +dabs(tmp1(ixMlo1:ixMhi1,ixMlo2:ixMhi2,&
-                  ixMlo3:ixMhi3)-tmp1(hxmin1:hxmax1,hxmin2:hxmax2,&
-                  hxmin3:hxmax3))
-            end if
-          end if
+
+          tmp(ixMlo1:ixMhi1,ixMlo2:ixMhi2,&
+               ixMlo3:ixMhi3)=dabs(w(jxmin1:jxmax1,jxmin2:jxmax2,&
+               jxmin3:jxmax3,iflag)-w(ixMlo1:ixMhi1,ixMlo2:ixMhi2,&
+               ixMlo3:ixMhi3,iflag)) +dabs(w(ixMlo1:ixMhi1,ixMlo2:ixMhi2,&
+               ixMlo3:ixMhi3,iflag)-w(hxmin1:hxmax1,hxmin2:hxmax2,&
+               hxmin3:hxmax3,iflag))
+          
+          !$acc loop seq
           do idims2=1,ndim
              h2xmin1=ixMlo1-kr(1,idims2);h2xmin2=ixMlo2-kr(2,idims2)
              h2xmin3=ixMlo3-kr(3,idims2);h2xmax1=ixMhi1-kr(1,idims2)
@@ -221,11 +149,13 @@ contains
              j2xmin1=ixMlo1+kr(1,idims2);j2xmin2=ixMlo2+kr(2,idims2)
              j2xmin3=ixMlo3+kr(3,idims2);j2xmax1=ixMhi1+kr(1,idims2)
              j2xmax2=ixMhi2+kr(2,idims2);j2xmax3=ixMhi3+kr(3,idims2);
-             denominator=denominator +(tmp(ixMlo1:ixMhi1,ixMlo2:ixMhi2,&
+             
+             denominator = denominator + (tmp(ixMlo1:ixMhi1,ixMlo2:ixMhi2,&
                 ixMlo3:ixMhi3)+amr_wavefilter(level)*(tmp2(j2xmin1:j2xmax1,&
                 j2xmin2:j2xmax2,j2xmin3:j2xmax3)+tmp2(h2xmin1:h2xmax1,&
                 h2xmin2:h2xmax2,h2xmin3:h2xmax3)))**2
           end do
+          
        end do
        error=error+w_refine_weight(iflag)*dsqrt(numerator/max(denominator,&
           epsilon))
@@ -234,23 +164,19 @@ contains
     refineflag=.false.
     coarsenflag=.false.
     threshold=refine_threshold(level)
+    !$acc loop collapse(3)
     do ix3=ixMlo3,ixMhi3
-    do ix2=ixMlo2,ixMhi2
-    do ix1=ixMlo1,ixMhi1
-    
-       if (associated(usr_refine_threshold)) then
-          wtol(1:nw)   = w(ix1,ix2,ix3,1:nw)
-          xtol(1:ndim) = ps(igrid)%x(ix1,ix2,ix3,1:ndim)
-          call usr_refine_threshold(wtol, xtol, threshold, global_time, level)
-       end if
-    
-       if (error(ix1,ix2,ix3) >= threshold) then
-          refineflag(ix1,ix2,ix3) = .true.
-       else if (error(ix1,ix2,ix3) <= derefine_ratio(level)*threshold) then
-          coarsenflag(ix1,ix2,ix3) = .true.
-       end if
-    end do
-    end do
+       do ix2=ixMlo2,ixMhi2
+          do ix1=ixMlo1,ixMhi1
+
+             if (error(ix1,ix2,ix3) >= threshold) then
+                refineflag(ix1,ix2,ix3) = .true.
+             else if (error(ix1,ix2,ix3) <= derefine_ratio(level)*threshold) then
+                coarsenflag(ix1,ix2,ix3) = .true.
+             end if
+             
+          end do
+       end do
     end do
 
     if (any(refineflag(ixMlo1:ixMhi1,ixMlo2:ixMhi2,&
