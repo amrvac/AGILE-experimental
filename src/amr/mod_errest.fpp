@@ -21,7 +21,7 @@ contains
        ! all refinement solely based on user routine usr_refine_grid
     case (3)
        ! Error estimation is based on Lohner's scheme
-       !$acc parallel loop gang
+       !$acc parallel loop gang private(igrid)
        do iigrid=1,igridstail; igrid=igrids(iigrid);
           call lohner_grid(igrid)
        end do
@@ -30,7 +30,7 @@ contains
     end select
 
     if ( refine_usr ) then
-       !$acc parallel loop gang
+       !$acc parallel loop gang private(igrid)
        do iigrid=1,igridstail; igrid=igrids(iigrid);
           call forcedrefine_grid(igrid)
        end do
@@ -44,146 +44,89 @@ contains
 
   subroutine lohner_grid(igrid)
     !$acc routine vector
-    use mod_usr_methods, only: usr_var_for_errest, usr_refine_threshold
     use mod_forest, only: coarsen, refine
-    use mod_physics, only: phys_energy
     use mod_global_parameters
 
     integer, intent(in) :: igrid
 
-    integer                            :: iflag, idims, idims2, level
-    integer                            :: ixmin1,ixmin2,ixmin3,ixmax1,ixmax2,&
-       ixmax3, hxmin1,hxmin2,hxmin3,hxmax1,hxmax2,hxmax3, jxmin1,jxmin2,jxmin3,&
-       jxmax1,jxmax2,jxmax3, h2xmin1,h2xmin2,h2xmin3,h2xmax1,h2xmax2,h2xmax3,&
-        j2xmin1,j2xmin2,j2xmin3,j2xmax1,j2xmax2,j2xmax3, ix1,ix2,ix3
-    double precision                   :: epsilon, threshold
-    double precision, dimension(ixMlo1:ixMhi1,ixMlo2:ixMhi2,&
-       ixMlo3:ixMhi3) :: numerator, denominator, error
-    double precision, dimension(ixGlo1:ixGhi1,ixGlo2:ixGhi2,&
-       ixGlo3:ixGhi3) :: tmp, tmp2
-    double precision                   :: w(ixGlo1:ixGhi1,ixGlo2:ixGhi2,&
-       ixGlo3:ixGhi3,1:nw)
-    logical, dimension(ixGlo1:ixGhi1,ixGlo2:ixGhi2,&
-       ixGlo3:ixGhi3)          :: refineflag, coarsenflag
-
-    epsilon = 1.0d-6
-    level   = node(plevel_,igrid)
-    ixmin1=ixMlo1-1;ixmin2=ixMlo2-1;ixmin3=ixMlo3-1;ixmax1=ixMhi1+1
-    ixmax2=ixMhi2+1;ixmax3=ixMhi3+1;
-
-    error=zero
-
-    w(ixGlo1:ixGhi1,ixGlo2:ixGhi2,ixGlo3:ixGhi3,&
-       1:nw) = bg(1)%w(ixGlo1:ixGhi1,ixGlo2:ixGhi2,ixGlo3:ixGhi3,1:nw, igrid)
-
-    !$acc loop seq
-    do iflag=1,nw
-
-       if(w_refine_weight(iflag)==0.d0) cycle
-       numerator=zero
-
-       !$acc loop seq
-       do idims=1,ndim
-          hxmin1=ixmin1-kr(1,idims);hxmin2=ixmin2-kr(2,idims)
-          hxmin3=ixmin3-kr(3,idims);hxmax1=ixmax1-kr(1,idims)
-          hxmax2=ixmax2-kr(2,idims);hxmax3=ixmax3-kr(3,idims);
-          jxmin1=ixmin1+kr(1,idims);jxmin2=ixmin2+kr(2,idims)
-          jxmin3=ixmin3+kr(3,idims);jxmax1=ixmax1+kr(1,idims)
-          jxmax2=ixmax2+kr(2,idims);jxmax3=ixmax3+kr(3,idims);
-
-          tmp(ixmin1:ixmax1,ixmin2:ixmax2,ixmin3:ixmax3)=w(jxmin1:jxmax1,&
-               jxmin2:jxmax2,jxmin3:jxmax3,iflag)-w(hxmin1:hxmax1,&
-               hxmin2:hxmax2,hxmin3:hxmax3,iflag)
-          
-          do idims2=1,ndim
-             h2xmin1=ixMlo1-kr(1,idims2);h2xmin2=ixMlo2-kr(2,idims2)
-             h2xmin3=ixMlo3-kr(3,idims2);h2xmax1=ixMhi1-kr(1,idims2)
-             h2xmax2=ixMhi2-kr(2,idims2);h2xmax3=ixMhi3-kr(3,idims2);
-             j2xmin1=ixMlo1+kr(1,idims2);j2xmin2=ixMlo2+kr(2,idims2)
-             j2xmin3=ixMlo3+kr(3,idims2);j2xmax1=ixMhi1+kr(1,idims2)
-             j2xmax2=ixMhi2+kr(2,idims2);j2xmax3=ixMhi3+kr(3,idims2);
-             
-             numerator=numerator+(tmp(j2xmin1:j2xmax1,j2xmin2:j2xmax2,&
-                j2xmin3:j2xmax3)-tmp(h2xmin1:h2xmax1,h2xmin2:h2xmax2,&
-                h2xmin3:h2xmax3))**2
-          end do
-          
-       end do
-       denominator=zero
-       
-       !$acc loop seq
-       do idims=1,ndim
-          
-          tmp=dabs(w(ixGlo1:ixGhi1,ixGlo2:ixGhi2,ixGlo3:ixGhi3,iflag))
-          
-          hxmin1=ixmin1-kr(1,idims);hxmin2=ixmin2-kr(2,idims)
-          hxmin3=ixmin3-kr(3,idims);hxmax1=ixmax1-kr(1,idims)
-          hxmax2=ixmax2-kr(2,idims);hxmax3=ixmax3-kr(3,idims);
-          jxmin1=ixmin1+kr(1,idims);jxmin2=ixmin2+kr(2,idims)
-          jxmin3=ixmin3+kr(3,idims);jxmax1=ixmax1+kr(1,idims)
-          jxmax2=ixmax2+kr(2,idims);jxmax3=ixmax3+kr(3,idims);
-          
-          tmp2(ixmin1:ixmax1,ixmin2:ixmax2,ixmin3:ixmax3)=tmp(jxmin1:jxmax1,&
-             jxmin2:jxmax2,jxmin3:jxmax3)+tmp(hxmin1:hxmax1,hxmin2:hxmax2,&
-             hxmin3:hxmax3)
-          
-          hxmin1=ixMlo1-2*kr(1,idims);hxmin2=ixMlo2-2*kr(2,idims)
-          hxmin3=ixMlo3-2*kr(3,idims);hxmax1=ixMhi1-2*kr(1,idims)
-          hxmax2=ixMhi2-2*kr(2,idims);hxmax3=ixMhi3-2*kr(3,idims);
-          jxmin1=ixMlo1+2*kr(1,idims);jxmin2=ixMlo2+2*kr(2,idims)
-          jxmin3=ixMlo3+2*kr(3,idims);jxmax1=ixMhi1+2*kr(1,idims)
-          jxmax2=ixMhi2+2*kr(2,idims);jxmax3=ixMhi3+2*kr(3,idims);
-
-          tmp(ixMlo1:ixMhi1,ixMlo2:ixMhi2,&
-               ixMlo3:ixMhi3)=dabs(w(jxmin1:jxmax1,jxmin2:jxmax2,&
-               jxmin3:jxmax3,iflag)-w(ixMlo1:ixMhi1,ixMlo2:ixMhi2,&
-               ixMlo3:ixMhi3,iflag)) +dabs(w(ixMlo1:ixMhi1,ixMlo2:ixMhi2,&
-               ixMlo3:ixMhi3,iflag)-w(hxmin1:hxmax1,hxmin2:hxmax2,&
-               hxmin3:hxmax3,iflag))
-          
-          !$acc loop seq
-          do idims2=1,ndim
-             h2xmin1=ixMlo1-kr(1,idims2);h2xmin2=ixMlo2-kr(2,idims2)
-             h2xmin3=ixMlo3-kr(3,idims2);h2xmax1=ixMhi1-kr(1,idims2)
-             h2xmax2=ixMhi2-kr(2,idims2);h2xmax3=ixMhi3-kr(3,idims2);
-             j2xmin1=ixMlo1+kr(1,idims2);j2xmin2=ixMlo2+kr(2,idims2)
-             j2xmin3=ixMlo3+kr(3,idims2);j2xmax1=ixMhi1+kr(1,idims2)
-             j2xmax2=ixMhi2+kr(2,idims2);j2xmax3=ixMhi3+kr(3,idims2);
-             
-             denominator = denominator + (tmp(ixMlo1:ixMhi1,ixMlo2:ixMhi2,&
-                ixMlo3:ixMhi3)+amr_wavefilter(level)*(tmp2(j2xmin1:j2xmax1,&
-                j2xmin2:j2xmax2,j2xmin3:j2xmax3)+tmp2(h2xmin1:h2xmax1,&
-                h2xmin2:h2xmax2,h2xmin3:h2xmax3)))**2
-          end do
-          
-       end do
-       error=error+w_refine_weight(iflag)*dsqrt(numerator/max(denominator,&
-          epsilon))
-    end do
+    integer                            :: iflag, idims1, idims2, level
+    integer                            :: ix1, ix2, ix3
+    double precision                   :: epsilon, threshold, error, numerator, denominator
+    logical                            :: refineflag, coarsenflag
+    double precision, parameter        :: epsilon=1.0d-6
     
-    refineflag=.false.
-    coarsenflag=.false.
-    threshold=refine_threshold(level)
-    !$acc loop collapse(3)
-    do ix3=ixMlo3,ixMhi3
-       do ix2=ixMlo2,ixMhi2
-          do ix1=ixMlo1,ixMhi1
+    associate(w => bg(1)%w(:,:,:,:, igrid))
 
-             if (error(ix1,ix2,ix3) >= threshold) then
-                refineflag(ix1,ix2,ix3) = .true.
-             else if (error(ix1,ix2,ix3) <= derefine_ratio(level)*threshold) then
-                coarsenflag(ix1,ix2,ix3) = .true.
-             end if
-             
-          end do
-       end do
-    end do
+      level       = node(plevel_,igrid)
+      refineflag  = .false.
+      coarsenflag = .false.
+      threshold   = refine_threshold(level)
 
-    if (any(refineflag(ixMlo1:ixMhi1,ixMlo2:ixMhi2,&
-       ixMlo3:ixMhi3)).and.level<refine_max_level) refine(igrid,mype)=.true.
-    if (all(coarsenflag(ixMlo1:ixMhi1,ixMlo2:ixMhi2,&
-       ixMlo3:ixMhi3)).and.level>1) coarsen(igrid,mype)=.true.
+      !$acc loop vector collapse(3) reduction(.or.:refineflag) reduction(.and.:coarsenflag)
+      do ix3 = ixMlo3, ixMhi3
+         do ix2 = ixMlo2, ixMhi2
+            do ix1 = ixMlo1, ixMhi1
 
+               error = zero
+               !$acc loop seq reduction(+:error)
+               do iflag=1,nw
+                  if(w_refine_weight(iflag)==0.d0) cycle
+
+                  numerator=zero
+                  denominator=zero
+                  !$acc loop seq reduction(+:numerator,denominator)
+                  do idims1=1,ndim
+                     do idims2=1,ndim
+
+                        numerator = numerator + &
+                             ( &
+                             ( w(ix1+kr(1,idims2)+kr(1,idims1), ix2+kr(2,idims2)+kr(2,idims1), ix3+kr(3,idims2)+kr(3,idims1), iflag)    &
+                             - w(ix1-kr(1,idims2)+kr(1,idims1), ix2-kr(2,idims2)+kr(2,idims1), ix3-kr(3,idims2)+kr(3,idims1), iflag) )  &
+                             - &
+                             ( w(ix1+kr(1,idims2)-kr(1,idims1), ix2+kr(2,idims2)-kr(2,idims1), ix3+kr(3,idims2)-kr(3,idims1), iflag)    &
+                             - w(ix1-kr(1,idims2)-kr(1,idims1), ix2-kr(2,idims2)-kr(2,idims1), ix3-kr(3,idims2)-kr(3,idims1), iflag) )  &
+                             )**2
+
+                        denominator = denominator + &
+                             ( &
+                             abs( &
+                             w(ix1+2*kr(1,idims1), ix2+2*kr(2,idims1), ix2+2*kr(3,idims1), iflag) &
+                             - w(ix1, ix2, ix3, iflag) &
+                             ) &
+                             + abs( &
+                             w(ix1, ix2, ix3, iflag) &
+                             - w(ix1-2*kr(1,idims1), ix2-2*kr(2,idims1), ix2-2*kr(3,idims1), iflag) &
+                             ) &
+                             + amr_wavefilter(level) * ( &
+                             ( abs( w(ix1+kr(1,idims1)+kr(1,idims2), ix2+kr(2,idims1)+kr(2,idims2), ix3+kr(3,idims1)+kr(3,idims2), iflag) )   &
+                             + abs( w(ix1-kr(1,idims1)+kr(1,idims2), ix2-kr(2,idims1)+kr(2,idims2), ix3-kr(3,idims1)+kr(3,idims2), iflag) ) ) &
+                             + &
+                             ( abs( w(ix1+kr(1,idims1)-kr(1,idims2), ix2+kr(2,idims1)-kr(2,idims2), ix3+kr(3,idims1)-kr(3,idims2), iflag) )   &
+                             + abs( w(ix1-kr(1,idims1)-kr(1,idims2), ix2-kr(2,idims1)-kr(2,idims2), ix3-kr(3,idims1)-kr(3,idims2), iflag) ) ) &
+                             ) &
+                             )**2
+
+                     end do
+                  end do
+
+                  error = error + w_refine_weight(iflag) * sqrt( numerator / max( denominator, epsilon ) )
+
+               end do
+
+               if (error >= threshold) then
+                  refineflag = .true.
+               else if (error <= derefine_ratio(level)*threshold) then
+                  coarsenflag  = .true.
+               end if
+
+            end do
+         end do
+      end do
+
+      if (refineflag .and. level < refine_max_level) refine(igrid,mype)=.true.
+      if (coarsenflag .and. level>1) coarsen(igrid,mype)=.true.
+
+    end associate
   end subroutine lohner_grid
 
   subroutine forcedrefine_grid(igrid)
