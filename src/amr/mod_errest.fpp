@@ -59,7 +59,7 @@ contains
 
       level       = node(plevel_,igrid)
       refineflag  = .false.
-      coarsenflag = .false.
+      coarsenflag = .true.
       threshold   = refine_threshold(level)
 
       !$acc loop vector collapse(3) reduction(.or.:refineflag) reduction(.and.:coarsenflag)
@@ -113,10 +113,13 @@ contains
 
                end do
 
-               if (error >= threshold) then
+               if (error > threshold) then
                   refineflag = .true.
-               else if (error <= derefine_ratio(level)*threshold) then
-                  coarsenflag  = .true.
+               end if
+               if (error <= derefine_ratio(level) * threshold) then
+                  coarsenflag = coarsenflag .and. .true.
+               else if (error > derefine_ratio(level) * threshold) then
+                  coarsenflag = .false.
                end if
 
             end do
@@ -124,7 +127,7 @@ contains
       end do
 
       if (refineflag .and. level < refine_max_level) refine(igrid,mype)=.true.
-      if (coarsenflag .and. level>1) coarsen(igrid,mype)=.true.
+      if (coarsenflag .and. level > 1) coarsen(igrid,mype)=.true.
 
     end associate
   end subroutine lohner_grid

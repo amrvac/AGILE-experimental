@@ -44,8 +44,8 @@
  &meshlist
    max_blocks         =  1024
    refine_max_level   =  3
-   refine_criterion   =  1 ! user-defined criterion only (in mod_usr)
-   refine_usr         =  .true. ! user-defined criterion is defined
+   refine_criterion   =  3 ! Lohner criterion
+   refine_usr         =  .false.
    block_nx1          =  16
    block_nx2          =  16
    block_nx3          =  16
