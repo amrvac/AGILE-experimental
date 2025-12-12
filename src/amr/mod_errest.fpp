@@ -51,7 +51,7 @@ contains
 
     integer                            :: iflag, idims1, idims2, level
     integer                            :: ix1, ix2, ix3
-    double precision                   :: epsilon, threshold, error, numerator, denominator
+    double precision                   :: threshold, error, numerator, denominator
     logical                            :: refineflag, coarsenflag
     double precision, parameter        :: epsilon=1.0d-6
     
@@ -69,14 +69,14 @@ contains
 
                error = zero
                !$acc loop seq reduction(+:error)
-               do iflag=1,nw
+               do iflag = 1, nw
                   if(w_refine_weight(iflag)==0.d0) cycle
 
-                  numerator=zero
-                  denominator=zero
+                  numerator   = zero
+                  denominator = zero
                   !$acc loop seq reduction(+:numerator,denominator)
-                  do idims1=1,ndim
-                     do idims2=1,ndim
+                  do idims1 = 1, ndim
+                     do idims2 = 1, ndim
 
                         numerator = numerator + &
                              ( &
