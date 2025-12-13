@@ -36,8 +36,6 @@ contains
        end do
     end if
 
-    !AGILE: don't use buffers for now:
-    buffer=.false.
     !$acc update host(refine, coarsen)
 
   end subroutine errest
@@ -58,10 +56,10 @@ contains
     associate(w => bg(1)%w(:,:,:,:, igrid))
 
       level       = node(plevel_,igrid)
-      refineflag  = .false.
-      coarsenflag = .true.
       threshold   = refine_threshold(level)
 
+      refineflag  = .false.
+      coarsenflag = .true.
       !$acc loop vector collapse(3) reduction(.or.:refineflag) reduction(.and.:coarsenflag)
       do ix3 = ixMlo3, ixMhi3
          do ix2 = ixMlo2, ixMhi2
@@ -74,17 +72,25 @@ contains
 
                   numerator   = zero
                   denominator = zero
-                  !$acc loop seq reduction(+:numerator,denominator)
+                  !$acc loop seq reduction(+:numerator, denominator)
                   do idims1 = 1, ndim
                      do idims2 = 1, ndim
 
                         numerator = numerator + &
                              ( &
-                             ( w(ix1+kr(1,idims2)+kr(1,idims1), ix2+kr(2,idims2)+kr(2,idims1), ix3+kr(3,idims2)+kr(3,idims1), iflag)    &
-                             - w(ix1-kr(1,idims2)+kr(1,idims1), ix2-kr(2,idims2)+kr(2,idims1), ix3-kr(3,idims2)+kr(3,idims1), iflag) )  &
+                             ( w(ix1+kr(1,idims2)+kr(1,idims1), &
+                             ix2+kr(2,idims2)+kr(2,idims1), &
+                             ix3+kr(3,idims2)+kr(3,idims1), iflag)    &
+                             - w(ix1-kr(1,idims2)+kr(1,idims1), &
+                             ix2-kr(2,idims2)+kr(2,idims1), &
+                             ix3-kr(3,idims2)+kr(3,idims1), iflag) )  &
                              - &
-                             ( w(ix1+kr(1,idims2)-kr(1,idims1), ix2+kr(2,idims2)-kr(2,idims1), ix3+kr(3,idims2)-kr(3,idims1), iflag)    &
-                             - w(ix1-kr(1,idims2)-kr(1,idims1), ix2-kr(2,idims2)-kr(2,idims1), ix3-kr(3,idims2)-kr(3,idims1), iflag) )  &
+                             ( w(ix1+kr(1,idims2)-kr(1,idims1), &
+                             ix2+kr(2,idims2)-kr(2,idims1), &
+                             ix3+kr(3,idims2)-kr(3,idims1), iflag)    &
+                             - w(ix1-kr(1,idims2)-kr(1,idims1), &
+                             ix2-kr(2,idims2)-kr(2,idims1), &
+                             ix3-kr(3,idims2)-kr(3,idims1), iflag) )  &
                              )**2
 
                         denominator = denominator + &
@@ -98,11 +104,18 @@ contains
                              - w(ix1-2*kr(1,idims1), ix2-2*kr(2,idims1), ix2-2*kr(3,idims1), iflag) &
                              ) &
                              + amr_wavefilter(level) * ( &
-                             ( abs( w(ix1+kr(1,idims1)+kr(1,idims2), ix2+kr(2,idims1)+kr(2,idims2), ix3+kr(3,idims1)+kr(3,idims2), iflag) )   &
-                             + abs( w(ix1-kr(1,idims1)+kr(1,idims2), ix2-kr(2,idims1)+kr(2,idims2), ix3-kr(3,idims1)+kr(3,idims2), iflag) ) ) &
+                             ( abs( w(ix1+kr(1,idims1)+kr(1,idims2), &
+                             ix2+kr(2,idims1)+kr(2,idims2), &
+                             ix3+kr(3,idims1)+kr(3,idims2), iflag) )   &
+                             + abs( w(ix1-kr(1,idims1)+kr(1,idims2), &
+                             ix2-kr(2,idims1)+kr(2,idims2), ix3-kr(3,idims1)+kr(3,idims2), iflag) ) ) &
                              + &
-                             ( abs( w(ix1+kr(1,idims1)-kr(1,idims2), ix2+kr(2,idims1)-kr(2,idims2), ix3+kr(3,idims1)-kr(3,idims2), iflag) )   &
-                             + abs( w(ix1-kr(1,idims1)-kr(1,idims2), ix2-kr(2,idims1)-kr(2,idims2), ix3-kr(3,idims1)-kr(3,idims2), iflag) ) ) &
+                             ( abs( w(ix1+kr(1,idims1)-kr(1,idims2), &
+                             ix2+kr(2,idims1)-kr(2,idims2), &
+                             ix3+kr(3,idims1)-kr(3,idims2), iflag) )   &
+                             + abs( w(ix1-kr(1,idims1)-kr(1,idims2), &
+                             ix2-kr(2,idims1)-kr(2,idims2), &
+                             ix3-kr(3,idims1)-kr(3,idims2), iflag) ) ) &
                              ) &
                              )**2
 

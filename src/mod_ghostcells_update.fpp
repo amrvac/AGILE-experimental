@@ -1635,7 +1635,7 @@ contains
 #endif
     
     ! MPI send F (send_prolong)
-    do inb = 1, nbprocs_info%nbprocs_c
+    do inb = 1, nbprocs_info%nbprocs_f
 #ifndef NOGPUDIRECT
 #ifdef _CRAYFTN
       !$acc host_data use_device(nbprocs_info)

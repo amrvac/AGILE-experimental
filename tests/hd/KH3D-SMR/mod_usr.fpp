@@ -19,8 +19,6 @@ contains
 
     call set_coordinate_system("Cartesian_3D")
 
-    usr_refine_grid => specialrefine_grid
-
     usr_init_one_grid => initonegrid_usr
 
     call phys_activate()
@@ -106,7 +104,7 @@ contains
 
   end subroutine initonegrid_usr
 
-  subroutine specialrefine_grid(igrid,level,ixGmin1,ixGmin2,ixGmin3,&
+  subroutine usr_refine_grid(igrid,level,ixGmin1,ixGmin2,ixGmin3,&
     ixGmax1,ixGmax2,ixGmax3,ixmin1,ixmin2,ixmin3,ixmax1,ixmax2,ixmax3,&
     qt,w,x,refine,coarsen)
 
@@ -148,6 +146,6 @@ contains
        refine  = 0
     end if
 
-  end subroutine specialrefine_grid
+  end subroutine usr_refine_grid
 
 end module mod_usr
