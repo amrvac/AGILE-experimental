@@ -47,7 +47,7 @@
   !$acc declare copyin(hd_gravity)
 
   !> Allows overruling default corner filling (for debug mode, since otherwise corner primitives fail)
-  logical, public                         :: hd_force_diagonal = .false.
+  logical, public                         :: hd_force_diagonal = .true.
   !$acc declare copyin(hd_force_diagonal)
 
   !> Whether particles module is added

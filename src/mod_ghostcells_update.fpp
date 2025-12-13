@@ -153,7 +153,7 @@ contains
 
     i3  = ceiling(dble(i)/9.0d0) - 1 + i3min
     id  = i - 9 * (i3-i3min)
-    i2  = ceiling(dble(id)/3.0d0) -1 + i2min
+    i2  = ceiling(dble(id)/3.0d0) - 1 + i2min
     idd = id - 3 * (i2-i2min)
     i1  = idd + i1min - 1
 
