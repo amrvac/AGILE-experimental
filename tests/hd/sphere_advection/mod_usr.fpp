@@ -137,19 +137,16 @@ contains
       level       = node(plevel_,igrid)
       threshold   = refine_threshold(level)
 
-      !$acc loop vector collapse(3) reduction(.or.:refineflag) reduction(.and.:coarsenflag)
       do ix3 = ixMlo3, ixMhi3
          do ix2 = ixMlo2, ixMhi2
             do ix1 = ixMlo1, ixMhi1
 
                error = zero
-               !$acc loop seq reduction(+:error)
                do iflag = 1, nw
                   if(w_refine_weight(iflag)==0.d0) cycle
 
                   numerator   = zero
                   denominator = zero
-                  !$acc loop seq reduction(+:numerator, denominator)
                   do idims1 = 1, ndim
                      do idims2 = 1, ndim
 
