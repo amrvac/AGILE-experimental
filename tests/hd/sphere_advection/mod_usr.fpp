@@ -18,6 +18,8 @@ contains
     call set_coordinate_system("Cartesian_3D")
 
     usr_init_one_grid => initonegrid_usr
+    usr_aux_output => special_output
+    usr_add_aux_names => special_aux_names
 
     call phys_activate()
 
@@ -115,4 +117,110 @@ contains
 
   end subroutine usr_refine_grid
 
+    subroutine special_output(ixImin1,ixImin2,ixImin3,ixImax1,ixImax2,ixImax3,&
+       ixOmin1,ixOmin2,ixOmin3,ixOmax1,ixOmax2,ixOmax3,w,x,normconv)
+      use mod_global_parameters
+      integer, intent(in)          :: ixImin1,ixImin2,ixImin3,ixImax1,ixImax2,&
+         ixImax3,ixOmin1,ixOmin2,ixOmin3,ixOmax1,ixOmax2,ixOmax3
+      double precision, intent(in) :: x(ixImin1:ixImax1,ixImin2:ixImax2,&
+         ixImin3:ixImax3,1:ndim)
+      double precision             :: w(ixImin1:ixImax1,ixImin2:ixImax2,&
+         ixImin3:ixImax3,nw+nwauxio)
+      double precision             :: normconv(0:nw+nwauxio)
+
+      double precision                   :: threshold, error, numerator, denominator
+      double precision, parameter        :: epsilon=1.0d-6
+      integer                            :: iflag, idims1, idims2, level
+      integer                            :: ix1, ix2, ix3, igrid
+
+      igrid       = block%igrid
+      level       = node(plevel_,igrid)
+      threshold   = refine_threshold(level)
+
+      !$acc loop vector collapse(3) reduction(.or.:refineflag) reduction(.and.:coarsenflag)
+      do ix3 = ixMlo3, ixMhi3
+         do ix2 = ixMlo2, ixMhi2
+            do ix1 = ixMlo1, ixMhi1
+
+               error = zero
+               !$acc loop seq reduction(+:error)
+               do iflag = 1, nw
+                  if(w_refine_weight(iflag)==0.d0) cycle
+
+                  numerator   = zero
+                  denominator = zero
+                  !$acc loop seq reduction(+:numerator, denominator)
+                  do idims1 = 1, ndim
+                     do idims2 = 1, ndim
+
+                        numerator = numerator + &
+                             ( &
+                             ( w(ix1+kr(1,idims2)+kr(1,idims1), &
+                             ix2+kr(2,idims2)+kr(2,idims1), &
+                             ix3+kr(3,idims2)+kr(3,idims1), iflag)    &
+                             - w(ix1-kr(1,idims2)+kr(1,idims1), &
+                             ix2-kr(2,idims2)+kr(2,idims1), &
+                             ix3-kr(3,idims2)+kr(3,idims1), iflag) )  &
+                             - &
+                             ( w(ix1+kr(1,idims2)-kr(1,idims1), &
+                             ix2+kr(2,idims2)-kr(2,idims1), &
+                             ix3+kr(3,idims2)-kr(3,idims1), iflag)    &
+                             - w(ix1-kr(1,idims2)-kr(1,idims1), &
+                             ix2-kr(2,idims2)-kr(2,idims1), &
+                             ix3-kr(3,idims2)-kr(3,idims1), iflag) )  &
+                             )**2
+
+                        denominator =  denominator + &
+                             ( &
+                             abs( &
+                             w(ix1+2*kr(1,idims1), ix2+2*kr(2,idims1), ix3+2*kr(3,idims1), iflag) &
+                             - w(ix1, ix2, ix3, iflag) &
+                             ) &
+                             + abs( &
+                             w(ix1, ix2, ix3, iflag) &
+                             - w(ix1-2*kr(1,idims1), ix2-2*kr(2,idims1), ix3-2*kr(3,idims1), iflag) &
+                             ) &
+                             + amr_wavefilter(level) * ( &
+                             ( abs( w(ix1+kr(1,idims1)+kr(1,idims2), &
+                             ix2+kr(2,idims1)+kr(2,idims2), &
+                             ix3+kr(3,idims1)+kr(3,idims2), iflag) )   &
+                             + abs( w(ix1-kr(1,idims1)+kr(1,idims2), &
+                             ix2-kr(2,idims1)+kr(2,idims2), ix3-kr(3,idims1)+kr(3,idims2), iflag) ) ) &
+                             + &
+                             ( abs( w(ix1+kr(1,idims1)-kr(1,idims2), &
+                             ix2+kr(2,idims1)-kr(2,idims2), &
+                             ix3+kr(3,idims1)-kr(3,idims2), iflag) )   &
+                             + abs( w(ix1-kr(1,idims1)-kr(1,idims2), &
+                             ix2-kr(2,idims1)-kr(2,idims2), &
+                             ix3-kr(3,idims1)-kr(3,idims2), iflag) ) ) &
+                             ) &
+                             )**2
+
+                     end do
+                  end do
+
+                  error = error + w_refine_weight(iflag) * sqrt( numerator / max( denominator, epsilon ) )
+
+               end do
+
+               w(ix1, ix2, ix3 ,nw+1) = error
+
+            end do
+         end do
+      end do
+
+      w(:,:,:,nw+2) = mype
+
+    end subroutine special_output
+
+    !> Add names for the auxiliary variables
+    subroutine special_aux_names(varnames)
+      use mod_global_parameters
+      character(len=*) :: varnames
+      
+      varnames = 'error cpu'
+      
+    end subroutine special_aux_names
+
+  
 end module mod_usr

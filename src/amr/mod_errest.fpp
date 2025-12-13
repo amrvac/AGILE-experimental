@@ -96,12 +96,12 @@ contains
                         denominator = denominator + &
                              ( &
                              abs( &
-                             w(ix1+2*kr(1,idims1), ix2+2*kr(2,idims1), ix2+2*kr(3,idims1), iflag) &
+                             w(ix1+2*kr(1,idims1), ix2+2*kr(2,idims1), ix3+2*kr(3,idims1), iflag) &
                              - w(ix1, ix2, ix3, iflag) &
                              ) &
                              + abs( &
                              w(ix1, ix2, ix3, iflag) &
-                             - w(ix1-2*kr(1,idims1), ix2-2*kr(2,idims1), ix2-2*kr(3,idims1), iflag) &
+                             - w(ix1-2*kr(1,idims1), ix2-2*kr(2,idims1), ix3-2*kr(3,idims1), iflag) &
                              ) &
                              + amr_wavefilter(level) * ( &
                              ( abs( w(ix1+kr(1,idims1)+kr(1,idims2), &
