@@ -1618,9 +1618,9 @@ contains
 
           ! how they will be used at the receiving end;
           n_inc1 = inc1; n_inc2 = inc2; n_inc3 = inc3
-          if (n_inc1 == 0) n_inc1 = 3; if (n_inc1 == 3) n_inc1 = 0
-          if (n_inc2 == 0) n_inc2 = 3; if (n_inc2 == 3) n_inc2 = 0
-          if (n_inc3 == 0) n_inc3 = 3; if (n_inc3 == 3) n_inc3 = 0
+          if (n_inc1 == 0) then; n_inc1 = 3; else if (n_inc1 == 3) then; n_inc1 = 0; end if
+          if (n_inc2 == 0) then; n_inc2 = 3; else if (n_inc2 == 3) then; n_inc2 = 0; end if
+          if (n_inc3 == 0) then; n_inc3 = 3; else if (n_inc3 == 3) then; n_inc3 = 0; end if
 
           nbprocs_info%f_info_send(inb)%buffer( 1 + 5 * (i - 1) : 5 * i ) = &
                [neighbor_child(1,inc1,inc2,inc3,igrid), n_inc1, n_inc2, n_inc3, ibuf_start]

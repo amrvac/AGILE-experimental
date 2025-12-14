@@ -52,10 +52,6 @@
    iprob=1
  /
 
- &hd_list
- hd_force_diagonal    = .false.
- /
-
  &paramlist
    slowsteps        = 10
    courantpar       = 0.7d0
