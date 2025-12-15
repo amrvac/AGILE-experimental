@@ -69,6 +69,7 @@ contains
 
     time0 = MPI_WTIME()
     time_advance = .false.
+    !$acc update device(time_advance)
     time_bc      = zero
 
     ! read command line arguments first
@@ -288,6 +289,7 @@ contains
     dt_loop=0.d0
 
     time_advance=.true.
+    !$acc update device(time_advance)
 
     time_evol : do
 
@@ -419,6 +421,7 @@ contains
     end if
 
     time_advance=.false.
+    !$acc update device(time_advance)
 
     timeloop=MPI_WTIME()-timeloop0
 

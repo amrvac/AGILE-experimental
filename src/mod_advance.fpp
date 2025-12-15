@@ -77,13 +77,13 @@ contains
     do iigrid=1,igridstail; igrid=igrids(iigrid);
        !$acc loop collapse(ndim+1)
        do iw = 1, nw
-           do ix3 = ixGlo3, ixGhi3 
-            do ix2 = ixGlo2, ixGhi2 
-            do ix1 = ixGlo1, ixGhi1 
-          bg(2)%w(ix1,ix2,ix3,iw,igrid) = bg(1)%w(ix1,ix2,ix3,iw,igrid)
-           end do 
-            end do 
-            end do 
+          do ix3 = ixGlo3, ixGhi3 
+             do ix2 = ixGlo2, ixGhi2 
+                do ix1 = ixGlo1, ixGhi1 
+                   bg(2)%w(ix1,ix2,ix3,iw,igrid) = bg(1)%w(ix1,ix2,ix3,iw,igrid)
+                end do
+             end do
+          end do
        end do
     end do
     !$OMP END PARALLEL DO
@@ -94,13 +94,13 @@ contains
        do iigrid=1,igridstail; igrid=igrids(iigrid);
           !$acc loop collapse(ndim+1)
           do iw = 1, nws
-              do ix3 = ps(igrid)%ixGsmin3, ps(igrid)%ixGsmax3 
-               do ix2 = ps(igrid)%ixGsmin2, ps(igrid)%ixGsmax2 
-               do ix1 = ps(igrid)%ixGsmin1, ps(igrid)%ixGsmax1 
-             ps1(igrid)%ws(ix1,ix2,ix3,iw) = ps(igrid)%ws(ix1,ix2,ix3,iw)
-              end do 
-               end do 
-               end do 
+             do ix3 = ps(igrid)%ixGsmin3, ps(igrid)%ixGsmax3 
+                do ix2 = ps(igrid)%ixGsmin2, ps(igrid)%ixGsmax2 
+                   do ix1 = ps(igrid)%ixGsmin1, ps(igrid)%ixGsmax1 
+                      ps1(igrid)%ws(ix1,ix2,ix3,iw) = ps(igrid)%ws(ix1,ix2,ix3,iw)
+                   end do
+                end do
+             end do
           end do
        end do
     end if
@@ -115,59 +115,59 @@ contains
        ! AGILE this is our integrator (default threestep)
        case (ssprk3)
           ! this is SSPRK(3,3) Gottlieb-Shu 1998 or SSP(3,2) depending on ssprk_order (3 vs 2)
-         
+          
           call advect1(flux_method,rk_beta11, idimmin,idimmax,global_time,ps,&
-             bg(1),global_time,ps1,bg(2))
+               bg(1),global_time,ps1,bg(2))
 
           !$OMP PARALLEL DO PRIVATE(igrid)
           !$acc parallel loop present(bg, ps2, ps1, ps) private(igrid)
-           do iigrid=1,igridstail_active; igrid=igrids_active(iigrid);
-              !$acc loop collapse(ndim+1)
-              do iw = 1, nw
-                  do ix3 = ixGlo3, ixGhi3 
+          do iigrid=1,igridstail_active; igrid=igrids_active(iigrid);
+             !$acc loop collapse(ndim+1)
+             do iw = 1, nw
+                do ix3 = ixGlo3, ixGhi3 
                    do ix2 = ixGlo2, ixGhi2 
-                   do ix1 = ixGlo1, ixGhi1 
-                 bg(3)%w(ix1,ix2,ix3,iw,igrid) = rk_alfa21 * bg(1)%w(ix1,ix2,&
-                    ix3,iw,igrid) + rk_alfa22 * bg(2)%w(ix1,ix2,ix3,iw,igrid)
-                  end do 
-                   end do 
-                   end do 
-              end do
-              if(stagger_grid) ps2(igrid)%ws=rk_alfa21*ps(igrid)%ws+&
-                 rk_alfa22*ps1(igrid)%ws
-           end do
+                      do ix1 = ixGlo1, ixGhi1 
+                         bg(3)%w(ix1,ix2,ix3,iw,igrid) = rk_alfa21 * bg(1)%w(ix1,ix2,&
+                              ix3,iw,igrid) + rk_alfa22 * bg(2)%w(ix1,ix2,ix3,iw,igrid)
+                      end do
+                   end do
+                end do
+             end do
+             if(stagger_grid) ps2(igrid)%ws=rk_alfa21*ps(igrid)%ws+&
+                  rk_alfa22*ps1(igrid)%ws
+          end do
           !$OMP END PARALLEL DO
 
           call advect1(flux_method,rk_beta22, idimmin,idimmax,&
-             global_time+rk_c2*dt,ps1,bg(2),global_time+rk_alfa22*rk_c2*dt,ps2,&
-             bg(3))
+               global_time+rk_c2*dt,ps1,bg(2),global_time+rk_alfa22*rk_c2*dt,ps2,&
+               bg(3))
 
           !$OMP PARALLEL DO PRIVATE(igrid)
           !$acc parallel loop present(bg, ps2, ps) private(igrid)
-           do iigrid=1,igridstail_active; igrid=igrids_active(iigrid);
-              !$acc loop collapse(ndim+1)
-              do iw = 1, nw
-                  do ix3 = ixGlo3, ixGhi3 
+          do iigrid=1,igridstail_active; igrid=igrids_active(iigrid);
+             !$acc loop collapse(ndim+1)
+             do iw = 1, nw
+                do ix3 = ixGlo3, ixGhi3 
                    do ix2 = ixGlo2, ixGhi2 
-                   do ix1 = ixGlo1, ixGhi1 
-                 bg(1)%w(ix1,ix2,ix3,iw,igrid) = rk_alfa31 * bg(1)%w(ix1,ix2,&
-                    ix3,iw,igrid) + rk_alfa33 * bg(3)%w(ix1,ix2,ix3,iw,igrid)
-                  end do 
-                   end do 
-                   end do 
-              end do
-              if(stagger_grid) ps(igrid)%ws=rk_alfa31*ps(igrid)%ws+&
-                 rk_alfa33*ps2(igrid)%ws
-           end do
+                      do ix1 = ixGlo1, ixGhi1 
+                         bg(1)%w(ix1,ix2,ix3,iw,igrid) = rk_alfa31 * bg(1)%w(ix1,ix2,&
+                              ix3,iw,igrid) + rk_alfa33 * bg(3)%w(ix1,ix2,ix3,iw,igrid)
+                      end do
+                   end do
+                end do
+             end do
+             if(stagger_grid) ps(igrid)%ws=rk_alfa31*ps(igrid)%ws+&
+                  rk_alfa33*ps2(igrid)%ws
+          end do
           !$OMP END PARALLEL DO
 
           call advect1(flux_method,rk_beta33, idimmin,idimmax,&
-             global_time+rk_c3*dt,ps2,bg(3),global_time+(1.0d0-rk_beta33)*dt,&
-             ps,bg(1))
-  
-        case default
-           call mpistop("unkown threestep time_integrator in advect")
-        end select
+               global_time+rk_c3*dt,ps2,bg(3),global_time+(1.0d0-rk_beta33)*dt,&
+               ps,bg(1))
+
+       case default
+          call mpistop("unkown threestep time_integrator in advect")
+       end select
 
     case default
        call mpistop("unkown time_stepper in advect")

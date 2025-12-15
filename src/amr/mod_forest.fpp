@@ -69,7 +69,8 @@ module mod_forest
 
    !> AMR flags and grids-in-use identifier per processor (igrid,ipe) 
    logical, dimension(:,:), allocatable, save :: coarsen, refine, buffer,&
-       igrid_inuse
+        igrid_inuse
+   !$acc declare create(coarsen, refine, buffer, igrid_inuse)
 
    !> Number of parent blocks
    integer, save :: nparents

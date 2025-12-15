@@ -81,3 +81,10 @@ name = "GRAVITY"
 flags = ["fypp", "hash"]
 default = false
 implies = ["components.source_local"]
+
+[meshlist]
+[meshlist.refine_usr]
+type = "flag"
+name = "REFINE_USR"
+flags = ["fypp", "hash"]
+default = false

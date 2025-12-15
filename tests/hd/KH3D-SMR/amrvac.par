@@ -45,6 +45,7 @@
    max_blocks         = 10000
    refine_max_level   = 4
    refine_criterion   = 1 !user-defined criterion only (in mod_usr)
+   refine_usr         = .true.
    itfixgrid          = 0 
    block_nx1          = 16
    block_nx2          = 16

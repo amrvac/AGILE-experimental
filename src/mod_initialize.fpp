@@ -241,6 +241,7 @@ contains
     end if
     allocate(igrid_inuse(max_blocks,0:npe-1))
     igrid_inuse=.false.
+    !$acc update device(coarsen, refine, buffer, igrid_inuse)
 
     allocate(tree_root(1:ng1(1),1:ng2(1),1:ng3(1)))
     do ig3=1,ng3(1)
