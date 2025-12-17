@@ -1876,6 +1876,9 @@ contains
   end subroutine getbc
 
   logical function skip_direction(dir)
+    ! This is a Cray compiler directive to force inlining.
+    ! Required for OpenACC at optimization levels where it would not be inlined.
+    !dir$ inlinealways skip_direction
     !$acc routine vector
     integer, intent(in) :: dir(3)
 
