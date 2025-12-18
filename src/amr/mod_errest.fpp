@@ -129,9 +129,7 @@ contains
                if (error > threshold) then
                   refineflag = .true.
                end if
-               if (error <= derefine_ratio(level) * threshold) then
-                  coarsenflag = coarsenflag .and. .true.
-               else if (error > derefine_ratio(level) * threshold) then
+               if (error > derefine_ratio(level) * threshold) then
                   coarsenflag = .false.
                end if
 

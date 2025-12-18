@@ -9,6 +9,7 @@ contains
     use mod_space_filling_curve
     use mod_amr_solution_node, only: getnode,putnode
     use mod_functions_forest, only: change_ipe_tree_leaf
+    use mod_comm_lib, only: mpistop
 
     integer :: Morton_no, recv_igrid, recv_ipe, send_igrid, send_ipe, igrid,&
         ipe
@@ -20,6 +21,9 @@ contains
     integer :: itag_stg
     integer, dimension(:), allocatable :: recvrequest_stg, sendrequest_stg
     integer, dimension(:,:), allocatable :: recvstatus_stg, sendstatus_stg
+    !> host-data: keep track of received igrids so they can be updated on the device
+    integer, parameter             :: max_buff=1024
+    integer, dimension(1:max_buff) :: igrids_received
 
 
     ! Jannis: for now, not using version for passive/active blocks
@@ -79,8 +83,14 @@ contains
       call MPI_WAITALL(isend,sendrequest,sendstatus,ierrmpi)
       if(stagger_grid) call MPI_WAITALL(isend,sendrequest_stg,sendstatus_stg,&
          ierrmpi)
-    end if
-
+   end if
+   
+#ifdef NOGPUDIRECT
+   do recv_igrid = 1, irecv
+      !$acc update device(ps(igrids_received(recv_igrid))%w)
+   end do
+#endif
+    
     deallocate(recvstatus,recvrequest,sendstatus,sendrequest)
     if(stagger_grid) deallocate(recvstatus_stg,recvrequest_stg,sendstatus_stg,&
        sendrequest_stg)
@@ -103,7 +113,7 @@ contains
     call amr_Morton_order()
 
     contains
-
+      
       subroutine lb_recv
         use mod_amr_solution_node, only: alloc_node
 
@@ -111,14 +121,24 @@ contains
 
         itag=recv_igrid
         irecv=irecv+1
-        
-        call MPI_IRECV(ps(recv_igrid)%w,1,type_block_io,send_ipe,itag, icomm,&
-           recvrequest(irecv),ierrmpi)
-        
+#ifndef NOGPUDIRECT
+        !$acc host_data use_device(ps(recv_igrid)%w)
+#else
+        if (irecv > max_buff) then
+           call mpistop('load_balance: max_buff too small in receive')
+        end if
+        igrids_received(irecv) = recv_igrid
+#endif
+        ! using entire block for now (only need mesh internal ones)
+        call MPI_IRECV(ps(recv_igrid)%w,1,type_block,send_ipe,itag, icomm,&
+             recvrequest(irecv),ierrmpi)
+#ifndef NOGPUDIRECT
+        !$acc end host_data
+#endif
         if(stagger_grid) then
-          itag=recv_igrid+max_blocks
-          call MPI_IRECV(ps(recv_igrid)%ws,1,type_block_io_stg,send_ipe,itag,&
-              icomm,recvrequest_stg(irecv),ierrmpi)
+           itag=recv_igrid+max_blocks
+           call MPI_IRECV(ps(recv_igrid)%ws,1,type_block_io_stg,send_ipe,itag,&
+                icomm,recvrequest_stg(irecv),ierrmpi)
         end if
 
       end subroutine lb_recv
@@ -127,14 +147,20 @@ contains
 
         itag=recv_igrid
         isend=isend+1
-        
-        call MPI_ISEND(ps(send_igrid)%w,1,type_block_io,recv_ipe,itag, icomm,&
-           sendrequest(isend),ierrmpi)
-        
+#ifndef NOGPUDIRECT
+        !$acc host_data use_device(ps(send_igrid)%w)
+#else
+        !$acc update host(ps(send_igrid)%w)
+#endif
+        call MPI_ISEND(ps(send_igrid)%w,1,type_block,recv_ipe,itag, icomm,&
+             sendrequest(isend),ierrmpi)
+#ifndef NOGPUDIRECT
+        !$acc end host_data
+#endif
         if(stagger_grid) then
-          itag=recv_igrid+max_blocks
-          call MPI_ISEND(ps(send_igrid)%ws,1,type_block_io_stg,recv_ipe,itag,&
-              icomm,sendrequest_stg(isend),ierrmpi)
+           itag=recv_igrid+max_blocks
+           call MPI_ISEND(ps(send_igrid)%ws,1,type_block_io_stg,recv_ipe,itag,&
+                icomm,sendrequest_stg(isend),ierrmpi)
         end if
 
       end subroutine lb_send

@@ -419,6 +419,7 @@ contains
     use mod_coarsen, only: coarsen_grid
     use mod_initialize_amr, only: initial_condition
     use mod_amr_solution_node, only: alloc_node
+    use mod_comm_lib, only: mpistop
 
     integer, intent(in) :: igrid, ipe
     integer, dimension(2,2,2), intent(in) :: child_igrid, child_ipe

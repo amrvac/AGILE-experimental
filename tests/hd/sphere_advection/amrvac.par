@@ -23,7 +23,7 @@
  /
 
  &stoplist
-   time_max         = 0.02d0
+   time_max         = 0.2d0
  /
 
  &methodlist
@@ -43,14 +43,13 @@
  /
 
  &meshlist
-   max_blocks         =  1024
+   max_blocks         =  4096
    refine_max_level   =  3
    refine_criterion   =  3 ! Lohner criterion
    refine_usr         =  .false.
-   itfixgrid          =  0
-   block_nx1          =  16
-   block_nx2          =  16
-   block_nx3          =  16
+   block_nx1          =  8
+   block_nx2          =  8
+   block_nx3          =  8
    domain_nx1         =  64
    domain_nx2         =  64
    domain_nx3         =  64
