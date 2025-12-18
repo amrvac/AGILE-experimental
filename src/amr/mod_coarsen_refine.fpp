@@ -6,11 +6,18 @@ module mod_coarsen_refine
   integer :: itag, irecv, isend
   integer, dimension(:), allocatable :: recvrequest, sendrequest
   integer, dimension(:,:), allocatable :: recvstatus, sendstatus
+  !> MPI buffers to send non-local coarsened grids
+  double precision, allocatable, dimension(:,:,:,:,:)  :: snd_buff, rcv_buff
+  integer, allocatable, dimension(:,:)  :: rcv_info
+  !$acc declare create(snd_buff,rcv_buff,rcv_info)
+  !> maximum number of coarse blocks that can be sent after coarsening
+  integer, parameter :: max_buff=1024
+  !$acc declare copyin(max_buff)
   !> MPI recv send variables for staggered-variable AMR
   integer :: itag_stg
   integer, dimension(:), allocatable :: recvrequest_stg, sendrequest_stg
   integer, dimension(:,:), allocatable :: recvstatus_stg, sendstatus_stg
-
+  
   ! Public subroutines
   public :: amr_coarsen_refine
 
@@ -26,25 +33,26 @@ contains
     use mod_space_filling_curve
     use mod_load_balance
     use mod_functions_connectivity, only: get_level_range,getigrids,&
-       build_connectivity
+         build_connectivity
     use mod_amr_solution_node, only: getnode, putnode
     use mod_functions_forest, only: coarsen_tree_leaf,refine_tree_leaf
     use mod_selectgrids, only: selectgrids
     use mod_refine, only: refine_grids
     use mod_multigrid_coupling
-   
+
 
     integer :: iigrid, igrid, ipe, igridCo, ipeCo, level, ic1,ic2,ic3
     integer, dimension(2,2,2) :: igridFi, ipeFi
     integer :: n_coarsen, n_refine
     type(tree_node_ptr) :: tree, sibling
     logical             :: active
+    integer             :: ibuff, iw, ix1, ix2, ix3
 
     call proper_nesting
 
     if(stagger_grid) then
-      call store_faces
-      call comm_faces
+       call store_faces
+       call comm_faces
     end if
 
     n_coarsen = count(coarsen(:, :))
@@ -54,19 +62,26 @@ contains
     irecv=0
     isend=0
     allocate(recvstatus(MPI_STATUS_SIZE,max_blocks),recvrequest(max_blocks),&
-        sendstatus(MPI_STATUS_SIZE,max_blocks),sendrequest(max_blocks))
+         sendstatus(MPI_STATUS_SIZE,max_blocks),sendrequest(max_blocks))
     recvrequest=MPI_REQUEST_NULL
     sendrequest=MPI_REQUEST_NULL
 
     if(stagger_grid) then
-      allocate(recvstatus_stg(MPI_STATUS_SIZE,max_blocks*3),&
-         recvrequest_stg(max_blocks*3), sendstatus_stg(MPI_STATUS_SIZE,&
-         max_blocks*3),sendrequest_stg(max_blocks*3))
-      recvrequest_stg=MPI_REQUEST_NULL
-      sendrequest_stg=MPI_REQUEST_NULL
+       allocate(recvstatus_stg(MPI_STATUS_SIZE,max_blocks*3),&
+            recvrequest_stg(max_blocks*3), sendstatus_stg(MPI_STATUS_SIZE,&
+            max_blocks*3),sendrequest_stg(max_blocks*3))
+       recvrequest_stg=MPI_REQUEST_NULL
+       sendrequest_stg=MPI_REQUEST_NULL
     end if
 
-    
+    ! Allocate the send and receive buffers
+    if ( .not. allocated(snd_buff) ) then
+       allocate( snd_buff(block_nx1/2, block_nx2/2, block_nx3/2, nw, max_buff), &
+            rcv_buff(block_nx1/2, block_nx2/2, block_nx3/2, nw, max_buff), &
+            rcv_info(4, max_buff) )
+       !$acc update device(snd_buff, rcv_buff, rcv_info)
+    end if
+
     do ipe=0,npe-1
        do igrid=1,max_blocks
           if (coarsen(igrid,ipe)) then
@@ -104,22 +119,51 @@ contains
           end if
        end do
     end do
-
+    
     if (irecv>0) then
-      call MPI_WAITALL(irecv,recvrequest,recvstatus,ierrmpi)
-      if(stagger_grid) call MPI_WAITALL(irecv,recvrequest_stg,recvstatus_stg,&
-         ierrmpi)
+       call MPI_WAITALL(irecv,recvrequest,recvstatus,ierrmpi)
+       if(stagger_grid) call MPI_WAITALL(irecv,recvrequest_stg,recvstatus_stg,&
+            ierrmpi)
     end if
     if (isend>0) then
-      call MPI_WAITALL(isend,sendrequest,sendstatus,ierrmpi)
-      if(stagger_grid) call MPI_WAITALL(isend,sendrequest_stg,sendstatus_stg,&
-         ierrmpi)
+       call MPI_WAITALL(isend,sendrequest,sendstatus,ierrmpi)
+       if(stagger_grid) call MPI_WAITALL(isend,sendrequest_stg,sendstatus_stg,&
+            ierrmpi)
     end if
+
+    ! unpack the receive buffers on GPU
+#ifdef NOGPUDIRECT
+    !$acc update device(rcv_buff(:,:,:,:,1:irecv)) 
+#endif
+    !$acc update device(rcv_info(:,1:irecv))
+
+    !$acc parallel loop gang
+    do ibuff = 1, irecv
+       igrid = rcv_info(1,ibuff)
+       ic1   = rcv_info(2,ibuff)
+       ic2   = rcv_info(3,ibuff)
+       ic3   = rcv_info(4,ibuff)
+       !$acc loop collapse(4) vector
+       do iw = 1, nw
+          do ix3 = 1, block_nx3/2
+             do ix2 = 1, block_nx2/2
+                do ix1 = 1, block_nx1/2
+                   ps(igrid)%w( &
+                        ixMlo1-1+(ic1-1)*block_nx1/2 + ix1, &
+                        ixMlo2-1+(ic2-1)*block_nx2/2 + ix2, &
+                        ixMlo3-1+(ic3-1)*block_nx3/2 + ix3, &
+                        iw) &
+                        = rcv_buff(ix1, ix2, ix3, iw, ibuff)
+                end do
+             end do
+          end do
+       end do
+    end do
 
     deallocate(recvstatus,recvrequest,sendstatus,sendrequest)
     if(stagger_grid) deallocate(recvstatus_stg,recvrequest_stg,sendstatus_stg,&
-       sendrequest_stg)
-
+         sendrequest_stg)
+    
     ! non-local coarsening done
     do ipe=0,npe-1
        do igrid=1,max_blocks
@@ -134,7 +178,7 @@ contains
           end if
        end do
     end do
-    
+
     do ipe=0,npe-1
        do igrid=1,max_blocks
           if (refine(igrid,ipe)) then
@@ -189,7 +233,7 @@ contains
     else
        call getbc(global_time,0.d0,ps,iwstart,nwgc)
     end if
-    
+
     if (use_multigrid) call mg_update_refinement(n_coarsen, n_refine)
 
     if (associated(usr_after_refine)) then
@@ -197,7 +241,7 @@ contains
     end if
 
     !$acc update device(coarsen, refine)
-    
+
   end subroutine amr_coarsen_refine
 
   !> For all grids on all processors, do a check on refinement flags. Make
@@ -209,22 +253,22 @@ contains
 
     logical, dimension(:,:), allocatable :: refine2
     integer :: iigrid, igrid, level, ic1,ic2,ic3, inp1,inp2,inp3, i1,i2,i3,&
-        my_neighbor_type,ipe
+         my_neighbor_type,ipe
     logical :: coarsening, pole(ndim), sendbuf(max_blocks)
     type(tree_node_ptr) :: tree, p_neighbor, my_parent, sibling, my_neighbor,&
-        neighborchild
+         neighborchild
 
     if (nbufferx1/=0.or.nbufferx2/=0.or.nbufferx3/=0) then
        allocate(refine2(max_blocks,npe))
        call MPI_ALLREDUCE(refine,refine2,max_blocks*npe,MPI_LOGICAL,MPI_LOR,&
-           icomm,ierrmpi)
+            icomm,ierrmpi)
        refine=refine2
     else
        sendbuf(:)=refine(:,mype)
        call MPI_ALLGATHER(sendbuf,max_blocks,MPI_LOGICAL,refine,max_blocks,&
-           MPI_LOGICAL,icomm,ierrmpi)
+            MPI_LOGICAL,icomm,ierrmpi)
     end if
-    
+
     do level=min(levmax,refine_max_level-1),levmin+1,-1
        tree%node => level_head(level)%node
        do
@@ -267,13 +311,13 @@ contains
 
     do iigrid=1,igridstail; igrid=igrids(iigrid);
        if (refine(igrid,mype).and.coarsen(igrid,mype)) coarsen(igrid,&
-          mype)=.false.
+            mype)=.false.
     end do
 
     ! For all grids on all processors, do a check on coarse refinement flags
     sendbuf(:)=coarsen(:,mype)
     call MPI_ALLGATHER(sendbuf,max_blocks,MPI_LOGICAL,coarsen,max_blocks,&
-        MPI_LOGICAL,icomm,ierrmpi)
+         MPI_LOGICAL,icomm,ierrmpi)
 
     do level=levmax,max(2,levmin),-1
        tree%node => level_head(level)%node
@@ -283,7 +327,7 @@ contains
           if (coarsen(tree%node%igrid,tree%node%ipe)) then
              coarsening=.true.
              my_parent%node => tree%node%parent%node
-             
+
              ! are all siblings flagged for coarsen ?
              check1:  do ic3=1,2
                 do ic2=1,2
@@ -384,6 +428,7 @@ contains
          ixComax3, ixCoGmin1,ixCoGmin2,ixCoGmin3,ixCoGmax1,ixCoGmax2,ixCoGmax3,&
          ixCoMmin1,ixCoMmin2,ixCoMmin3,ixCoMmax1,ixCoMmax2,ixCoMmax3, ic1,ic2,&
          ic3, idir
+    integer :: ix1, ix2, ix3, iw
 
     if (ipe==mype) call alloc_node(igrid)
 
@@ -445,8 +490,34 @@ contains
                    !itag=ipeFi*max_blocks+igridFi
                    itag=ipeFi+igridFi
                    isend=isend+1
-                   call MPI_ISEND(psc(igridFi)%w,1,type_coarse_block,ipe,itag, icomm,&
+                   ! fill send buffer on GPU
+                   if (isend > max_buff) then
+                      call mpistop('coarsen_grid_siblings: max_buff too small in send')
+                   end if
+                   !$acc parallel loop gang
+                   do iw = 1, nw
+                      !$acc loop collapse(3) vector
+                      do ix3 = 1, block_nx3/2
+                         do ix2 = 1, block_nx2/2
+                            do ix1 = 1, block_nx1/2
+                               snd_buff(ix1, ix2, ix3, iw, isend) = &
+                                    psc(igridFi)%w(ixCoMmin1-1+ix1, ixCoMmin2-1+ix2, ixCoMmin2-1+ix3, iw)
+                            end do
+                         end do
+                      end do
+                   end do
+
+#ifndef NOGPUDIRECT
+                   !$acc host_data use_device(snd_buff)
+#else
+                   !$acc update host(snd_buff(:,:,:,:,isend))
+#endif
+                   call MPI_ISEND(snd_buff(:,:,:,:,isend), &
+                        block_nx1*block_nx2*block_nx3/8*nw,MPI_DOUBLE_PRECISION,ipe,itag, icomm,&
                         sendrequest(isend),ierrmpi)
+#ifndef NOGPUDIRECT
+                   !$acc end host_data
+#endif
                    if(stagger_grid) then
                       do idir=1,ndim
                          !itag_stg=(npe+ipeFi+1)*max_blocks+igridFi*(ndir-1+idir)
@@ -462,8 +533,19 @@ contains
                    !itag=ipeFi*max_blocks+igridFi
                    itag=ipeFi+igridFi
                    irecv=irecv+1
-                   call MPI_IRECV(ps(igrid)%w,1,type_sub_block(ic1,ic2,ic3),ipeFi,&
+                   if (irecv > max_buff) then
+                      call mpistop('coarsen_grid_siblings: max_buff too small in receive')
+                   end if
+#ifndef NOGPUDIRECT
+                   !$acc host_data use_device(rcv_buff)
+#endif                   
+                   call MPI_IRECV(rcv_buff(:,:,:,:,irecv), &
+                        block_nx1*block_nx2*block_nx3/8*nw,MPI_DOUBLE_PRECISION,ipeFi, &
                         itag, icomm,recvrequest(irecv),ierrmpi)
+#ifndef NOGPUDIRECT
+                   !$acc end host_data
+#endif
+                   rcv_info(:,irecv) = [igrid, ic1, ic2, ic3]
                    if(stagger_grid) then
                       do idir=1,ndim
                          !itag_stg=(npe+ipeFi+1)*max_blocks+igridFi*(ndir-1+idir)
