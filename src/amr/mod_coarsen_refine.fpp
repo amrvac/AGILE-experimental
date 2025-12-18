@@ -502,7 +502,7 @@ contains
                          do ix2 = 1, block_nx2/2
                             do ix1 = 1, block_nx1/2
                                snd_buff(ix1, ix2, ix3, iw, isend) = &
-                                    psc(igridFi)%w(ixCoMmin1-1+ix1, ixCoMmin2-1+ix2, ixCoMmin2-1+ix3, iw)
+                                    psc(igridFi)%w(ixCoMmin1-1+ix1, ixCoMmin2-1+ix2, ixCoMmin3-1+ix3, iw)
                             end do
                          end do
                       end do
