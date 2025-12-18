@@ -520,7 +520,6 @@ contains
 #endif
                    if(stagger_grid) then
                       do idir=1,ndim
-                         !itag_stg=(npe+ipeFi+1)*max_blocks+igridFi*(ndir-1+idir)
                          itag_stg=(npe+ipeFi+1)+igridFi*(ndir-1+idir)
                          call MPI_ISEND(psc(igridFi)%ws,1,type_coarse_block_stg(idir,&
                               ic1,ic2,ic3),ipe,itag_stg, icomm,sendrequest_stg(isend),&
@@ -530,7 +529,6 @@ contains
                 end if
              else
                 if (ipe==mype) then
-                   !itag=ipeFi*max_blocks+igridFi
                    itag=ipeFi+igridFi
                    irecv=irecv+1
                    if (irecv > max_buff) then
@@ -548,7 +546,6 @@ contains
                    rcv_info(:,irecv) = [igrid, ic1, ic2, ic3]
                    if(stagger_grid) then
                       do idir=1,ndim
-                         !itag_stg=(npe+ipeFi+1)*max_blocks+igridFi*(ndir-1+idir)
                          itag_stg=(npe+ipeFi+1)+igridFi*(ndir-1+idir)
                          call MPI_IRECV(ps(igrid)%ws,1,type_sub_block_stg(idir,ic1,ic2,&
                               ic3),ipeFi,itag_stg, icomm,recvrequest_stg(irecv),ierrmpi)
