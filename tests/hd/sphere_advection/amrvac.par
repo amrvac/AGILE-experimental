@@ -10,9 +10,9 @@
   itsave(1,1)      = 0
   itsave(1,2)      = 0
   itsave(1,3)      = 0
-  ditsave_log      = 1
-  dtsave_dat       = 0.01d0
-  dtsave_slice     = 0.01d0
+  ditsave_log      = 100
+  dtsave_dat       = 0.1d0
+  dtsave_slice     = 0.1d0
   nslices          = 3
   slicedir(1)      = 3
   slicecoord(1)    = 0.0d0
@@ -43,13 +43,13 @@
  /
 
  &meshlist
-   max_blocks         =  4096
-   refine_max_level   =  3
+   max_blocks         =  2048
+   refine_max_level   =  4
    refine_criterion   =  3 ! Lohner criterion
    refine_usr         =  .false.
-   block_nx1          =  8
-   block_nx2          =  8
-   block_nx3          =  8
+   block_nx1          =  16
+   block_nx2          =  16
+   block_nx3          =  16
    domain_nx1         =  64
    domain_nx2         =  64
    domain_nx3         =  64

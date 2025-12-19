@@ -5,7 +5,7 @@ module mod_load_balance
   double precision, allocatable, dimension(:,:,:,:,:)  :: snd_buff, rcv_buff
   integer, allocatable, dimension(:)  :: rcv_info
   !$acc declare create(snd_buff,rcv_buff,rcv_info)
-  !> maximum number of coarse blocks that can be sent after coarsening
+  !> maximum number of blocks to send
   integer, parameter :: max_buff=1024
   private :: snd_buff, rcv_buff, max_buff,rcv_info
 
@@ -155,10 +155,9 @@ contains
 #ifndef NOGPUDIRECT
         !$acc host_data use_device(rcv_buff)
 #endif
-        ! using entire block for now (only need mesh internal ones)
         call MPI_IRECV(rcv_buff(:,:,:,:,irecv), &
                         block_nx1*block_nx2*block_nx3*nw, MPI_DOUBLE_PRECISION, &
-             send_ipe,itag, icomm,&
+             send_ipe,itag, icomm, &
              recvrequest(irecv),ierrmpi)
 #ifndef NOGPUDIRECT
         !$acc end host_data
@@ -199,7 +198,7 @@ contains
 #endif
         call MPI_ISEND(snd_buff(:,:,:,:,isend), &
                         block_nx1*block_nx2*block_nx3*nw, MPI_DOUBLE_PRECISION, &
-             recv_ipe,itag, icomm,&
+             recv_ipe,itag, icomm, &
              sendrequest(isend),ierrmpi)
 #ifndef NOGPUDIRECT
         !$acc end host_data
