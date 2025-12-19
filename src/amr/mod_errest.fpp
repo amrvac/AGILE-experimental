@@ -3,8 +3,8 @@ module mod_errest
   implicit none
   private
 
-  public :: errest, forcedrefine_grid_io 
- 
+  public :: errest, forcedrefine_grid_io
+
 contains
 
   !> Do all local error estimation which determines (de)refinement
@@ -17,7 +17,7 @@ contains
     if (igridstail==0) return
 
     select case (refine_criterion)
-    case (1) 
+    case (1)
        ! all refinement solely based on user routine usr_refine_grid
     case (3)
        ! Error estimation is based on Lohner's scheme
@@ -52,7 +52,7 @@ contains
     double precision                   :: threshold, error, numerator, denominator
     logical                            :: refineflag, coarsenflag
     double precision, parameter        :: epsilon=1.0d-6
-    
+
     associate(w => bg(1)%w(:,:,:,:, igrid))
 
       level       = node(plevel_,igrid)
@@ -189,7 +189,7 @@ contains
     if (my_coarsen==-1)then
        coarsen(igrid,mype)=.false.
     end if
-    
+
     if (my_refine==1) then
        if (level<refine_max_level) then
           refine(igrid,mype)=.true.
@@ -203,9 +203,9 @@ contains
     if (my_refine==-1) then
       refine(igrid,mype)=.false.
     end if
-  
+
   end subroutine forcedrefine_grid
-  
+
   subroutine forcedrefine_grid_io(igrid,w)
     use mod_forest, only: coarsen, refine
     use mod_global_parameters

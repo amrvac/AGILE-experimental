@@ -107,6 +107,12 @@ contains
   subroutine usr_refine_grid(igrid,level,ixGmin1,ixGmin2,ixGmin3,&
     ixGmax1,ixGmax2,ixGmax3,ixmin1,ixmin2,ixmin3,ixmax1,ixmax2,ixmax3,&
     qt,w,x,refine,coarsen)
+#ifdef _OPENACC
+    ! The Cray compiler fails when trying to inline this routine, for now
+    ! disable inlining for Cray
+    !dir$ inlinenever usr_refine_grid
+#endif
+    !$acc routine seq
 
     use mod_global_parameters
 
