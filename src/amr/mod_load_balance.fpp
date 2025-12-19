@@ -1,6 +1,14 @@
 module mod_load_balance
   implicit none
 
+  !> MPI buffers to send blocks
+  double precision, allocatable, dimension(:,:,:,:,:)  :: snd_buff, rcv_buff
+  integer, allocatable, dimension(:)  :: rcv_info
+  !$acc declare create(snd_buff,rcv_buff,rcv_info)
+  !> maximum number of blocks to send
+  integer, parameter :: max_buff=1024
+  private :: snd_buff, rcv_buff, max_buff,rcv_info
+
 contains
   !> reallocate blocks into processors for load balance
   subroutine load_balance
@@ -9,6 +17,7 @@ contains
     use mod_space_filling_curve
     use mod_amr_solution_node, only: getnode,putnode
     use mod_functions_forest, only: change_ipe_tree_leaf
+    use mod_comm_lib, only: mpistop
 
     integer :: Morton_no, recv_igrid, recv_ipe, send_igrid, send_ipe, igrid,&
         ipe
@@ -20,7 +29,7 @@ contains
     integer :: itag_stg
     integer, dimension(:), allocatable :: recvrequest_stg, sendrequest_stg
     integer, dimension(:,:), allocatable :: recvstatus_stg, sendstatus_stg
-
+    integer :: ix1, ix2, ix3, iw, ibuff
 
     ! Jannis: for now, not using version for passive/active blocks
     call get_Morton_range()
@@ -45,6 +54,14 @@ contains
       sendrequest_stg=MPI_REQUEST_NULL
     end if
 
+    ! Allocate the send and receive buffers
+    if ( .not. allocated(snd_buff) ) then
+       allocate( snd_buff(block_nx1, block_nx2, block_nx3, nw, max_buff), &
+            rcv_buff(block_nx1, block_nx2, block_nx3, nw, max_buff), &
+            rcv_info(max_buff) )
+       !$acc update device(snd_buff, rcv_buff, rcv_info)
+    end if
+    
     do ipe=0,npe-1; do Morton_no=Morton_start(ipe),Morton_stop(ipe)
        recv_ipe=ipe
 
@@ -79,8 +96,29 @@ contains
       call MPI_WAITALL(isend,sendrequest,sendstatus,ierrmpi)
       if(stagger_grid) call MPI_WAITALL(isend,sendrequest_stg,sendstatus_stg,&
          ierrmpi)
-    end if
-
+   end if
+   
+    ! unpack the receive buffers on GPU
+#ifdef NOGPUDIRECT
+   !$acc update device(rcv_buff(:,:,:,:,1:irecv))
+#endif
+    !$acc update device(rcv_info(1:irecv))
+    !$acc parallel loop gang
+    do ibuff = 1, irecv
+       recv_igrid = rcv_info(ibuff)
+       !$acc loop collapse(4) vector
+       do iw = 1, nw
+          do ix3 = 1, block_nx3
+             do ix2 = 1, block_nx2
+                do ix1 = 1, block_nx1
+                   bg(1)%w(ixMlo1-1 + ix1, ixMlo2-1 + ix2, ixMlo3-1 + ix3, iw, recv_igrid) &
+                        = rcv_buff(ix1, ix2, ix3, iw, ibuff)
+                end do
+             end do
+          end do
+       end do
+    end do
+    
     deallocate(recvstatus,recvrequest,sendstatus,sendrequest)
     if(stagger_grid) deallocate(recvstatus_stg,recvrequest_stg,sendstatus_stg,&
        sendrequest_stg)
@@ -103,7 +141,7 @@ contains
     call amr_Morton_order()
 
     contains
-
+      
       subroutine lb_recv
         use mod_amr_solution_node, only: alloc_node
 
@@ -111,14 +149,24 @@ contains
 
         itag=recv_igrid
         irecv=irecv+1
-        
-        call MPI_IRECV(ps(recv_igrid)%w,1,type_block_io,send_ipe,itag, icomm,&
-           recvrequest(irecv),ierrmpi)
-        
+        if (irecv > max_buff) then
+           call mpistop('load_balance: max_buff too small in receive')
+        end if
+#ifndef NOGPUDIRECT
+        !$acc host_data use_device(rcv_buff)
+#endif
+        call MPI_IRECV(rcv_buff(:,:,:,:,irecv), &
+                        block_nx1*block_nx2*block_nx3*nw, MPI_DOUBLE_PRECISION, &
+             send_ipe,itag, icomm, &
+             recvrequest(irecv),ierrmpi)
+#ifndef NOGPUDIRECT
+        !$acc end host_data
+#endif
+        rcv_info(irecv) = recv_igrid
         if(stagger_grid) then
-          itag=recv_igrid+max_blocks
-          call MPI_IRECV(ps(recv_igrid)%ws,1,type_block_io_stg,send_ipe,itag,&
-              icomm,recvrequest_stg(irecv),ierrmpi)
+           itag=recv_igrid+max_blocks
+           call MPI_IRECV(ps(recv_igrid)%ws,1,type_block_io_stg,send_ipe,itag,&
+                icomm,recvrequest_stg(irecv),ierrmpi)
         end if
 
       end subroutine lb_recv
@@ -127,14 +175,38 @@ contains
 
         itag=recv_igrid
         isend=isend+1
+        if (isend > max_buff) then
+           call mpistop('load_balance: max_buff too small in send')
+        end if
+        !$acc parallel loop gang
+        do iw = 1, nw
+           !$acc loop collapse(3) vector
+           do ix3 = 1, block_nx3
+              do ix2 = 1, block_nx2
+                 do ix1 = 1, block_nx1
+                    snd_buff(ix1, ix2, ix3, iw, isend) = &
+                         bg(1)%w(ixMlo1-1+ix1, ixMlo2-1+ix2, ixMlo3-1+ix3, iw, send_igrid)
+                 end do
+              end do
+           end do
+        end do
         
-        call MPI_ISEND(ps(send_igrid)%w,1,type_block_io,recv_ipe,itag, icomm,&
-           sendrequest(isend),ierrmpi)
-        
+#ifndef NOGPUDIRECT
+        !$acc host_data use_device(snd_buff)
+#else
+        !$acc update host(snd_buff(:,:,:,:,isend))
+#endif
+        call MPI_ISEND(snd_buff(:,:,:,:,isend), &
+                        block_nx1*block_nx2*block_nx3*nw, MPI_DOUBLE_PRECISION, &
+             recv_ipe,itag, icomm, &
+             sendrequest(isend),ierrmpi)
+#ifndef NOGPUDIRECT
+        !$acc end host_data
+#endif
         if(stagger_grid) then
-          itag=recv_igrid+max_blocks
-          call MPI_ISEND(ps(send_igrid)%ws,1,type_block_io_stg,recv_ipe,itag,&
-              icomm,sendrequest_stg(isend),ierrmpi)
+           itag=recv_igrid+max_blocks
+           call MPI_ISEND(ps(send_igrid)%ws,1,type_block_io_stg,recv_ipe,itag,&
+                icomm,sendrequest_stg(isend),ierrmpi)
         end if
 
       end subroutine lb_send

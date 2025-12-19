@@ -102,6 +102,7 @@ module mod_global_parameters
 
   !> number of cells for each dimension in grid block excluding ghostcells
   integer :: block_nx1,block_nx2,block_nx3
+  !$acc declare create(block_nx1,block_nx2,block_nx3)
 
   !> Lower index of grid block arrays (always 1)
   integer, parameter :: ixGlo1 = 1, ixGlo2 = 1, ixGlo3 = 1
