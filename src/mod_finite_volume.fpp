@@ -58,8 +58,8 @@ contains
     real(dp)               :: xlocC(ndim,2)
     real(dp)               :: wprim(nw_phys), wCT(nw_phys), wnew(nw_phys)
     !-----------------------------------------------------------------------------
-
-    !$acc parallel loop gang private(n, dr, inv_dr, typelim, uprim) default(present)
+    
+    !$acc parallel loop private(uprim, inv_dr, dr, n) default(present)
     do iigrid = 1, igridstail_active
        n = igrids_active(iigrid)
 
@@ -68,9 +68,9 @@ contains
        typelim = type_limiter(node(plevel_, n))
 
        !$acc loop collapse(ndim) vector
-       do ix3=ixImin3,ixImax3
-          do ix2=ixImin2,ixImax2
-             do ix1=ixImin1,ixImax1
+       do ix3=ixImin3,ixImax3 
+          do ix2=ixImin2,ixImax2 
+             do ix1=ixImin1,ixImax1 
                 ! Convert to primitive
                 uprim(1:nw_phys, ix1,ix2,ix3) = bga%w(ix1,ix2,ix3, 1:nw_phys, n)
                 call to_primitive(uprim(1:nw_phys, ix1,ix2,ix3))
@@ -79,9 +79,9 @@ contains
        end do
 
        !$acc loop vector collapse(ndim) private(f, wnew, tmp, xlocC, xloc#{if defined('SOURCE_LOCAL')}#, wCT, wprim #{endif}#)
-       do ix3=ixOmin3,ixOmax3
-          do ix2=ixOmin2,ixOmax2
-             do ix1=ixOmin1,ixOmax1
+       do ix3=ixOmin3,ixOmax3 
+          do ix2=ixOmin2,ixOmax2 
+             do ix1=ixOmin1,ixOmax1 
                 ! Compute fluxes in all dimensions
 
                 tmp = uprim(1:nw_phys, ix1-2:ix1+2, ix2, ix3)
@@ -121,13 +121,13 @@ contains
                      dtfactor*dble(idimsmax-idimsmin+1)/dble(ndim), qtC, wCT,&
                      wprim, qt, wnew, xloc, dr, .false. )
                 bgb%w(ix1, ix2, ix3, 1:nw_flux, n) = wnew(1:nw_flux)
-#:endif
+#:endif             
 
 #:if defined('SOURCE_NONLOCAL')
                 ! Add non-local (gradient) source terms:
                 xloc(1:ndim) = ps(n)%x(ix1, ix2, ix3, 1:ndim)
                 wnew         = bgb%w(ix1, ix2, ix3, 1:nw_phys, n)
-
+                
                 tmp = uprim(1:nw_phys, ix1-2:ix1+2, ix2, ix3)
                 call addsource_nonlocal(qdt*dble(idimsmax-idimsmin+1)/dble(ndim),&
                      dtfactor*dble(idimsmax-idimsmin+1)/dble(ndim), qtC, tmp,&
@@ -142,9 +142,9 @@ contains
                 call addsource_nonlocal(qdt*dble(idimsmax-idimsmin+1)/dble(ndim),&
                      dtfactor*dble(idimsmax-idimsmin+1)/dble(ndim), qtC, tmp,&
                      qt, wnew, xloc, dr, 3, .false. )
-
-                bgb%w(ix1, ix2, ix3, 1:nw_flux, n) = wnew(1:nw_flux)
-#:endif
+                
+                bgb%w(ix1, ix2, ix3, 1:nw_flux, n) = wnew(1:nw_flux)           
+#:endif                
              end do
           end do
        end do
@@ -164,15 +164,20 @@ contains
     real(dp)              :: uL(nw_phys), uR(nw_phys), wL, wR, wmax
     real(dp)              :: flux_l(nw_flux), flux_r(nw_flux)
     real(dp)              :: xC(ndim)
+    integer               :: iw
 
     ! Construct uL, uR for first cell face
     select case (typelim)
     case (limiter_minmod)
-       uL = u(:, 2) + 0.5_dp * minmod(u(:, 2) - u(:, 1), u(:, 3) - u(:, 2))
-       uR = u(:, 3) - 0.5_dp * minmod(u(:, 3) - u(:, 2), u(:, 4) - u(:, 3))
+       do iw = 1, nw_phys
+          uL(iw) = u(iw, 2) + 0.5_dp * minmod(u(iw, 2) - u(iw, 1), u(iw, 3) - u(iw, 2))
+          uR(iw) = u(iw, 3) - 0.5_dp * minmod(u(iw, 3) - u(iw, 2), u(iw, 4) - u(iw, 3))
+       end do
     case (limiter_vanleer)
-       uL = u(:, 2) + 0.5_dp * vanleer(u(:, 2) - u(:, 1), u(:, 3) - u(:, 2))
-       uR = u(:, 3) - 0.5_dp * vanleer(u(:, 3) - u(:, 2), u(:, 4) - u(:, 3))
+       do iw = 1, nw_phys
+          uL(iw) = u(iw, 2) + 0.5_dp * vanleer(u(iw, 2) - u(iw, 1), u(iw, 3) - u(iw, 2))
+          uR(iw) = u(iw, 3) - 0.5_dp * vanleer(u(iw, 3) - u(iw, 2), u(iw, 4) - u(iw, 3))
+       end do
     end select
 
     xC=xlocC(:,1)
@@ -190,11 +195,15 @@ contains
     ! Construct uL, uR for second cell face
     select case (typelim)
     case (limiter_minmod)
-       uL = u(:, 3) + 0.5_dp * minmod(u(:, 3) - u(:, 2), u(:, 4) - u(:, 3))
-       uR = u(:, 4) - 0.5_dp * minmod(u(:, 4) - u(:, 3), u(:, 5) - u(:, 4))
+       do iw = 1, nw_phys
+          uL(iw) = u(iw, 3) + 0.5_dp * minmod(u(iw, 3) - u(iw, 2), u(iw, 4) - u(iw, 3))
+          uR(iw) = u(iw, 4) - 0.5_dp * minmod(u(iw, 4) - u(iw, 3), u(iw, 5) - u(iw, 4))
+       end do
     case (limiter_vanleer)
-       uL = u(:, 3) + 0.5_dp * vanleer(u(:, 3) - u(:, 2), u(:, 4) - u(:, 3))
-       uR = u(:, 4) - 0.5_dp * vanleer(u(:, 4) - u(:, 3), u(:, 5) - u(:, 4))
+       do iw = 1, nw_phys
+          uL(iw) = u(iw, 3) + 0.5_dp * vanleer(u(iw, 3) - u(iw, 2), u(iw, 4) - u(iw, 3))
+          uR(iw) = u(iw, 4) - 0.5_dp * vanleer(u(iw, 4) - u(iw, 3), u(iw, 5) - u(iw, 4))
+       end do
     end select
 
     xC=xlocC(:,2)
@@ -211,38 +220,30 @@ contains
 
   end subroutine muscl_flux_prim
 
-   pure function vanleer(a, b) result(phi)
+  pure real(dp) function vanleer(a, b) result(phi)
     !$acc routine seq
-    real(dp), intent(in) :: a(nw_phys), b(nw_phys)
+    real(dp), intent(in) :: a, b
     real(dp)             :: ab
-    real(dp)             :: phi(nw_phys)
-    integer              :: i
 
-    do i=1, nw_phys
-      ab = a(i) * b(i)
-      if (ab > 0) then
-         phi(i) = 2 * ab / (a(i) + b(i))
-      else
-         phi(i) = 0
-      end if
-    end do
+    ab = a * b
+    if (ab > 0) then
+       phi = 2 * ab / (a + b)
+    else
+       phi = 0
+    end if
   end function vanleer
 
-  pure function minmod(a, b) result(phi)
+  pure real(dp) function minmod(a, b)
     !$acc routine seq
-    real(dp), intent(in) :: a(nw_phys), b(nw_phys)
-    real(dp)             :: phi(nw_phys)
-    integer              :: i
+    real(dp), intent(in) :: a, b
 
-    do i=1, nw_phys
-      if (a(i) * b(i) <= 0) then
-         phi(i) = 0.0_dp
-      else if (abs(a(i)) < abs(b(i))) then
-         phi(i) = a(i)
-      else
-         phi(i) = b(i)
-      end if
-    end do
+    if (a * b <= 0) then
+       minmod = 0.0_dp
+    else if (abs(a) < abs(b)) then
+       minmod = a
+    else
+       minmod = b
+    end if
   end function minmod
 
 end module mod_finite_volume
