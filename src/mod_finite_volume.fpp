@@ -59,7 +59,7 @@ contains
     real(dp)               :: wprim(nw_phys), wCT(nw_phys), wnew(nw_phys)
     !-----------------------------------------------------------------------------
     
-    !$acc parallel loop private(uprim, inv_dr, dr, n) default(present)
+    !$acc parallel loop gang private(uprim, inv_dr, dr, n) default(present)
     do iigrid = 1, igridstail_active
        n = igrids_active(iigrid)
 
