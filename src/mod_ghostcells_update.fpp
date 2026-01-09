@@ -1654,17 +1654,17 @@ contains
 #endif
     end do
 
-
+    
     ! fill coarse ghost-cell values of finer neighbors in the same processor
-    !$acc parallel loop gang independent private(iib1,iib2,iib3,igrid)
-    do iigrid=1,igridstail; igrid=igrids(iigrid);
-       iib1=idphyb(1,igrid);iib2=idphyb(2,igrid);iib3=idphyb(3,igrid);
-       !$acc loop collapse(3) vector independent
+    !$acc parallel loop gang collapse(4) private(iib1,iib2,iib3,igrid)
+    do iigrid=1,igridstail
        do i3=-1,1
           do i2=-1,1
              do i1=-1,1
                 if (skip_direction([ i1,i2,i3 ])) cycle
+                igrid = igrids(iigrid)
                 if (neighbor_type(i1,i2,i3,igrid)==neighbor_fine) then
+                   iib1=idphyb(1,igrid);iib2=idphyb(2,igrid);iib3=idphyb(3,igrid);
                    !  inline of call bc_fill_prolong(igrid,i1,i2,i3,iib1,iib2,iib3) :
 
                    do ic3 = 1+int((1-i3)/2), 2-int((1+i3)/2)
@@ -1690,6 +1690,7 @@ contains
                                ixRmax2=ixR_p_max2(iib2,n_inc2)
                                ixRmax3=ixR_p_max3(iib3,n_inc3)
 
+                               !$acc loop collapse(4) vector independent
                                do iw = nwhead, nwtail
                                   do ix3 =0, ixRmax3-ixRmin3
                                      do ix2 = 0, ixRmax2-ixRmin2
@@ -1771,16 +1772,16 @@ contains
     end do
 
     ! do prolongation on the ghost-cell values based on the received coarse values from coarser neighbors (f2c)
-    !$acc parallel loop gang
-    do iigrid=1, igridstail; igrid=igrids(iigrid);
-       iib1=idphyb(1,igrid);iib2=idphyb(2,igrid);iib3=idphyb(3,igrid)
-       !$acc loop collapse(3) vector independent private(slope)
+    !$acc parallel loop gang collapse(4)
+    do iigrid=1, igridstail
        !      inline variant of call gc_prolong(igrid)
        do i3 = -1, 1
           do i2 = -1, 1
              do i1 = -1, 1
                 if (skip_direction([ i1,i2,i3 ])) cycle
+                igrid = igrids(iigrid)
                 if (neighbor_type(i1,i2,i3,igrid)==neighbor_coarse) then
+                   iib1=idphyb(1,igrid);iib2=idphyb(2,igrid);iib3=idphyb(3,igrid)
                    !     inline variant of call bc_prolong(igrid,i1,i2,i3,iib1,iib2,iib3)
 
                    ixFimin1=ixR_srl_min1(iib1,i1);ixFimin2=ixR_srl_min2(iib2,i2)
@@ -1802,15 +1803,18 @@ contains
                    xComin2=rnode(rpxmin2_,igrid)-dble(nghostcells)*dxCo2
                    xComin3=rnode(rpxmin3_,igrid)-dble(nghostcells)*dxCo3;
 
+                   !$acc loop collapse(3) vector independent private(slope)
                    do ixFi3 = ixFimin3,ixFimax3
-                      xFi3=xFimin3+(dble(ixFi3)-half)*dxFi3
-                      ixCo3=int((xFi3-xComin3)*invdxCo3)+1
-                      xCo3=xComin3+(dble(ixCo3)-half)*dxCo3
                       do ixFi2 = ixFimin2,ixFimax2
-                         xFi2=xFimin2+(dble(ixFi2)-half)*dxFi2
-                         ixCo2=int((xFi2-xComin2)*invdxCo2)+1
-                         xCo2=xComin2+(dble(ixCo2)-half)*dxCo2
                          do ixFi1 = ixFimin1,ixFimax1
+                            xFi3=xFimin3+(dble(ixFi3)-half)*dxFi3
+                            ixCo3=int((xFi3-xComin3)*invdxCo3)+1
+                            xCo3=xComin3+(dble(ixCo3)-half)*dxCo3
+
+                            xFi2=xFimin2+(dble(ixFi2)-half)*dxFi2
+                            ixCo2=int((xFi2-xComin2)*invdxCo2)+1
+                            xCo2=xComin2+(dble(ixCo2)-half)*dxCo2
+
                             xFi1=xFimin1+(dble(ixFi1)-half)*dxFi1
                             ixCo1=int((xFi1-xComin1)*invdxCo1)+1
                             xCo1=xComin1+(dble(ixCo1)-half)*dxCo1
