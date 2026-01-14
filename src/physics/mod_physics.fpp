@@ -170,20 +170,20 @@ contains
     integer, intent(in)             :: ixImin1,ixImin2,ixImin3,ixImax1,ixImax2,&
        ixImax3, ixOmin1,ixOmin2,ixOmin3,ixOmax1,ixOmax2,ixOmax3
     double precision, intent(inout) :: w(ixImin1:ixImax1,ixImin2:ixImax2,&
-       ixImin3:ixImax3, nw_phys) 
+         ixImin3:ixImax3, nw_phys) 
     double precision, intent(in)    :: x(ixImin1:ixImax1,ixImin2:ixImax2,&
-       ixImin3:ixImax3, 1:ndim)
+         ixImin3:ixImax3, 1:ndim)
     integer                         :: ix1,ix2,ix3
 
-     do ix3=ixOmin3,ixOmax3
-      do ix2=ixOmin2,ixOmax2
-      do ix1=ixOmin1,ixOmax1
+    do ix3=ixOmin3,ixOmax3
+       do ix2=ixOmin2,ixOmax2
+          do ix1=ixOmin1,ixOmax1
 
-       call to_conservative(w(ix1,ix2,ix3,:))
-    
-     end do
-      end do
-      end do
+             call to_conservative(w(ix1,ix2,ix3,:))
+
+          end do
+       end do
+    end do
 
   end subroutine phys_to_conserved
   
@@ -198,16 +198,16 @@ contains
     double precision, intent(in)    :: x(ixImin1:ixImax1,ixImin2:ixImax2,&
        ixImin3:ixImax3, 1:ndim)
     integer                         :: ix1,ix2,ix3
-
-     do ix3=ixOmin3,ixOmax3
-      do ix2=ixOmin2,ixOmax2
-      do ix1=ixOmin1,ixOmax1
-
-       call to_primitive(w(ix1,ix2,ix3,:))
     
-     end do
-      end do
-      end do
+    do ix3=ixOmin3,ixOmax3
+       do ix2=ixOmin2,ixOmax2
+          do ix1=ixOmin1,ixOmax1
+
+             call to_primitive(w(ix1,ix2,ix3,:))
+
+          end do
+       end do
+    end do
 
   end subroutine phys_to_primitive
   

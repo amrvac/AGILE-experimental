@@ -81,12 +81,12 @@ module mod_global_parameters
   !$acc declare copyin(sdim)
 
   !> Cartesian geometry or not
-  logical :: slab
-  !$acc declare create(slab)
+  logical :: slab = .true.
+  !$acc declare copyin(slab)
 
   !> uniform Cartesian geometry or not (stretched Cartesian)
   logical :: slab_uniform=.true.
-  !$acc declare create(slab_uniform)
+  !$acc declare copyin(slab_uniform)
   
   !> each cell has its own timestep or not
   logical :: local_timestep = .false.
@@ -102,6 +102,7 @@ module mod_global_parameters
 
   !> number of cells for each dimension in grid block excluding ghostcells
   integer :: block_nx1,block_nx2,block_nx3
+  !$acc declare create(block_nx1,block_nx2,block_nx3)
 
   !> Lower index of grid block arrays (always 1)
   integer, parameter :: ixGlo1 = 1, ixGlo2 = 1, ixGlo3 = 1
@@ -437,9 +438,14 @@ module mod_global_parameters
 
   !> Maximal number of AMR levels
   integer :: refine_max_level
+  !$acc declare create(refine_max_level)
 
+  !> Specify to use user-defined refinement criterion
+  logical :: refine_usr = .false.
+  
   !> Weights of variables used to calculate error for mesh refinement
   double precision, allocatable :: w_refine_weight(:)
+  !$acc declare create(w_refine_weight)
 
   !> Fix the AMR grid after this time
   double precision :: tfixgrid
@@ -455,6 +461,7 @@ module mod_global_parameters
 
   !> refinement: lohner estimate wavefilter setting
   double precision, allocatable :: amr_wavefilter(:)
+  !$acc declare create(amr_wavefilter)
 
   integer                       :: refine_criterion
   logical                       :: prolongprimitive=.false.
@@ -464,6 +471,7 @@ module mod_global_parameters
   !> Error tolerance for refinement decision
   double precision, allocatable :: refine_threshold(:)
   double precision, allocatable :: derefine_ratio(:)
+  !$acc declare create(refine_threshold, derefine_ratio)
 
   !> If true, rebuild the AMR grid upon restarting
   logical :: reset_grid
@@ -498,6 +506,7 @@ module mod_global_parameters
   !$acc declare create(kr,lvc,dt)
 
   logical :: time_advance
+  !$acc declare create(time_advance)
 
   !> The Courant (CFL) number used for the simulation
   double precision :: courantpar

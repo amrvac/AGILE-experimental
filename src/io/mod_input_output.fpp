@@ -274,7 +274,7 @@ contains
         amr_wavefilter,max_blocks,block_nx1,block_nx2,block_nx3,domain_nx1,&
        domain_nx2,domain_nx3,iprob,xprobmin1,xprobmin2,xprobmin3,xprobmax1,&
        xprobmax2,xprobmax3, w_refine_weight, prolongprimitive,coarsenprimitive,&
-        typeprolonglimit, logflag,tfixgrid,itfixgrid,ditregrid
+        typeprolonglimit, logflag,tfixgrid,itfixgrid,ditregrid, refine_usr
     namelist /paramlist/  courantpar, dtpar, dtdiffpar, typecourant, slowsteps
 
     namelist /emissionlist/ filename_euv,wavelength,filename_sxr,emin_sxr,&
@@ -2098,12 +2098,17 @@ contains
 
     deallocate(flux_scheme)
 
- !$acc update device(tvdlfeps,ixGhi1,ixGhi2,ixGhi3,ixGshi1,ixGshi2,ixGshi3,schmid_rad1,schmid_rad2,schmid_rad3,cada3_radius)
- !$acc update device(fix_small_values,H_correction,type_limiter, boundspeed, max_blocks)    
- !$acc update device(rk_beta11,rk_beta22,rk_beta33,rk_beta44,rk_c2,rk_c3,rk_c4)
- !$acc update device(rk_alfa21,rk_alfa22,rk_alfa31,rk_alfa33,rk_alfa41,rk_alfa44)
- !$acc update device(rk_beta54,rk_beta55,rk_alfa53,rk_alfa54,rk_alfa55,rk_c5)
- !$acc update device(typeboundary, specialboundary)   
+    !$acc update device(tvdlfeps,ixGhi1,ixGhi2,ixGhi3,ixGshi1,ixGshi2,ixGshi3,schmid_rad1,schmid_rad2,schmid_rad3,cada3_radius)
+    !$acc update device(fix_small_values,H_correction,type_limiter, boundspeed, max_blocks)    
+    !$acc update device(rk_beta11,rk_beta22,rk_beta33,rk_beta44,rk_c2,rk_c3,rk_c4)
+    !$acc update device(rk_alfa21,rk_alfa22,rk_alfa31,rk_alfa33,rk_alfa41,rk_alfa44)
+    !$acc update device(rk_beta54,rk_beta55,rk_alfa53,rk_alfa54,rk_alfa55,rk_c5)
+    !$acc update device(typeboundary, specialboundary, refine_max_level)
+    !$acc update device(slab, slab_uniform)
+    !$acc update device(w_refine_weight, amr_wavefilter)
+    !$acc update device(refine_threshold, derefine_ratio)
+    !$acc update device(block_nx1, block_nx2, block_nx3)
+
   end subroutine read_par_files
 
   !> Routine to find entries in a string
@@ -2806,6 +2811,7 @@ contains
               ps(igrid)%w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3,&
                  1:nw)=w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3,1:nw)
             end if
+            !$acc update device(bg(1)%w(:,:,:,:,igrid))
           else
             call MPI_SEND([ ixOmin1,ixOmin2,ixOmin3,ixOmax1,ixOmax2,ixOmax3,&
                 n_values ], 2*ndim+1, MPI_INTEGER, ipe, itag, icomm, ierrmpi)
@@ -2884,6 +2890,7 @@ contains
              1:nw)=w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3,1:nw)
         end if
       end do
+      !$acc update device(bg(1)%w(:,:,:,:,igrid))
     end if
 
     call MPI_BARRIER(icomm,ierrmpi)

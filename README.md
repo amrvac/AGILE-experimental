@@ -22,6 +22,6 @@ module load OpenMPI/4.1.5-NVHPC-24.5-CUDA-12.1.1
 ## Currently supported features on master
 - Physics modules: hd, mhd [glm], ffhd
 - Source terms (gravity, radiative cooling, hyperbolic thermal conduction, user defined) and boundary conditions (`symm, asymm, cont` etc. but also `special`)
-- Multi-block uniform grid simulations
+- Multi-block uniform grid and static mesh refinement (SMR) simulations
 - Multi-GPU (MPI) simulations
-- Static mesh refinement (single GPU case for now)
+- Adaptive mesh refinement simulations (single GPU case so far)

@@ -50,7 +50,7 @@ contains
     use mod_coarsen_refine
     use mod_errest, only: errest 
     use mod_particles
-
+    
     if(levmax>levmin) call deallocateBflux
     if(stagger_grid) call deallocateBfaces
 
@@ -58,7 +58,7 @@ contains
     if(use_particles) then
       call finish_gridvars()
     end if
-  
+    
     call errest
 
     call amr_coarsen_refine

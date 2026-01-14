@@ -4,6 +4,7 @@
 
   integer, parameter :: dp = kind(0.0d0)
   integer, parameter, public              :: nw_phys=2+ndim
+  integer, parameter, public              :: nw_flux=2+ndim
   
   !> Whether an energy equation is used
   logical, public                         :: hd_energy = .true.
@@ -46,7 +47,7 @@
   !$acc declare copyin(hd_gravity)
 
   !> Allows overruling default corner filling (for debug mode, since otherwise corner primitives fail)
-  logical, public                         :: hd_force_diagonal = .false.
+  logical, public                         :: hd_force_diagonal = .true.
   !$acc declare copyin(hd_force_diagonal)
 
   !> Whether particles module is added
@@ -354,7 +355,7 @@ subroutine get_flux(u, xC, flux_dim, flux)
   real(dp), intent(in)  :: u(nw_phys)
   real(dp), intent(in)  :: xC(ndim)
   integer, intent(in)   :: flux_dim
-  real(dp), intent(out) :: flux(nw_phys)
+  real(dp), intent(out) :: flux(nw_flux)
   real(dp)              :: inv_gamma_m1
 
   inv_gamma_m1 = 1.0d0/(hd_gamma - 1.0_dp)

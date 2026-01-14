@@ -127,7 +127,7 @@ contains
         call alloc_state(igrid, ps1(igrid), ixGlo1,ixGlo2,ixGlo3,ixGhi1,ixGhi2,&
            ixGhi3, ixGextmin1,ixGextmin2,ixGextmin3,ixGextmax1,ixGextmax2,&
            ixGextmax3, .false.)
-  
+
         ! allocate temporary solution space
         select case (t_integrator)
         case(ssprk3,ssprk4,IMEX_Midpoint,IMEX_Trapezoidal,IMEX_222)
@@ -155,7 +155,7 @@ contains
       end if
   
     end if
-  
+
     ! avoid dividing by zero rho in skipped corner ghostcells when phys_req_diagonal=F
     ps(igrid)%w(:,:,:,1)=1.d0
     ps(igrid)%level=level
@@ -177,7 +177,7 @@ contains
         ps4(igrid)%level=level
       end select
     end if
-  
+
     ! block pointer to current block
     block=>ps(igrid)
     ig1=igrid_to_node(igrid,mype)%node%ig1
@@ -195,7 +195,7 @@ contains
     rnode(rpdx3_,igrid)=dx(3,level)
     dxlevel(:)=dx(:,level)
  !$acc update device(rnode(rpdx1_,igrid),rnode(rpdx2_,igrid),rnode(rpdx3_,igrid), dxlevel)
-  
+
     ! uniform cartesian case as well as all unstretched coordinates
     ! determine the minimal and maximal corners
     rnode(rpxmin1_,igrid)=xprobmin1+dble(ig1-1)*dg1(level)
@@ -1541,7 +1541,6 @@ contains
       end if
     end do
     
-    
     do i2=-1,1
       if(i2==0) cycle
       ign2=ig2+i2
@@ -1594,8 +1593,8 @@ contains
     else
       phyboundblock(igrid)=.false.
    end if
-   !$acc update device( phyboundblock(igrid) )
 
+   !$acc update device( phyboundblock(igrid) )
    !$acc update device(ps(igrid), ps1(igrid), ps2(igrid))
    !$acc enter data copyin(ps(igrid)%w, ps1(igrid)%w, ps2(igrid)%w)
    !$acc enter data attach(ps(igrid)%w, ps1(igrid)%w, ps2(igrid)%w)
@@ -1603,7 +1602,6 @@ contains
    !$acc enter data copyin(ps1(igrid)%x, ps2(igrid)%x)
    !$acc enter data attach(ps1(igrid)%x, ps2(igrid)%x)
    !$acc enter data copyin(ps1(igrid)%is_physical_boundary, ps2(igrid)%is_physical_boundary)
-   
    !$acc enter data copyin(psc(igrid)%x, psc(igrid)%w)
 
   end subroutine alloc_node
