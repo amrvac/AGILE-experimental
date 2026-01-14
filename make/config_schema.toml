@@ -38,6 +38,13 @@ flags = ["fypp", "hash"]
 default = false
 implies = ["components.source_local"]
 
+[hd_list.hd_radiative_cooling]
+type = "flag"
+name = "COOLING"
+flags = ["fypp", "hash"]
+default = false
+implies = ["components.source_local"]
+
 [ffhd_list]
 [ffhd_list.ffhd_pdivb]
 type = "flag"
