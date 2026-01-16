@@ -3,6 +3,8 @@ doc/html/*
 *.vtu
 *.vti
 *.out
+*single_out*
+*single_err*
 *.log
 *.mod
 *.o

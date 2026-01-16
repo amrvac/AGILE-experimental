@@ -13,7 +13,8 @@ endif
 ifdef OPENACC
 $(info Enabling OpenACC)
 #f90_flags += -Wall -acc=gpu -Minfo=all -Mvect=levels:5 -Minline
-f90_flags += -Wall -acc=wait -gpu=debug -Minfo=accel -Mvect=levels:5 -Minline -Mbounds -g -O0
+#f90_flags += -Wall -acc=wait -gpu=debug -Minfo=accel -Mvect=levels:5 -Minline -Mbounds -g -O0
+f90_flags += -Wall -acc=multicore -gpu=debug -Minfo=accel -Mvect=levels:5 -Minline -Mbounds -g -O0
 #f90_flags += -Wall -Minline -Mbounds -g -O0
 enabled += OPENACC
 endif
