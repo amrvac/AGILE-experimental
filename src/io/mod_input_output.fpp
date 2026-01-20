@@ -2289,21 +2289,21 @@ contains
     logical                               :: periodic(ndim)
 
     ! Version number
-    call MPI_FILE_READ(fh, version, 1, MPI_INTEGER, st, er)
+    call mpi_file_read_wrapper(fh, version, 1, MPI_INTEGER, st, er)
     if (all(compatible_versions /= version)) then
       call mpistop("Incompatible file version (maybe old format?)")
     end if
 
     ! offset_tree
-    call MPI_FILE_READ(fh, ibuf(1), 1, MPI_INTEGER, st, er)
+    call mpi_file_read_wrapper(fh, ibuf(1), 1, MPI_INTEGER, st, er)
     offset_tree = ibuf(1)
 
     ! offset_block
-    call MPI_FILE_READ(fh, ibuf(1), 1, MPI_INTEGER, st, er)
+    call mpi_file_read_wrapper(fh, ibuf(1), 1, MPI_INTEGER, st, er)
     offset_block = ibuf(1)
 
     ! nw
-    call MPI_FILE_READ(fh, ibuf(1), 1, MPI_INTEGER, st, er)
+    call mpi_file_read_wrapper(fh, ibuf(1), 1, MPI_INTEGER, st, er)
     nw_found=ibuf(1)
     if (nw /= ibuf(1)) then
       write(*,*) "nw=",nw," and nw found in restart file=",ibuf(1)
@@ -2312,7 +2312,7 @@ contains
     end if
 
     ! ndir
-    call MPI_FILE_READ(fh, ibuf(1), 1, MPI_INTEGER, st, er)
+    call mpi_file_read_wrapper(fh, ibuf(1), 1, MPI_INTEGER, st, er)
     if (ibuf(1) /= ndir) then
       write(*,*) "ndir in restart file = ",ibuf(1)
       write(*,*) "ndir = ",ndir
@@ -2320,7 +2320,7 @@ contains
     end if
 
     ! ndim
-    call MPI_FILE_READ(fh, ibuf(1), 1, MPI_INTEGER, st, er)
+    call mpi_file_read_wrapper(fh, ibuf(1), 1, MPI_INTEGER, st, er)
     if (ibuf(1) /= ndim) then
       write(*,*) "ndim in restart file = ",ibuf(1)
       write(*,*) "ndim = ",ndim
@@ -2328,7 +2328,7 @@ contains
     end if
 
     ! levmax
-    call MPI_FILE_READ(fh, ibuf(1), 1, MPI_INTEGER, st, er)
+    call mpi_file_read_wrapper(fh, ibuf(1), 1, MPI_INTEGER, st, er)
     if (ibuf(1) > refine_max_level) then
       write(*,*) "number of levels in restart file = ",ibuf(1)
       write(*,*) "refine_max_level = ",refine_max_level
@@ -2336,19 +2336,19 @@ contains
     end if
 
     ! nleafs
-    call MPI_FILE_READ(fh, nleafs, 1, MPI_INTEGER, st, er)
+    call mpi_file_read_wrapper(fh, nleafs, 1, MPI_INTEGER, st, er)
 
     ! nparents
-    call MPI_FILE_READ(fh, nparents, 1, MPI_INTEGER, st, er)
+    call mpi_file_read_wrapper(fh, nparents, 1, MPI_INTEGER, st, er)
 
     ! it
-    call MPI_FILE_READ(fh, it, 1, MPI_INTEGER, st, er)
+    call mpi_file_read_wrapper(fh, it, 1, MPI_INTEGER, st, er)
 
     ! global time
-    call MPI_FILE_READ(fh, global_time, 1, MPI_DOUBLE_PRECISION, st, er)
+    call mpi_file_read_wrapper(fh, global_time, 1, MPI_DOUBLE_PRECISION, st, er)
 
     ! xprobmin^D
-    call MPI_FILE_READ(fh,rbuf(1:ndim),ndim,MPI_DOUBLE_PRECISION,st,er)
+    call mpi_file_read_wrapper(fh,rbuf(1:ndim),ndim,MPI_DOUBLE_PRECISION,st,er)
     if (maxval(abs(rbuf(1:ndim) - [ xprobmin1,xprobmin2,&
        xprobmin3 ])) > 0) then
       write(*,*) "Error: xprobmin differs from restart data: ", rbuf(1:ndim)
@@ -2356,7 +2356,7 @@ contains
     end if
 
     ! xprobmax^D
-    call MPI_FILE_READ(fh,rbuf(1:ndim),ndim,MPI_DOUBLE_PRECISION,st,er)
+    call mpi_file_read_wrapper(fh,rbuf(1:ndim),ndim,MPI_DOUBLE_PRECISION,st,er)
     if (maxval(abs(rbuf(1:ndim) - [ xprobmax1,xprobmax2,&
        xprobmax3 ])) > 0) then
       write(*,*) "Error: xprobmax differs from restart data: ", rbuf(1:ndim)
@@ -2364,14 +2364,14 @@ contains
     end if
 
     ! domain_nx^D
-    call MPI_FILE_READ(fh,ibuf(1:ndim), ndim, MPI_INTEGER,st,er)
+    call mpi_file_read_wrapper(fh,ibuf(1:ndim), ndim, MPI_INTEGER,st,er)
     if (any(ibuf(1:ndim) /= [ domain_nx1,domain_nx2,domain_nx3 ])) then
       write(*,*) "Error: mesh size differs from restart data: ", ibuf(1:ndim)
       call mpistop("change domain_nx^D in par file")
     end if
 
     ! block_nx^D
-    call MPI_FILE_READ(fh,ibuf(1:ndim), ndim, MPI_INTEGER,st,er)
+    call mpi_file_read_wrapper(fh,ibuf(1:ndim), ndim, MPI_INTEGER,st,er)
     if (any(ibuf(1:ndim) /= [ block_nx1,block_nx2,block_nx3 ])) then
       write(*,*) "Error: block size differs from restart data:", ibuf(1:ndim)
       call mpistop("change block_nx^D in par file")
@@ -2379,21 +2379,21 @@ contains
 
     ! From version 5, read more info about the grid
     if (version > 4) then
-      call MPI_FILE_READ(fh, periodic, ndim, MPI_LOGICAL, st, er)
+      call mpi_file_read_wrapper(fh, periodic, ndim, MPI_LOGICAL, st, er)
       if (periodic(1) .and. .not.periodB(1) .or. .not.periodic(1) .and. &
          periodB(1) .or. periodic(2) .and. .not.periodB(2) .or. &
          .not.periodic(2) .and. periodB(2) .or. periodic(3) .and. &
          .not.periodB(3) .or. .not.periodic(3) .and. periodB(3)) call &
          mpistop("change in periodicity in par file")
 
-      call MPI_FILE_READ(fh, geom_name, name_len, MPI_CHARACTER, st, er)
+      call mpi_file_read_wrapper(fh, geom_name, name_len, MPI_CHARACTER, st, er)
 
       if (geom_name /= geometry_name(1:name_len)) then
         write(*,*) "type of coordinates in data is: ", geom_name
         call mpistop("select the correct coordinates in mod_usr.t file")
       end if
 
-      call MPI_FILE_READ(fh, stagger_mark_dat, 1, MPI_LOGICAL, st, er)
+      call mpi_file_read_wrapper(fh, stagger_mark_dat, 1, MPI_LOGICAL, st, er)
       if (stagger_grid .and. .not. stagger_mark_dat .or. &
          .not.stagger_grid.and.stagger_mark_dat) then
         write(*,*) "Warning: stagger grid flag differs from restart data:",&
@@ -2407,33 +2407,33 @@ contains
       ! w_names (not used here)
       allocate(var_names(nw_found))
       do iw = 1, nw_found
-        call MPI_FILE_READ(fh, var_names(iw), name_len, MPI_CHARACTER, st, er)
+        call mpi_file_read_wrapper(fh, var_names(iw), name_len, MPI_CHARACTER, st, er)
       end do
 
       ! Physics related information
-      call MPI_FILE_READ(fh, phys_name, name_len, MPI_CHARACTER, st, er)
+      call mpi_file_read_wrapper(fh, phys_name, name_len, MPI_CHARACTER, st, er)
 
       if (phys_name /= physics_type) then
 !        call mpistop("Cannot restart with a different physics type")
       end if
 
-      call MPI_FILE_READ(fh, n_par, 1, MPI_INTEGER, st, er)
+      call mpi_file_read_wrapper(fh, n_par, 1, MPI_INTEGER, st, er)
       allocate(params(n_par))
       allocate(param_names(n_par))
-      call MPI_FILE_READ(fh, params, n_par, MPI_DOUBLE_PRECISION, st, er)
-      call MPI_FILE_READ(fh, param_names, name_len * n_par, MPI_CHARACTER, st,&
+      call mpi_file_read_wrapper(fh, params, n_par, MPI_DOUBLE_PRECISION, st, er)
+      call mpi_file_read_wrapper(fh, param_names, name_len * n_par, MPI_CHARACTER, st,&
           er)
 
       ! Read snapshotnext etc. for restarting
-      call MPI_FILE_READ(fh, tmp_int, 1, MPI_INTEGER, st, er)
+      call mpi_file_read_wrapper(fh, tmp_int, 1, MPI_INTEGER, st, er)
 
       ! Only set snapshotnext if the user hasn't specified it
       if (snapshotnext == -1) snapshotnext = tmp_int
 
-      call MPI_FILE_READ(fh, tmp_int, 1, MPI_INTEGER, st, er)
+      call mpi_file_read_wrapper(fh, tmp_int, 1, MPI_INTEGER, st, er)
       if (slicenext == -1) slicenext = tmp_int
 
-      call MPI_FILE_READ(fh, tmp_int, 1, MPI_INTEGER, st, er)
+      call mpi_file_read_wrapper(fh, tmp_int, 1, MPI_INTEGER, st, er)
       if (collapsenext == -1) collapsenext = tmp_int
     else
       ! Guess snapshotnext from file name if not set
@@ -2669,7 +2669,7 @@ contains
 
       call MPI_FILE_OPEN(MPI_COMM_SELF,restart_from_file,MPI_MODE_RDONLY,&
           MPI_INFO_NULL,file_handle,ierrmpi)
-      call MPI_FILE_READ(file_handle, file_version, 1, MPI_INTEGER, istatus,&
+      call mpi_file_read_wrapper(file_handle, file_version, 1, MPI_INTEGER, istatus,&
           ierrmpi)
     end if
 
@@ -2742,7 +2742,7 @@ contains
           iread=iread+1
           itag=Morton_no
 
-          call MPI_FILE_READ(file_handle,ix_buffer(1:2*ndim), 2*ndim,&
+          call mpi_file_read_wrapper(file_handle,ix_buffer(1:2*ndim), 2*ndim,&
               MPI_INTEGER, istatus,ierrmpi)
 
           ! Construct ixO^L array from number of ghost cells
@@ -2766,7 +2766,7 @@ contains
                ixOsmax2,ixOsmax3) * nws
           end if
 
-          call MPI_FILE_READ(file_handle, w_buffer, n_values,&
+          call mpi_file_read_wrapper(file_handle, w_buffer, n_values,&
               MPI_DOUBLE_PRECISION, istatus, ierrmpi)
 
           if (mype == ipe) then ! Root task
@@ -2925,15 +2925,15 @@ contains
       offset=-int(7*size_int+size_double,kind=MPI_OFFSET_KIND)
       call MPI_FILE_SEEK(fh,offset,MPI_SEEK_END,ierrmpi)
 
-      call MPI_FILE_READ(fh,nleafs,1,MPI_INTEGER,istatus,ierrmpi)
+      call mpi_file_read_wrapper(fh,nleafs,1,MPI_INTEGER,istatus,ierrmpi)
       nleafs_active = nleafs
-      call MPI_FILE_READ(fh,levmaxini,1,MPI_INTEGER,istatus,ierrmpi)
-      call MPI_FILE_READ(fh,ndimini,1,MPI_INTEGER,istatus,ierrmpi)
-      call MPI_FILE_READ(fh,ndirini,1,MPI_INTEGER,istatus,ierrmpi)
-      call MPI_FILE_READ(fh,nwini,1,MPI_INTEGER,istatus,ierrmpi)
-      call MPI_FILE_READ(fh,neqparini,1,MPI_INTEGER,istatus,ierrmpi)
-      call MPI_FILE_READ(fh,it,1,MPI_INTEGER,istatus,ierrmpi)
-      call MPI_FILE_READ(fh,global_time,1,MPI_DOUBLE_PRECISION,istatus,&
+      call mpi_file_read_wrapper(fh,levmaxini,1,MPI_INTEGER,istatus,ierrmpi)
+      call mpi_file_read_wrapper(fh,ndimini,1,MPI_INTEGER,istatus,ierrmpi)
+      call mpi_file_read_wrapper(fh,ndirini,1,MPI_INTEGER,istatus,ierrmpi)
+      call mpi_file_read_wrapper(fh,nwini,1,MPI_INTEGER,istatus,ierrmpi)
+      call mpi_file_read_wrapper(fh,neqparini,1,MPI_INTEGER,istatus,ierrmpi)
+      call mpi_file_read_wrapper(fh,it,1,MPI_INTEGER,istatus,ierrmpi)
+      call mpi_file_read_wrapper(fh,global_time,1,MPI_DOUBLE_PRECISION,istatus,&
          ierrmpi)
 
       ! check if settings are suitable for restart
@@ -2961,9 +2961,9 @@ contains
          kind=MPI_OFFSET_KIND)
       call MPI_FILE_SEEK(fh,offset,MPI_SEEK_END,ierrmpi)
 
-      call MPI_FILE_READ(fh,nxini1,1,MPI_INTEGER,istatus,ierrmpi)
-      call MPI_FILE_READ(fh,nxini2,1,MPI_INTEGER,istatus,ierrmpi)
-      call MPI_FILE_READ(fh,nxini3,1,MPI_INTEGER,istatus,ierrmpi)
+      call mpi_file_read_wrapper(fh,nxini1,1,MPI_INTEGER,istatus,ierrmpi)
+      call mpi_file_read_wrapper(fh,nxini2,1,MPI_INTEGER,istatus,ierrmpi)
+      call mpi_file_read_wrapper(fh,nxini3,1,MPI_INTEGER,istatus,ierrmpi)
       if (ixGhi1/=nxini1+2*nghostcells.or.ixGhi2/=&
          nxini2+2*nghostcells.or.ixGhi3/=nxini3+2*nghostcells) then
         write(*,*) "Error: reset resolution to ",nxini1+2*nghostcells,&
@@ -2971,7 +2971,7 @@ contains
         call mpistop("change with setamrvac")
       end if
 
-      call MPI_FILE_READ(fh,eqpar_dummy,neqparini, MPI_DOUBLE_PRECISION,&
+      call mpi_file_read_wrapper(fh,eqpar_dummy,neqparini, MPI_DOUBLE_PRECISION,&
          istatus,ierrmpi)
     end if
 
@@ -3011,7 +3011,7 @@ contains
         iread=iread+1
         offset=int(size_block_io,kind=MPI_OFFSET_KIND) *int(Morton_no-1,&
            kind=MPI_OFFSET_KIND)
-        call MPI_FILE_READ_AT(fh,offset,ps(igrid)%w,1,type_block_io, istatus,&
+        call mpi_file_read_at_wrapper(fh,offset,ps(igrid)%w,1,type_block_io, istatus,&
            ierrmpi)
       end do
       if (npe>1) then
@@ -3021,7 +3021,7 @@ contains
             itag=Morton_no
             offset=int(size_block_io,kind=MPI_OFFSET_KIND)*int(Morton_no-1,&
                kind=MPI_OFFSET_KIND)
-            call MPI_FILE_READ_AT(fh,offset,wio,1,type_block_io,istatus,&
+            call mpi_file_read_at_wrapper(fh,offset,wio,1,type_block_io,istatus,&
                ierrmpi)
             call mpi_send_wrapper(wio,1,type_block_io,ipe,itag,icomm,ierrmpi)
           end do
