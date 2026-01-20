@@ -1,4 +1,5 @@
 module mod_amr_fct
+  use mod_mpi_wrapper
   implicit none
   private
 
@@ -112,7 +113,7 @@ contains
     double precision :: slopes(sCo%ixGsmin1:sCo%ixGsmax1,&
        sCo%ixGsmin2:sCo%ixGsmax2,sCo%ixGsmin3:sCo%ixGsmax3,ndim),&
        B_energy_change(ixGlo1:ixGhi1,ixGlo2:ixGhi2,ixGlo3:ixGhi3)
-    
+
     ! Directional bias, see pdf
  !These arrays should have ranges ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3
  !Since they are still not known, we give ranges ixGlo1:ixGhi1,ixGlo2:ixGhi2,ixGlo3:ixGhi3,
@@ -126,13 +127,13 @@ contains
        F2(ixGlo1:ixGhi1,ixGlo2:ixGhi2,ixGlo3:ixGhi3),F3(ixGlo1:ixGhi1,&
        ixGlo2:ixGhi2,ixGlo3:ixGhi3),F4(ixGlo1:ixGhi1,ixGlo2:ixGhi2,&
        ixGlo3:ixGhi3)
-   
 
-    
 
-    
+
+
+
     ! Note on the indices:
-    ! ixCo  Cells where 
+    ! ixCo  Cells where
     !       divergence-preserving prolongation will be applied.
     ! ixFi  Fine cells which correspond to that extent.
     ! ixCoE For 'expanded', faces that need to be used to calculate
@@ -202,8 +203,8 @@ contains
 
     ! Initialize auxiliary arrays at zero
     bfluxCo = zero
-    bfluxFi = zero 
-    slopes  = zero 
+    bfluxFi = zero
+    slopes  = zero
 
 
     invdxCo1=1.d0/dxCo1;invdxCo2=1.d0/dxCo2;invdxCo3=1.d0/dxCo3;
@@ -245,11 +246,11 @@ contains
          ixFisEmin2:ixFisEmax2,ixFisEmin3:ixFisEmax3,&
          idim1)*sFi%surfaceC(ixFisEmin1:ixFisEmax1,ixFisEmin2:ixFisEmax2,&
          ixFisEmin3:ixFisEmax3,idim1)
-      
-      
+
+
       idim2=1+mod(idim1,3)
       idim3=1+mod(idim1+1,3)
-     
+
       bfluxCo(ixCosEmin1:ixCosEmax1,ixCosEmin2:ixCosEmax2,&
          ixCosEmin3:ixCosEmax3,idim1) = zero
       ! Add fine fluxes sharing the same fine face
@@ -261,14 +262,14 @@ contains
         ixFisCmax1=ixFisEmax1+ix2*kr(idim2,1)
         ixFisCmax2=ixFisEmax2+ix2*kr(idim2,2)
         ixFisCmax3=ixFisEmax3+ix2*kr(idim2,3);
-         
+
         ixFisCmin1=ixFisCmin1+ix3*kr(idim3,1)
         ixFisCmin2=ixFisCmin2+ix3*kr(idim3,2)
         ixFisCmin3=ixFisCmin3+ix3*kr(idim3,3)
         ixFisCmax1=ixFisCmax1+ix3*kr(idim3,1)
         ixFisCmax2=ixFisCmax2+ix3*kr(idim3,2)
         ixFisCmax3=ixFisCmax3+ix3*kr(idim3,3);
-       
+
         bfluxCo(ixCosEmin1:ixCosEmax1,ixCosEmin2:ixCosEmax2,&
            ixCosEmin3:ixCosEmax3,idim1)=bfluxCo(ixCosEmin1:ixCosEmax1,&
            ixCosEmin2:ixCosEmax2,ixCosEmin3:ixCosEmax3,&
@@ -279,7 +280,7 @@ contains
     end do
 
     ! Omit indices for already refined face, if any
-    
+
     if (fine_min1) then
       ixCosVmin1(1)=ixCosVmin1(1)+1
       ixFisVmin1(1)=ixFisVmin1(1)+2
@@ -288,8 +289,8 @@ contains
       ixCosVmax1(1)=ixCosVmax1(1)-1
       ixFisVmax1(1)=ixFisVmax1(1)-2
     end if
-    
-    
+
+
     if (fine_min2) then
       ixCosVmin2(2)=ixCosVmin2(2)+1
       ixFisVmin2(2)=ixFisVmin2(2)+2
@@ -298,8 +299,8 @@ contains
       ixCosVmax2(2)=ixCosVmax2(2)-1
       ixFisVmax2(2)=ixFisVmax2(2)-2
     end if
-    
-    
+
+
     if (fine_min3) then
       ixCosVmin3(3)=ixCosVmin3(3)+1
       ixFisVmin3(3)=ixFisVmin3(3)+2
@@ -308,14 +309,14 @@ contains
       ixCosVmax3(3)=ixCosVmax3(3)-1
       ixFisVmax3(3)=ixFisVmax3(3)-2
     end if
-    
+
 
     do idim1=1,ndim
       ixCosEmin1=ixCosVmin1(idim1);ixCosEmin2=ixCosVmin2(idim1)
       ixCosEmin3=ixCosVmin3(idim1);ixCosEmax1=ixCosVmax1(idim1)
       ixCosEmax2=ixCosVmax2(idim1);ixCosEmax3=ixCosVmax3(idim1);
       ! Omit part already refined
-      
+
       if (1/=idim1) then
         if ((.not.fine_min1).or.(.not.ghost)) then
          ixCosEmin1=ixCosVmin1(idim1)-1
@@ -324,8 +325,8 @@ contains
          ixCosEmax1=ixCosVmax1(idim1)+1
         end if
       end if
-      
-    
+
+
       if (2/=idim1) then
         if ((.not.fine_min2).or.(.not.ghost)) then
          ixCosEmin2=ixCosVmin2(idim1)-1
@@ -334,8 +335,8 @@ contains
          ixCosEmax2=ixCosVmax2(idim1)+1
         end if
       end if
-      
-    
+
+
       if (3/=idim1) then
         if ((.not.fine_min3).or.(.not.ghost)) then
          ixCosEmin3=ixCosVmin3(idim1)-1
@@ -344,7 +345,7 @@ contains
          ixCosEmax3=ixCosVmax3(idim1)+1
         end if
       end if
-      
+
       ! Fill coarse flux array from coarse field
       bfluxCo(ixCosEmin1:ixCosEmax1,ixCosEmin2:ixCosEmax2,&
          ixCosEmin3:ixCosEmax3,idim1)=wCos(ixCosEmin1:ixCosEmax1,&
@@ -374,8 +375,8 @@ contains
             idim2)=0.125d0*(bfluxCo(jxCosmin1:jxCosmax1,jxCosmin2:jxCosmax2,&
             jxCosmin3:jxCosmax3,idim1)-bfluxCo(hxCosmin1:hxCosmax1,&
             hxCosmin2:hxCosmax2,hxCosmin3:hxCosmax3,idim1))
-    
-    
+
+
          do idim3=1,ndim
            ! Calculate slope in direction idim3
            ! Set up indices
@@ -409,12 +410,12 @@ contains
              end do
            end do
          end do
-   
+
        end do
     end do
 
     ! Calculate interior fine fluxes
-    
+
     ! Directional bias for nonlinear prolongation
     do idim1=1,ndim
       do idim2=1,ndim
@@ -558,12 +559,12 @@ contains
         end do
       end do
     end do
-   
+
 
     do idim1=1,ndim
       do idim2=1,ndim
-        
-        
+
+
         do idim3=1,ndim
           if (lvc(idim1,idim2,idim3)<1) cycle
           ! Set up indices
@@ -728,7 +729,7 @@ contains
              ixComin2:ixComax2,ixComin3:ixComax3,idim3))*F4(ixComin1:ixComax1,&
              ixComin2:ixComax2,ixComin3:ixComax3))
         end do
-       
+
       end do
     end do
 
@@ -777,7 +778,7 @@ contains
   !> when refining a block we take into account the faces of the
   !> already fine neighbours, if any. This routine stores them.
   subroutine store_faces
-    use mod_forest, only: refine 
+    use mod_forest, only: refine
     use mod_global_parameters
     integer :: igrid, iigrid, idims, iside, ineighbor, ipe_neighbor
     integer :: nx1,nx2,nx3, i1,i2,i3, ic1,ic2,ic3, inc1,inc2,inc3
@@ -792,7 +793,7 @@ contains
 
     do iigrid=1,igridstail; igrid=igrids(iigrid);
       ! Check whether it is necessary to store any block face, i.e.
-      ! if any coarser neighbour is going to be refined 
+      ! if any coarser neighbour is going to be refined
      do iside=1,2
         i1=kr(1,1)*(2*iside-3);i2=kr(2,1)*(2*iside-3);i3=kr(3,1)*(2*iside-3);
         if (neighbor_pole(i1,i2,i3,igrid)/=0) cycle
@@ -920,7 +921,7 @@ contains
           isize(1)=nx1*nx2*nx3
           recvsize=recvsize+nrecv_fc(1)*isize(1)
           sendsize=sendsize+nsend_fc(1)*isize(1)
-       
+
        case (2)
           nrecv=nrecv+nrecv_fc(2)
           nsend=nsend+nsend_fc(2)
@@ -928,7 +929,7 @@ contains
           isize(2)=nx1*nx2*nx3
           recvsize=recvsize+nrecv_fc(2)*isize(2)
           sendsize=sendsize+nsend_fc(2)*isize(2)
-       
+
        case (3)
           nrecv=nrecv+nrecv_fc(3)
           nsend=nsend+nsend_fc(3)
@@ -936,7 +937,7 @@ contains
           isize(3)=nx1*nx2*nx3
           recvsize=recvsize+nrecv_fc(3)*isize(3)
           sendsize=sendsize+nsend_fc(3)*isize(3)
-       
+
        end select
     end do
 
@@ -973,7 +974,7 @@ contains
                 irecv=irecv+1
                 itag=4**3*(igrid-1)+inc1*4**(1-1)+inc2*4**(2-1)+inc3*4**(3-1)
 
-                call MPI_IRECV(recvbuffer(ibuf_recv),isize(idims),&
+                call mpi_irecv_wrapper(recvbuffer(ibuf_recv),isize(idims),&
                     MPI_DOUBLE_PRECISION,ipe_neighbor,itag, icomm,&
                    recvrequest(irecv),ierrmpi)
                 ibuf_recv=ibuf_recv+isize(idims)
@@ -996,7 +997,7 @@ contains
       ibuf_send=1
       do iigrid=1,igridstail; igrid=igrids(iigrid);
         ! Check whether it is necessary to store any block face, i.e.
-        ! if any coarser neighbour is going to be refined 
+        ! if any coarser neighbour is going to be refined
        do iside=1,2
           i1=kr(1,1)*(2*iside-3);i2=kr(2,1)*(2*iside-3)
           i3=kr(3,1)*(2*iside-3);
@@ -1017,7 +1018,7 @@ contains
                 ibuf_send_next=ibuf_send+isize(1)
                 sendbuffer(ibuf_send:ibuf_send_next-1)=reshape(pface(iside,1,&
                    igrid)%face,(/isize(1)/))
-                call MPI_ISEND(sendbuffer(ibuf_send),isize(1),&
+                call mpi_isend_wrapper(sendbuffer(ibuf_send),isize(1),&
                     MPI_DOUBLE_PRECISION,ipe_neighbor,itag, icomm,&
                    sendrequest(isend),ierrmpi)
                 ibuf_send=ibuf_send_next
@@ -1045,7 +1046,7 @@ contains
                 ibuf_send_next=ibuf_send+isize(2)
                 sendbuffer(ibuf_send:ibuf_send_next-1)=reshape(pface(iside,2,&
                    igrid)%face,(/isize(2)/))
-                call MPI_ISEND(sendbuffer(ibuf_send),isize(2),&
+                call mpi_isend_wrapper(sendbuffer(ibuf_send),isize(2),&
                     MPI_DOUBLE_PRECISION,ipe_neighbor,itag, icomm,&
                    sendrequest(isend),ierrmpi)
                 ibuf_send=ibuf_send_next
@@ -1073,7 +1074,7 @@ contains
                 ibuf_send_next=ibuf_send+isize(3)
                 sendbuffer(ibuf_send:ibuf_send_next-1)=reshape(pface(iside,3,&
                    igrid)%face,(/isize(3)/))
-                call MPI_ISEND(sendbuffer(ibuf_send),isize(3),&
+                call mpi_isend_wrapper(sendbuffer(ibuf_send),isize(3),&
                     MPI_DOUBLE_PRECISION,ipe_neighbor,itag, icomm,&
                    sendrequest(isend),ierrmpi)
                 ibuf_send=ibuf_send_next
@@ -1175,7 +1176,7 @@ contains
   end subroutine old_neighbors
 
   !> This routine fills the fine faces before prolonging.
-  !> It is the face equivalent of fix_conserve 
+  !> It is the face equivalent of fix_conserve
   subroutine already_fine(sFi,ichild,fine_min1,fine_min2,fine_min3,fine_max1,&
      fine_max2,fine_max3)
     use mod_forest
@@ -1196,7 +1197,7 @@ contains
     fine_max1=.false.;fine_max2=.false.;fine_max3=.false.;
     sFi%ws=zero
 
-    
+
     ! This face communication is not needed in 1D
    do iside=1,2
       i1=kr(1,1)*(2*iside-3);i2=kr(2,1)*(2*iside-3);i3=kr(3,1)*(2*iside-3);
@@ -1205,7 +1206,7 @@ contains
       if (neighbor_pole(i1,i2,i3,ichild)/=0) cycle
 
       ! Get old ipe and igrid of neighbour from array fake_neighbor
-      ! Then plug it into the structure pfaces and get the faces 
+      ! Then plug it into the structure pfaces and get the faces
       ineighbor   =old_neighbor(1,i1,i2,i3,ichild)
       ipe_neighbor=old_neighbor(2,i1,i2,i3,ichild)
 
@@ -1245,7 +1246,7 @@ contains
       if (neighbor_pole(i1,i2,i3,ichild)/=0) cycle
 
       ! Get old ipe and igrid of neighbour from array fake_neighbor
-      ! Then plug it into the structure pfaces and get the faces 
+      ! Then plug it into the structure pfaces and get the faces
       ineighbor   =old_neighbor(1,i1,i2,i3,ichild)
       ipe_neighbor=old_neighbor(2,i1,i2,i3,ichild)
 
@@ -1285,7 +1286,7 @@ contains
       if (neighbor_pole(i1,i2,i3,ichild)/=0) cycle
 
       ! Get old ipe and igrid of neighbour from array fake_neighbor
-      ! Then plug it into the structure pfaces and get the faces 
+      ! Then plug it into the structure pfaces and get the faces
       ineighbor   =old_neighbor(1,i1,i2,i3,ichild)
       ipe_neighbor=old_neighbor(2,i1,i2,i3,ichild)
 
@@ -1318,7 +1319,7 @@ contains
         end if
       end if
     end do
-   
+
   end subroutine already_fine
 
 end module mod_amr_fct

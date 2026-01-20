@@ -1,4 +1,5 @@
 module mod_convert_files
+  use mod_mpi_wrapper
   use mod_comm_lib, only: mpistop
 
   implicit none
@@ -28,7 +29,7 @@ contains
        call unstructuredvtkB(unitconvert)
       case('vtuB64','vtuBCC64','vtuBmpi64','vtuBCCmpi64')
        call unstructuredvtkB64(unitconvert)
-      
+
       case('pvtumpi','pvtuCCmpi')
        call punstructuredvtk_mpi(unitconvert)
       case('pvtuBmpi','pvtuBCCmpi')
@@ -65,7 +66,7 @@ contains
     ! may use saveprim to switch to primitives
     ! this version can not work on multiple CPUs
     ! does not renormalize variables
-    ! header info differs from onegrid below 
+    ! header info differs from onegrid below
     ! ASCII or binary output
 
     use mod_forest, only: Morton_start, Morton_stop, sfc_to_igrid,&
@@ -164,30 +165,30 @@ contains
     end do
     20 continue
     jg1=ig1;jg2=ig2;jg3=ig3;
-    
+
     jig1=jg1;jig2=jg2;jig3=jg3;
     do ig1=1,ng1(level_io)
       jig1=ig1
       igrid=ig_to_igrid(jig1,jig2,jig3,mype)
       if(writeblk(igrid)) ncells1=ncells1+ncellx1
     end do
-    
-    
+
+
     jig1=jg1;jig2=jg2;jig3=jg3;
     do ig2=1,ng2(level_io)
       jig2=ig2
       igrid=ig_to_igrid(jig1,jig2,jig3,mype)
       if(writeblk(igrid)) ncells2=ncells2+ncellx2
     end do
-    
-    
+
+
     jig1=jg1;jig2=jg2;jig3=jg3;
     do ig3=1,ng3(level_io)
       jig3=ig3
       igrid=ig_to_igrid(jig1,jig2,jig3,mype)
       if(writeblk(igrid)) ncells3=ncells3+ncellx3
     end do
-    
+
 
     do iigrid=1,igridstail; igrid=igrids(iigrid)
       if(.not.writeblk(igrid)) cycle
@@ -261,11 +262,11 @@ contains
      end if
     end if Master_cpu_open
 
-    
+
     do ig3=1,ng3(level_io)
      do ix3=ixMlo3,ixMhi3
 
-       
+
        do ig2=1,ng2(level_io)
          do ix2=ixMlo2,ixMhi2
 
@@ -287,10 +288,10 @@ contains
                end if Master_write
              end do
            end do
-        
+
          end do
        end do
-     
+
      end do
     end do
 
@@ -302,7 +303,7 @@ contains
     ! this is for turning an AMR run into a single grid
     ! this version should work for any dimension, can be in parallel
     ! in 1D, should behave much like oneblock, except for header info
-    
+
     ! only writes all 1:nw variables, no nwauxio
     ! may use saveprim to switch to primitives
     ! this version can work on multiple CPUs
@@ -363,10 +364,10 @@ contains
          ps(igrid)%x)
       if(mype/=0)then
         itag=Morton_no
-        call MPI_SEND(igrid,1,MPI_INTEGER, 0,itag,icomm,ierrmpi)
-        call MPI_SEND(ps(igrid)%x,1,type_block_xcc_io, 0,itag,icomm,ierrmpi)
+        call mpi_send_wrapper(igrid,1,MPI_INTEGER, 0,itag,icomm,ierrmpi)
+        call mpi_send_wrapper(ps(igrid)%x,1,type_block_xcc_io, 0,itag,icomm,ierrmpi)
         itag=igrid
-        call MPI_SEND(ps(igrid)%w,1,type_block_io, 0,itag,icomm,ierrmpi)
+        call mpi_send_wrapper(ps(igrid)%w,1,type_block_io, 0,itag,icomm,ierrmpi)
       else
        do ix3=ixMlo3,ixMhi3
        do ix2=ixMlo2,ixMhi2
@@ -390,12 +391,12 @@ contains
        loop_cpu : do ipe =1, npe-1
         loop_Morton : do Morton_no=Morton_start(ipe),Morton_stop(ipe)
               itag=Morton_no
-              call MPI_RECV(igrid_recv,1,MPI_INTEGER, ipe,itag,icomm,&
+              call mpi_recv_wrapper(igrid_recv,1,MPI_INTEGER, ipe,itag,icomm,&
                  intstatus(:,1),ierrmpi)
-              call MPI_RECV(x_recv,1,type_block_xcc_io, ipe,itag,icomm,&
+              call mpi_recv_wrapper(x_recv,1,type_block_xcc_io, ipe,itag,icomm,&
                  intstatus(:,1),ierrmpi)
               itag=igrid_recv
-              call MPI_RECV(w_recv,1,type_block_io, ipe,itag,icomm,intstatus(:,&
+              call mpi_recv_wrapper(w_recv,1,type_block_io, ipe,itag,icomm,intstatus(:,&
                  1),ierrmpi)
               do ix3=ixMlo3,ixMhi3
               do ix2=ixMlo2,ixMhi2
@@ -420,7 +421,7 @@ contains
     end if
 
     if(mype==0) close(qunit)
-  end subroutine onegrid 
+  end subroutine onegrid
 
   subroutine tecplot(qunit)
 
@@ -502,7 +503,7 @@ contains
     nx1=ixMhi1-ixMlo1+1;nx2=ixMhi2-ixMlo2+1;nx3=ixMhi3-ixMlo3+1;
     nxC1=nx1+1;nxC2=nx2+1;nxC3=nx3+1;
 
-    
+
     do level=levmin,levmax
       nodesonlevel=NumGridsOnLevel(level)*nxC1*nxC2*nxC3
       elemsonlevel=NumGridsOnLevel(level)*nx1*nx2*nx3
@@ -510,12 +511,12 @@ contains
       ! with the AMR grid LEVEL. Other options would be
       !    let each grid define a zone: inefficient for TECPLOT internal workings
       !       hence not implemented
-      !    let entire octree define 1 zone: no difference in interpolation 
+      !    let entire octree define 1 zone: no difference in interpolation
       !       properties across TECPLOT zones detected as yet, hence not done
       select case(convert_type)
         case('tecplot')
           ! in this option, we store the corner coordinates, as well as the corner
-          ! values of all variables (obtained by averaging). This allows POINT packaging, 
+          ! values of all variables (obtained by averaging). This allows POINT packaging,
           ! and thus we can save full grid info by using one call to calc_grid
           write(qunit,"(a,i7,a,a,i7,a,i7,a,f25.16,a,a)") 'ZONE T="',level,'"',&
              ', N=',nodesonlevel,', E=',elemsonlevel, ', SOLUTIONTIME=',&
@@ -541,9 +542,9 @@ contains
           end do
         case('tecplotCC')
           ! in this option, we store the corner coordinates, and the cell center
-          ! values of all variables. Due to this mix of corner/cell center, we must 
-          ! use BLOCK packaging, and thus we have enormous overhead by using 
-          ! calc_grid repeatedly to merely fill values of cell corner coordinates 
+          ! values of all variables. Due to this mix of corner/cell center, we must
+          ! use BLOCK packaging, and thus we have enormous overhead by using
+          ! calc_grid repeatedly to merely fill values of cell corner coordinates
           ! and cell center values per dimension, per variable
           if(ndim+nw+nwauxio>99) call mpistop(&
              "adjust format specification in writeout")
@@ -572,7 +573,7 @@ contains
             end if
           end if
           do idim=1,ndim
-            first=(idim==1) 
+            first=(idim==1)
             do iigrid=1,igridstail; igrid=igrids(iigrid);
               if (node(plevel_,igrid)/=level) cycle
               block=>ps(igrid)
@@ -608,7 +609,7 @@ contains
         call save_conntec(qunit,igrid,igonlevel)
       end do
     end do
-    
+
 
     close(qunit)
 
@@ -631,7 +632,7 @@ contains
     do ix3=1,nx3
     do ix2=1,nx2
     do ix1=1,nx1
-       
+
        ! basic brick connectivity
        write(qunit,'(8(i7,1x))') nodenumbertec3D(ix1,  ix2-1,ix3-1,nxC1,nxC2,&
           nxC3,igonlevel,igrid),nodenumbertec3D(ix1+1,ix2-1,ix3-1,nxC1,nxC2,&
@@ -642,9 +643,9 @@ contains
           nxC3,igonlevel,igrid),nodenumbertec3D(ix1+1,ix2  ,ix3  ,nxC1,nxC2,&
           nxC3,igonlevel,igrid),nodenumbertec3D(ix1  ,ix2  ,ix3  ,nxC1,nxC2,&
           nxC3,igonlevel,igrid)
-      
-       
-       
+
+
+
     end do
     end do
     end do
@@ -722,7 +723,7 @@ contains
 
     inquire(qunit,opened=fileopen)
     if(.not.fileopen)then
-      ! generate filename 
+      ! generate filename
       filenr=snapshotini
       if (autoconvert) filenr=snapshotnext
       write(filename,'(a,i4.4,a)') TRIM(base_filename),filenr,".vtu"
@@ -781,7 +782,7 @@ contains
                  '" NumberOfCells="',nc,'">'
               write(qunit,'(a)')'<PointData>'
               do iw=1,nw+nwauxio
-                if(iw<=nw) then 
+                if(iw<=nw) then
                   if(.not.w_write(iw)) cycle
                 end if
                 write(qunit,'(a,a,a)')'<DataArray type="Float64" Name="',&
@@ -796,15 +797,15 @@ contains
               write(qunit,'(a)'&
 )'<DataArray type="Float32" NumberOfComponents="3" format="ascii">'
               ! write cell corner coordinates in a backward dimensional loop, always 3D output
-              do ix3=ixCmin3,ixCmax3 
-              do ix2=ixCmin2,ixCmax2 
-              do ix1=ixCmin1,ixCmax1 
+              do ix3=ixCmin3,ixCmax3
+              do ix2=ixCmin2,ixCmax2
+              do ix1=ixCmin1,ixCmax1
                  x_VTK(1:3)=zero;
                  x_VTK(1:ndim)=xC_TMP(ix1,ix2,ix3,1:ndim)*normconv(0);
                  write(qunit,'(3(1pe14.6))') x_VTK
-              end do 
-              end do 
-              end do 
+              end do
+              end do
+              end do
               write(qunit,'(a)')'</DataArray>'
               write(qunit,'(a)')'</Points>'
             case('vtuCC')
@@ -813,7 +814,7 @@ contains
                  '" NumberOfCells="',nc,'">'
               write(qunit,'(a)')'<CellData>'
               do iw=1,nw+nwauxio
-                if(iw<=nw) then 
+                if(iw<=nw) then
                   if(.not.w_write(iw)) cycle
                 end if
                 write(qunit,'(a,a,a)')'<DataArray type="Float64" Name="',&
@@ -828,26 +829,26 @@ contains
               write(qunit,'(a)'&
 )'<DataArray type="Float32" NumberOfComponents="3" format="ascii">'
               ! write cell corner coordinates in a backward dimensional loop, always 3D output
-              do ix3=ixCmin3,ixCmax3 
-              do ix2=ixCmin2,ixCmax2 
-              do ix1=ixCmin1,ixCmax1 
+              do ix3=ixCmin3,ixCmax3
+              do ix2=ixCmin2,ixCmax2
+              do ix1=ixCmin1,ixCmax1
                  x_VTK(1:3)=zero;
                  x_VTK(1:ndim)=xC_TMP(ix1,ix2,ix3,1:ndim)*normconv(0);
                  write(qunit,'(3(1pe14.6))') x_VTK
-              end do 
-              end do 
-              end do 
+              end do
+              end do
+              end do
               write(qunit,'(a)')'</DataArray>'
               write(qunit,'(a)')'</Points>'
             end select
-    
+
             write(qunit,'(a)')'<Cells>'
             ! connectivity part
             write(qunit,'(a)'&
                )'<DataArray type="Int32" Name="connectivity" format="ascii">'
             call save_connvtk(qunit,igrid)
             write(qunit,'(a)')'</DataArray>'
-    
+
             ! offsets data array
             write(qunit,'(a)'&
                )'<DataArray type="Int32" Name="offsets" format="ascii">'
@@ -855,21 +856,21 @@ contains
               write(qunit,'(i7)') icel*(2**3)
             end do
             write(qunit,'(a)')'</DataArray>'
-    
+
             ! VTK cell type data array
             write(qunit,'(a)'&
                )'<DataArray type="Int32" Name="types" format="ascii">'
             ! VTK_LINE=3; VTK_PIXEL=8; VTK_VOXEL=11 -> vtk-syntax
-            
-            
-             VTK_type=11 
+
+
+             VTK_type=11
             do icel=1,nc
               write(qunit,'(i2)') VTK_type
             end do
             write(qunit,'(a)')'</DataArray>'
-    
+
             write(qunit,'(a)')'</Cells>'
-    
+
             write(qunit,'(a)')'</Piece>'
           end if
         end do
@@ -966,11 +967,11 @@ contains
            normconv,ixCmin1,ixCmin2,ixCmin3,ixCmax1,ixCmax2,ixCmax3,ixCCmin1,&
            ixCCmin2,ixCCmin3,ixCCmax1,ixCCmax2,ixCCmax3,.true.)
         itag=Morton_no
-        call MPI_SEND(xC_TMP,1,type_block_xc_io, 0,itag,icomm,ierrmpi)
+        call mpi_send_wrapper(xC_TMP,1,type_block_xc_io, 0,itag,icomm,ierrmpi)
         if(cell_corner) then
-          call MPI_SEND(wC_TMP,1,type_block_wc_io, 0,itag,icomm,ierrmpi)
+          call mpi_send_wrapper(wC_TMP,1,type_block_wc_io, 0,itag,icomm,ierrmpi)
         else
-          call MPI_SEND(wCC_TMP,1,type_block_wcc_io, 0,itag,icomm,ierrmpi)
+          call mpi_send_wrapper(wCC_TMP,1,type_block_wcc_io, 0,itag,icomm,ierrmpi)
         end if
       end do
 
@@ -979,7 +980,7 @@ contains
       offset=0
       inquire(qunit,opened=fileopen)
       if(.not.fileopen)then
-        ! generate filename 
+        ! generate filename
         filenr=snapshotini
         if (autoconvert) filenr=snapshotnext
         write(filename,'(a,i4.4,a)') TRIM(base_filename),filenr,".vtu"
@@ -1019,7 +1020,7 @@ contains
              '" NumberOfCells="',nc,'">'
           write(qunit,'(a)')'<PointData>'
           do iw=1,nw+nwauxio
-            if(iw<=nw) then 
+            if(iw<=nw) then
               if(.not.w_write(iw)) cycle
             endif
             write(qunit,'(a,a,a,i16,a)')'<DataArray type="Float32" Name="',&
@@ -1041,7 +1042,7 @@ contains
              '" NumberOfCells="',nc,'">'
           write(qunit,'(a)')'<CellData>'
           do iw=1,nw+nwauxio
-            if(iw<=nw) then 
+            if(iw<=nw) then
                if(.not.w_write(iw)) cycle
             end if
             write(qunit,'(a,a,a,i16,a)')'<DataArray type="Float32" Name="',&
@@ -1063,16 +1064,16 @@ contains
         write(qunit,'(a,i16,a)'&
 )'<DataArray type="Int32" Name="connectivity" format="appended" offset="',&
            offset,'"/>'
-        offset=offset+length_conn+size_int    
+        offset=offset+length_conn+size_int
         ! offsets data array
         write(qunit,'(a,i16,a)')&
 '<DataArray type="Int32" Name="offsets" format="appended" offset="',offset,&
            '"/>'
-        offset=offset+length_offsets+size_int    
+        offset=offset+length_offsets+size_int
         ! VTK cell type data array
         write(qunit,'(a,i16,a)')&
             '<DataArray type="Int32" Name="types" format="appended" offset="',&
-           offset,'"/>' 
+           offset,'"/>'
         offset=offset+size_int+nc*size_int
         write(qunit,'(a)')'</Cells>'
         write(qunit,'(a)')'</Piece>'
@@ -1088,7 +1089,7 @@ contains
                  '" NumberOfCells="',nc,'">'
               write(qunit,'(a)')'<PointData>'
               do iw=1,nw+nwauxio
-                if(iw<=nw) then 
+                if(iw<=nw) then
                   if(.not.w_write(iw)) cycle
                 end if
                 write(qunit,'(a,a,a,i16,a)')'<DataArray type="Float32" Name="',&
@@ -1111,7 +1112,7 @@ contains
                  '" NumberOfCells="',nc,'">'
               write(qunit,'(a)')'<CellData>'
               do iw=1,nw+nwauxio
-                if(iw<=nw) then 
+                if(iw<=nw) then
                   if(.not.w_write(iw)) cycle
                 end if
                 write(qunit,'(a,a,a,i16,a)')'<DataArray type="Float32" Name="',&
@@ -1134,16 +1135,16 @@ contains
             write(qunit,'(a,i16,a)'&
 )'<DataArray type="Int32" Name="connectivity" format="appended" offset="',&
                offset,'"/>'
-            offset=offset+length_conn+size_int    
+            offset=offset+length_conn+size_int
             ! offsets data array
             write(qunit,'(a,i16,a)')&
 '<DataArray type="Int32" Name="offsets" format="appended" offset="',offset,&
                '"/>'
-            offset=offset+length_offsets+size_int    
+            offset=offset+length_offsets+size_int
             ! VTK cell type data array
             write(qunit,'(a,i16,a)')&
 '<DataArray type="Int32" Name="types" format="appended" offset="',offset,&
-               '"/>' 
+               '"/>'
             offset=offset+size_int+nc*size_int
             write(qunit,'(a)')'</Cells>'
             write(qunit,'(a)')'</Piece>'
@@ -1167,7 +1168,7 @@ contains
            normconv,ixCmin1,ixCmin2,ixCmin3,ixCmax1,ixCmax2,ixCmax3,ixCCmin1,&
            ixCCmin2,ixCCmin3,ixCCmax1,ixCCmax2,ixCCmax3,.true.)
         do iw=1,nw+nwauxio
-          if(iw<=nw) then 
+          if(iw<=nw) then
             if(.not.w_write(iw)) cycle
           end if
           if(cell_corner) then
@@ -1183,32 +1184,32 @@ contains
         end do
 
         write(qunit) length_coords
-        do ix3=ixCmin3,ixCmax3 
-        do ix2=ixCmin2,ixCmax2 
-        do ix1=ixCmin1,ixCmax1 
+        do ix3=ixCmin3,ixCmax3
+        do ix2=ixCmin2,ixCmax2
+        do ix1=ixCmin1,ixCmax1
           x_VTK(1:3)=zero;
           x_VTK(1:ndim)=xC_TMP(ix1,ix2,ix3,1:ndim)*normconv(0);
           do k=1,3
             write(qunit) real(x_VTK(k))
           end do
-        end do 
-        end do 
-        end do 
+        end do
+        end do
+        end do
 
         write(qunit) length_conn
         do ix3=1,nx3
         do ix2=1,nx2
         do ix1=1,nx1
-          
-          
-          
+
+
+
           write(qunit)(ix3-1)*nxC2*nxC1+(ix2-1)*nxC1+ix1-1,&
               (ix3-1)*nxC2*nxC1+(ix2-1)*nxC1+ix1,&
              (ix3-1)*nxC2*nxC1+    ix2*nxC1+ix1-1,&
              (ix3-1)*nxC2*nxC1+    ix2*nxC1+ix1,&
              ix3*nxC2*nxC1+(ix2-1)*nxC1+ix1-1,ix3*nxC2*nxC1+(ix2-1)*nxC1+ix1,&
              ix3*nxC2*nxC1+    ix2*nxC1+ix1-1,ix3*nxC2*nxC1+    ix2*nxC1+ix1
-           
+
         end do
         end do
         end do
@@ -1218,9 +1219,9 @@ contains
           write(qunit) icel*(2**3)
         end do
 
-       
-       
-        VTK_type=11 
+
+
+        VTK_type=11
         write(qunit) size_int*nc
         do icel=1,nc
           write(qunit) VTK_type
@@ -1236,17 +1237,17 @@ contains
           do Morton_no=Morton_start(ipe),Morton_stop(ipe)
             if(.not. Morton_aim(Morton_no)) cycle
             itag=Morton_no
-            call MPI_RECV(xC_TMP,1,type_block_xc_io, ipe,itag,icomm,&
+            call mpi_recv_wrapper(xC_TMP,1,type_block_xc_io, ipe,itag,icomm,&
                intstatus(:,1),ierrmpi)
             if(cell_corner) then
-              call MPI_RECV(wC_TMP,1,type_block_wc_io, ipe,itag,icomm,&
+              call mpi_recv_wrapper(wC_TMP,1,type_block_wc_io, ipe,itag,icomm,&
                  intstatus(:,1),ierrmpi)
             else
-              call MPI_RECV(wCC_TMP,1,type_block_wcc_io, ipe,itag,icomm,&
+              call mpi_recv_wrapper(wCC_TMP,1,type_block_wcc_io, ipe,itag,icomm,&
                  intstatus(:,1),ierrmpi)
             end if
             do iw=1,nw+nwauxio
-              if(iw<=nw) then 
+              if(iw<=nw) then
                 if(.not.w_write(iw)) cycle
               end if
               if(cell_corner) then
@@ -1262,24 +1263,24 @@ contains
               end if
             end do
             write(qunit) length_coords
-            do ix3=ixCmin3,ixCmax3 
-            do ix2=ixCmin2,ixCmax2 
-            do ix1=ixCmin1,ixCmax1 
+            do ix3=ixCmin3,ixCmax3
+            do ix2=ixCmin2,ixCmax2
+            do ix1=ixCmin1,ixCmax1
               x_VTK(1:3)=zero;
               x_VTK(1:ndim)=xC_TMP(ix1,ix2,ix3,1:ndim)*normconv(0);
               do k=1,3
                write(qunit) real(x_VTK(k))
               end do
-            end do 
-            end do 
-            end do 
+            end do
+            end do
+            end do
             write(qunit) length_conn
             do ix3=1,nx3
             do ix2=1,nx2
             do ix1=1,nx1
-              
-              
-              
+
+
+
               write(qunit)(ix3-1)*nxC2*nxC1+(ix2-1)*nxC1+ix1-1,&
                   (ix3-1)*nxC2*nxC1+(ix2-1)*nxC1+ix1,&
                  (ix3-1)*nxC2*nxC1+    ix2*nxC1+ix1-1,&
@@ -1288,7 +1289,7 @@ contains
                  ix3*nxC2*nxC1+(ix2-1)*nxC1+ix1,&
                  ix3*nxC2*nxC1+    ix2*nxC1+ix1-1,&
                  ix3*nxC2*nxC1+    ix2*nxC1+ix1
-               
+
             end do
             end do
             end do
@@ -1296,9 +1297,9 @@ contains
             do icel=1,nc
               write(qunit) icel*(2**3)
             end do
-            
-            
-             VTK_type=11 
+
+
+             VTK_type=11
             write(qunit) size_int*nc
             do icel=1,nc
               write(qunit) VTK_type
@@ -1405,11 +1406,11 @@ contains
            normconv,ixCmin1,ixCmin2,ixCmin3,ixCmax1,ixCmax2,ixCmax3,ixCCmin1,&
            ixCCmin2,ixCCmin3,ixCCmax1,ixCCmax2,ixCCmax3,.true.)
         itag=Morton_no
-        call MPI_SEND(xC_TMP,1,type_block_xc_io, 0,itag,icomm,ierrmpi)
+        call mpi_send_wrapper(xC_TMP,1,type_block_xc_io, 0,itag,icomm,ierrmpi)
         if(cell_corner) then
-          call MPI_SEND(wC_TMP,1,type_block_wc_io, 0,itag,icomm,ierrmpi)
+          call mpi_send_wrapper(wC_TMP,1,type_block_wc_io, 0,itag,icomm,ierrmpi)
         else
-          call MPI_SEND(wCC_TMP,1,type_block_wcc_io, 0,itag,icomm,ierrmpi)
+          call mpi_send_wrapper(wCC_TMP,1,type_block_wcc_io, 0,itag,icomm,ierrmpi)
         end if
       end do
     else
@@ -1417,7 +1418,7 @@ contains
       offset=0
       inquire(qunit,opened=fileopen)
       if(.not.fileopen)then
-        ! generate filename 
+        ! generate filename
         filenr=snapshotini
         if (autoconvert) filenr=snapshotnext
         write(filename,'(a,i4.4,a)') TRIM(base_filename),filenr,".vtu"
@@ -1455,7 +1456,7 @@ contains
              '" NumberOfCells="',nc,'">'
           write(qunit,'(a)')'<PointData>'
           do iw=1,nw+nwauxio
-            if(iw<=nw) then 
+            if(iw<=nw) then
               if(.not.w_write(iw)) cycle
             end if
             write(qunit,'(a,a,a,i16,a)')'<DataArray type="Float64" Name="',&
@@ -1477,7 +1478,7 @@ contains
              '" NumberOfCells="',nc,'">'
           write(qunit,'(a)')'<CellData>'
           do iw=1,nw+nwauxio
-            if(iw<=nw) then 
+            if(iw<=nw) then
                if(.not.w_write(iw)) cycle
             end if
             write(qunit,'(a,a,a,i16,a)')'<DataArray type="Float64" Name="',&
@@ -1499,16 +1500,16 @@ contains
         write(qunit,'(a,i16,a)'&
 )'<DataArray type="Int32" Name="connectivity" format="appended" offset="',&
            offset,'"/>'
-        offset=offset+length_conn+size_int    
+        offset=offset+length_conn+size_int
         ! offsets data array
         write(qunit,'(a,i16,a)')&
 '<DataArray type="Int32" Name="offsets" format="appended" offset="',offset,&
            '"/>'
-        offset=offset+length_offsets+size_int    
+        offset=offset+length_offsets+size_int
         ! VTK cell type data array
         write(qunit,'(a,i16,a)')&
             '<DataArray type="Int32" Name="types" format="appended" offset="',&
-           offset,'"/>' 
+           offset,'"/>'
         offset=offset+size_int+nc*size_int
         write(qunit,'(a)')'</Cells>'
         write(qunit,'(a)')'</Piece>'
@@ -1524,7 +1525,7 @@ contains
                  '" NumberOfCells="',nc,'">'
               write(qunit,'(a)')'<PointData>'
               do iw=1,nw+nwauxio
-                if(iw<=nw) then 
+                if(iw<=nw) then
                   if(.not.w_write(iw)) cycle
                 end if
                 write(qunit,'(a,a,a,i16,a)')'<DataArray type="Float64" Name="',&
@@ -1547,7 +1548,7 @@ contains
                  '" NumberOfCells="',nc,'">'
               write(qunit,'(a)')'<CellData>'
               do iw=1,nw+nwauxio
-                if(iw<=nw) then 
+                if(iw<=nw) then
                   if(.not.w_write(iw)) cycle
                 end if
                 write(qunit,'(a,a,a,i16,a)')'<DataArray type="Float64" Name="',&
@@ -1570,16 +1571,16 @@ contains
             write(qunit,'(a,i16,a)'&
 )'<DataArray type="Int32" Name="connectivity" format="appended" offset="',&
                offset,'"/>'
-            offset=offset+length_conn+size_int    
+            offset=offset+length_conn+size_int
             ! offsets data array
             write(qunit,'(a,i16,a)')&
 '<DataArray type="Int32" Name="offsets" format="appended" offset="',offset,&
                '"/>'
-            offset=offset+length_offsets+size_int    
+            offset=offset+length_offsets+size_int
             ! VTK cell type data array
             write(qunit,'(a,i16,a)')&
 '<DataArray type="Int32" Name="types" format="appended" offset="',offset,&
-               '"/>' 
+               '"/>'
             offset=offset+size_int+nc*size_int
             write(qunit,'(a)')'</Cells>'
             write(qunit,'(a)')'</Piece>'
@@ -1601,7 +1602,7 @@ contains
            normconv,ixCmin1,ixCmin2,ixCmin3,ixCmax1,ixCmax2,ixCmax3,ixCCmin1,&
            ixCCmin2,ixCCmin3,ixCCmax1,ixCCmax2,ixCCmax3,.true.)
         do iw=1,nw+nwauxio
-          if(iw<=nw) then 
+          if(iw<=nw) then
             if(.not.w_write(iw)) cycle
           end if
           if(cell_corner) then
@@ -1615,31 +1616,31 @@ contains
           end if
         end do
         write(qunit) length_coords
-        do ix3=ixCmin3,ixCmax3 
-        do ix2=ixCmin2,ixCmax2 
-        do ix1=ixCmin1,ixCmax1 
+        do ix3=ixCmin3,ixCmax3
+        do ix2=ixCmin2,ixCmax2
+        do ix1=ixCmin1,ixCmax1
           x_VTK(1:3)=zero;
           x_VTK(1:ndim)=xC_TMP(ix1,ix2,ix3,1:ndim)*normconv(0);
           do k=1,3
             write(qunit) x_VTK(k)
           end do
-        end do 
-        end do 
-        end do 
+        end do
+        end do
+        end do
         write(qunit) length_conn
         do ix3=1,nx3
         do ix2=1,nx2
         do ix1=1,nx1
-          
-          
-          
+
+
+
           write(qunit)(ix3-1)*nxC2*nxC1+(ix2-1)*nxC1+ix1-1,&
               (ix3-1)*nxC2*nxC1+(ix2-1)*nxC1+ix1,&
              (ix3-1)*nxC2*nxC1+    ix2*nxC1+ix1-1,&
              (ix3-1)*nxC2*nxC1+    ix2*nxC1+ix1,&
              ix3*nxC2*nxC1+(ix2-1)*nxC1+ix1-1,ix3*nxC2*nxC1+(ix2-1)*nxC1+ix1,&
              ix3*nxC2*nxC1+    ix2*nxC1+ix1-1,ix3*nxC2*nxC1+    ix2*nxC1+ix1
-           
+
         end do
         end do
         end do
@@ -1647,9 +1648,9 @@ contains
         do icel=1,nc
           write(qunit) icel*(2**3)
         end do
-       
-       
-        VTK_type=11 
+
+
+        VTK_type=11
         write(qunit) size_int*nc
         do icel=1,nc
           write(qunit) VTK_type
@@ -1665,17 +1666,17 @@ contains
           do Morton_no=Morton_start(ipe),Morton_stop(ipe)
             if(.not. Morton_aim(Morton_no)) cycle
             itag=Morton_no
-            call MPI_RECV(xC_TMP,1,type_block_xc_io, ipe,itag,icomm,&
+            call mpi_recv_wrapper(xC_TMP,1,type_block_xc_io, ipe,itag,icomm,&
                intstatus(:,1),ierrmpi)
             if(cell_corner) then
-              call MPI_RECV(wC_TMP,1,type_block_wc_io, ipe,itag,icomm,&
+              call mpi_recv_wrapper(wC_TMP,1,type_block_wc_io, ipe,itag,icomm,&
                  intstatus(:,1),ierrmpi)
             else
-              call MPI_RECV(wCC_TMP,1,type_block_wcc_io, ipe,itag,icomm,&
+              call mpi_recv_wrapper(wCC_TMP,1,type_block_wcc_io, ipe,itag,icomm,&
                  intstatus(:,1),ierrmpi)
             end if
             do iw=1,nw+nwauxio
-              if(iw<=nw) then 
+              if(iw<=nw) then
                 if(.not.w_write(iw)) cycle
               end if
               if(cell_corner) then
@@ -1691,24 +1692,24 @@ contains
               end if
             end do
             write(qunit) length_coords
-            do ix3=ixCmin3,ixCmax3 
-            do ix2=ixCmin2,ixCmax2 
-            do ix1=ixCmin1,ixCmax1 
+            do ix3=ixCmin3,ixCmax3
+            do ix2=ixCmin2,ixCmax2
+            do ix1=ixCmin1,ixCmax1
               x_VTK(1:3)=zero;
               x_VTK(1:ndim)=xC_TMP(ix1,ix2,ix3,1:ndim)*normconv(0);
               do k=1,3
                write(qunit) x_VTK(k)
               end do
-            end do 
-            end do 
-            end do 
+            end do
+            end do
+            end do
             write(qunit) length_conn
             do ix3=1,nx3
             do ix2=1,nx2
             do ix1=1,nx1
-              
-              
-              
+
+
+
               write(qunit)(ix3-1)*nxC2*nxC1+(ix2-1)*nxC1+ix1-1,&
                   (ix3-1)*nxC2*nxC1+(ix2-1)*nxC1+ix1,&
                  (ix3-1)*nxC2*nxC1+    ix2*nxC1+ix1-1,&
@@ -1717,7 +1718,7 @@ contains
                  ix3*nxC2*nxC1+(ix2-1)*nxC1+ix1,&
                  ix3*nxC2*nxC1+    ix2*nxC1+ix1-1,&
                  ix3*nxC2*nxC1+    ix2*nxC1+ix1
-               
+
             end do
             end do
             end do
@@ -1725,9 +1726,9 @@ contains
             do icel=1,nc
               write(qunit) icel*(2**3)
             end do
-            
-            
-             VTK_type=11 
+
+
+             VTK_type=11
             write(qunit) size_int*nc
             do icel=1,nc
               write(qunit) VTK_type
@@ -1764,16 +1765,16 @@ contains
     do ix3=1,nx3
     do ix2=1,nx2
     do ix1=1,nx1
-            
-            
-            
+
+
+
             write(qunit,'(8(i7,1x))')(ix3-1)*nxC2*nxC1+(ix2-1)*nxC1+ix1-1,&
                 (ix3-1)*nxC2*nxC1+(ix2-1)*nxC1+ix1,&
                (ix3-1)*nxC2*nxC1+    ix2*nxC1+ix1-1,&
                (ix3-1)*nxC2*nxC1+    ix2*nxC1+ix1,&
                ix3*nxC2*nxC1+(ix2-1)*nxC1+ix1-1,ix3*nxC2*nxC1+(ix2-1)*nxC1+ix1,&
                ix3*nxC2*nxC1+    ix2*nxC1+ix1-1,ix3*nxC2*nxC1+    ix2*nxC1+ix1
-            
+
     end do
     end do
     end do
@@ -1785,7 +1786,7 @@ contains
     ! parallel, uses calc_grid to compute nwauxio variables
     ! allows renormalizing using convert factors
     ! allows skipping of w_write selected variables
-    ! implementation such that length of ASCII output is identical when 
+    ! implementation such that length of ASCII output is identical when
     ! run on 1 versus multiple CPUs (however, the order of the vtu pieces can differ)
     use mod_forest, only: Morton_start, Morton_stop, tree_node_ptr,&
         igrid_to_node, sfc_to_igrid
@@ -1872,14 +1873,14 @@ contains
         itag=Morton_no
         ind_send=(/ ixCmin1,ixCmin2,ixCmin3,ixCmax1,ixCmax2,ixCmax3,ixCCmin1,&
            ixCCmin2,ixCCmin3,ixCCmax1,ixCCmax2,ixCCmax3, ig1,ig2,ig3 /)
-        call MPI_SEND(ind_send,siz_ind,MPI_INTEGER, 0,itag,icomm,ierrmpi)
-        call MPI_SEND(wC_TMP,1,type_block_wc_io, 0,itag,icomm,ierrmpi)
-        call MPI_SEND(wCC_TMP,1,type_block_wcc_io, 0,itag,icomm,ierrmpi)
+        call mpi_send_wrapper(ind_send,siz_ind,MPI_INTEGER, 0,itag,icomm,ierrmpi)
+        call mpi_send_wrapper(wC_TMP,1,type_block_wc_io, 0,itag,icomm,ierrmpi)
+        call mpi_send_wrapper(wCC_TMP,1,type_block_wcc_io, 0,itag,icomm,ierrmpi)
       end do
     else
       inquire(qunit,opened=fileopen)
       if(.not.fileopen)then
-        ! generate filename 
+        ! generate filename
         filenr=snapshotini
         if (autoconvert) filenr=snapshotnext
         write(filename,'(a,i4.4,a)') TRIM(base_filename),filenr,".vti"
@@ -1899,18 +1900,18 @@ contains
       wholeExtent = 0
       ! if we use writespshift, the whole extent has to be calculated:
       wholeExtent(1*2-1) = nx1 * ceiling(((xprobmax1-xprobmin1)*writespshift(1,&
-         1)) /(nx1*dxlevel(1))) 
+         1)) /(nx1*dxlevel(1)))
       wholeExtent(2*2-1) = nx2 * ceiling(((xprobmax2-xprobmin2)*writespshift(2,&
-         1)) /(nx2*dxlevel(2))) 
+         1)) /(nx2*dxlevel(2)))
       wholeExtent(3*2-1) = nx3 * ceiling(((xprobmax3-xprobmin3)*writespshift(3,&
-         1)) /(nx3*dxlevel(3))) 
+         1)) /(nx3*dxlevel(3)))
       wholeExtent(1*2)   = nx1 * floor(((xprobmax1-xprobmin1)*(1.0d0-&
-         writespshift(1,2))) /(nx1*dxlevel(1))) 
+         writespshift(1,2))) /(nx1*dxlevel(1)))
       wholeExtent(2*2)   = nx2 * floor(((xprobmax2-xprobmin2)*(1.0d0-&
-         writespshift(2,2))) /(nx2*dxlevel(2))) 
+         writespshift(2,2))) /(nx2*dxlevel(2)))
       wholeExtent(3*2)   = nx3 * floor(((xprobmax3-xprobmin3)*(1.0d0-&
-         writespshift(3,2))) /(nx3*dxlevel(3))) 
-      
+         writespshift(3,2))) /(nx3*dxlevel(3)))
+
       ! generate xml header
       write(qunit,'(a)')'<?xml version="1.0"?>'
       write(qunit,'(a)',advance='no') '<VTKFile type="ImageData"'
@@ -1938,7 +1939,7 @@ contains
         call write_vti(qunit,ixGlo1,ixGlo2,ixGlo3,ixGhi1,ixGhi2,ixGhi3,ixCmin1,&
            ixCmin2,ixCmin3,ixCmax1,ixCmax2,ixCmax3,ixCCmin1,ixCCmin2,ixCCmin3,&
            ixCCmax1,ixCCmax2,ixCCmax3,ig1,ig2,ig3,nx1,nx2,nx3,normconv,wnamei,&
-           wC_TMP,wCC_TMP)   
+           wC_TMP,wCC_TMP)
       end do
 
       if(npe>1)then
@@ -1947,7 +1948,7 @@ contains
           do Morton_no=Morton_start(ipe),Morton_stop(ipe)
             if(.not. Morton_aim(Morton_no)) cycle
             itag=Morton_no
-            call MPI_RECV(ind_recv,siz_ind, MPI_INTEGER, ipe,itag,icomm,&
+            call mpi_recv_wrapper(ind_recv,siz_ind, MPI_INTEGER, ipe,itag,icomm,&
                intstatus(:,1),ierrmpi)
             ixrvCmin1=ind_recv(1);ixrvCmin2=ind_recv(2);ixrvCmin3=ind_recv(3)
             ixrvCmax1=ind_recv(3+1);ixrvCmax2=ind_recv(3+2)
@@ -1956,15 +1957,15 @@ contains
             ixrvCCmin3=ind_recv(2*3+3);ixrvCCmax1=ind_recv(3*3+1)
             ixrvCCmax2=ind_recv(3*3+2);ixrvCCmax3=ind_recv(3*3+3);
             ig1=ind_recv(4*3+1);ig2=ind_recv(4*3+2);ig3=ind_recv(4*3+3);
-            call MPI_RECV(wC_TMP,1,type_block_wc_io, ipe,itag,icomm,&
+            call mpi_recv_wrapper(wC_TMP,1,type_block_wc_io, ipe,itag,icomm,&
                intstatus(:,1),ierrmpi)
-            call MPI_RECV(wCC_TMP,1,type_block_wcc_io, ipe,itag,icomm,&
+            call mpi_recv_wrapper(wCC_TMP,1,type_block_wcc_io, ipe,itag,icomm,&
                intstatus(:,1),ierrmpi)
             call write_vti(qunit,ixGlo1,ixGlo2,ixGlo3,ixGhi1,ixGhi2,ixGhi3,&
                ixrvCmin1,ixrvCmin2,ixrvCmin3,ixrvCmax1,ixrvCmax2,ixrvCmax3,&
                ixrvCCmin1,ixrvCCmin2,ixrvCCmin3,ixrvCCmax1,ixrvCCmax2,&
                ixrvCCmax3,ig1,ig2,ig3,nx1,nx2,nx3,normconv,wnamei,wC_TMP,&
-               wCC_TMP)   
+               wCC_TMP)
           end do
         end do
       end if
@@ -2020,7 +2021,7 @@ contains
     ! Now write the Source files:
     inquire(qunit,opened=fileopen)
     if(.not.fileopen)then
-      ! generate filename 
+      ! generate filename
       filenr=snapshotini
       if (autoconvert) filenr=snapshotnext
       ! Open the file for the header part
@@ -2094,7 +2095,7 @@ contains
     ! parallel, uses calc_grid to compute nwauxio variables
     ! allows renormalizing using convert factors
     ! allows skipping of w_write selected variables
-    ! implementation such that length of ASCII output is identical when 
+    ! implementation such that length of ASCII output is identical when
     ! run on 1 versus multiple CPUs (however, the order of the vtu pieces can differ)
     use mod_forest, only: Morton_start, Morton_stop, sfc_to_igrid
     use mod_global_parameters
@@ -2137,7 +2138,7 @@ contains
     if(mype==0) then
       inquire(qunit,opened=fileopen)
       if(.not.fileopen)then
-        ! generate filename 
+        ! generate filename
         filenr=snapshotini
         if (autoconvert) filenr=snapshotnext
         write(filename,'(a,i4.4,a)') TRIM(base_filename),filenr,".vtu"
@@ -2168,10 +2169,10 @@ contains
      if (Morton_stop(mype)==0) call mpistop("nultag")
      itag=1000*Morton_stop(mype)
      !print *,'ype,itag for levmin=',mype,itag,levmin
-     call MPI_SEND(levmin,1,MPI_INTEGER, 0,itag,icomm,ierrmpi)
+     call mpi_send_wrapper(levmin,1,MPI_INTEGER, 0,itag,icomm,ierrmpi)
      itag=2000*Morton_stop(mype)
      !print *,'mype,itag for levmax=',mype,itag,levmax
-     call MPI_SEND(levmax,1,MPI_INTEGER, 0,itag,icomm,ierrmpi)
+     call mpi_send_wrapper(levmax,1,MPI_INTEGER, 0,itag,icomm,ierrmpi)
     end if
     ! Note: using the w_write, writelevel, writespshift
     ! we can clip parts of the grid away, select variables, levels etc.
@@ -2181,9 +2182,9 @@ contains
         igrid=sfc_to_igrid(Morton_no)
         if (mype/=0)then
           itag=Morton_no
-          call MPI_SEND(igrid,1,MPI_INTEGER, 0,itag,icomm,ierrmpi)
+          call mpi_send_wrapper(igrid,1,MPI_INTEGER, 0,itag,icomm,ierrmpi)
           itag=igrid
-          call MPI_SEND(node(plevel_,igrid),1,MPI_INTEGER, 0,itag,icomm,&
+          call mpi_send_wrapper(node(plevel_,igrid),1,MPI_INTEGER, 0,itag,icomm,&
              ierrmpi)
         end if
         if (node(plevel_,igrid)/=level) cycle
@@ -2200,7 +2201,7 @@ contains
            xprobmin2)*writespshift(2,2).and.rnode(rpxmax3_,&
            igrid)<=xprobmax3-(xprobmax3-xprobmin3)*writespshift(3,2))
         if (mype/=0)then
-          call MPI_SEND(conv_grid,1,MPI_LOGICAL,0,itag,icomm,ierrmpi)
+          call mpi_send_wrapper(conv_grid,1,MPI_LOGICAL,0,itag,icomm,ierrmpi)
         end if
         if (.not.conv_grid) cycle
         call calc_x(igrid,xC,xCC)
@@ -2212,14 +2213,14 @@ contains
           ind_send=(/ ixCmin1,ixCmin2,ixCmin3,ixCmax1,ixCmax2,ixCmax3,ixCCmin1,&
              ixCCmin2,ixCCmin3,ixCCmax1,ixCCmax2,ixCCmax3 /)
           siz_ind=4*3
-          call MPI_SEND(ind_send,siz_ind,MPI_INTEGER, 0,itag,icomm,ierrmpi)
-          call MPI_SEND(normconv,nw+nwauxio+1,MPI_DOUBLE_PRECISION, 0,itag,&
+          call mpi_send_wrapper(ind_send,siz_ind,MPI_INTEGER, 0,itag,icomm,ierrmpi)
+          call mpi_send_wrapper(normconv,nw+nwauxio+1,MPI_DOUBLE_PRECISION, 0,itag,&
              icomm,ierrmpi)
-          call MPI_SEND(wC_TMP,1,type_block_wc_io, 0,itag,icomm,ierrmpi)
-          call MPI_SEND(xC_TMP,1,type_block_xc_io, 0,itag,icomm,ierrmpi)
+          call mpi_send_wrapper(wC_TMP,1,type_block_wc_io, 0,itag,icomm,ierrmpi)
+          call mpi_send_wrapper(xC_TMP,1,type_block_xc_io, 0,itag,icomm,ierrmpi)
           itag=igrid
-          call MPI_SEND(wCC_TMP,1,type_block_wcc_io, 0,itag,icomm,ierrmpi)
-          call MPI_SEND(xCC_TMP,1,type_block_xcc_io, 0,itag,icomm,ierrmpi)
+          call mpi_send_wrapper(wCC_TMP,1,type_block_wcc_io, 0,itag,icomm,ierrmpi)
+          call mpi_send_wrapper(xCC_TMP,1,type_block_xcc_io, 0,itag,icomm,ierrmpi)
         else
           call write_vtk(qunit,ixGlo1,ixGlo2,ixGlo3,ixGhi1,ixGhi2,ixGhi3,&
              ixCmin1,ixCmin2,ixCmin3,ixCmax1,ixCmax2,ixCmax3,ixCCmin1,ixCCmin2,&
@@ -2234,29 +2235,29 @@ contains
       if(npe>1)then
         do ipe=1,npe-1
           itag=1000*Morton_stop(ipe)
-          call MPI_RECV(levmin_recv,1,MPI_INTEGER, ipe,itag,icomm,intstatus(:,&
+          call mpi_recv_wrapper(levmin_recv,1,MPI_INTEGER, ipe,itag,icomm,intstatus(:,&
              1),ierrmpi)
           !!print *,'mype RECEIVES,itag for levmin=',mype,itag,levmin_recv
           itag=2000*Morton_stop(ipe)
-          call MPI_RECV(levmax_recv,1,MPI_INTEGER, ipe,itag,icomm,intstatus(:,&
+          call mpi_recv_wrapper(levmax_recv,1,MPI_INTEGER, ipe,itag,icomm,intstatus(:,&
              1),ierrmpi)
           !!print *,'mype RECEIVES itag for levmax=',mype,itag,levmax_recv
           do level=levmin_recv,levmax_recv
             if (.not.writelevel(level)) cycle
             do  Morton_no=Morton_start(ipe),Morton_stop(ipe)
               itag=Morton_no
-              call MPI_RECV(igrid_recv,1,MPI_INTEGER, ipe,itag,icomm,&
+              call mpi_recv_wrapper(igrid_recv,1,MPI_INTEGER, ipe,itag,icomm,&
                  intstatus(:,1),ierrmpi)
               itag=igrid_recv
-              call MPI_RECV(level_recv,1,MPI_INTEGER, ipe,itag,icomm,&
+              call mpi_recv_wrapper(level_recv,1,MPI_INTEGER, ipe,itag,icomm,&
                  intstatus(:,1),ierrmpi)
               if (level_recv/=level) cycle
-              call MPI_RECV(cond_grid_recv,1,MPI_LOGICAL, ipe,itag,icomm,&
+              call mpi_recv_wrapper(cond_grid_recv,1,MPI_LOGICAL, ipe,itag,icomm,&
                  intstatus(:,1),ierrmpi)
               if(.not.cond_grid_recv)cycle
               itag=Morton_no
               siz_ind=4*3
-              call MPI_RECV(ind_recv,siz_ind, MPI_INTEGER, ipe,itag,icomm,&
+              call mpi_recv_wrapper(ind_recv,siz_ind, MPI_INTEGER, ipe,itag,icomm,&
                  intstatus(:,1),ierrmpi)
               ixrvCmin1=ind_recv(1);ixrvCmin2=ind_recv(2)
               ixrvCmin3=ind_recv(3);ixrvCmax1=ind_recv(3+1)
@@ -2264,16 +2265,16 @@ contains
               ixrvCCmin1=ind_recv(2*3+1);ixrvCCmin2=ind_recv(2*3+2)
               ixrvCCmin3=ind_recv(2*3+3);ixrvCCmax1=ind_recv(3*3+1)
               ixrvCCmax2=ind_recv(3*3+2);ixrvCCmax3=ind_recv(3*3+3);
-              call MPI_RECV(normconv,nw+nwauxio+1, MPI_DOUBLE_PRECISION,ipe,&
+              call mpi_recv_wrapper(normconv,nw+nwauxio+1, MPI_DOUBLE_PRECISION,ipe,&
                  itag,icomm,intstatus(:,1),ierrmpi)
-              call MPI_RECV(wC_TMP_recv,1,type_block_wc_io, ipe,itag,icomm,&
+              call mpi_recv_wrapper(wC_TMP_recv,1,type_block_wc_io, ipe,itag,icomm,&
                  intstatus(:,1),ierrmpi)
-              call MPI_RECV(xC_TMP_recv,1,type_block_xc_io, ipe,itag,icomm,&
+              call mpi_recv_wrapper(xC_TMP_recv,1,type_block_xc_io, ipe,itag,icomm,&
                  intstatus(:,1),ierrmpi)
               itag=igrid_recv
-              call MPI_RECV(wCC_TMP_recv,1,type_block_wcc_io, ipe,itag,icomm,&
+              call mpi_recv_wrapper(wCC_TMP_recv,1,type_block_wcc_io, ipe,itag,icomm,&
                  intstatus(:,1),ierrmpi)
-              call MPI_RECV(xCC_TMP_recv,1,type_block_xcc_io, ipe,itag,icomm,&
+              call mpi_recv_wrapper(xCC_TMP_recv,1,type_block_xcc_io, ipe,itag,icomm,&
                  intstatus(:,1),ierrmpi)
               call write_vtk(qunit,ixGlo1,ixGlo2,ixGlo3,ixGhi1,ixGhi2,ixGhi3,&
                  ixrvCmin1,ixrvCmin2,ixrvCmin3,ixrvCmax1,ixrvCmax2,ixrvCmax3,&
@@ -2307,7 +2308,7 @@ contains
        ixCmin1,ixCmin2,ixCmin3,ixCmax1,ixCmax2,ixCmax3,ixCCmin1,ixCCmin2,&
        ixCCmin3,ixCCmax1,ixCCmax2,ixCCmax3
     integer, intent(in) :: igrid,nc,np,nx1,nx2,nx3,nxC1,nxC2,nxC3
-    double precision, intent(in) :: normconv(0:nw+nwauxio) 
+    double precision, intent(in) :: normconv(0:nw+nwauxio)
     character(len=name_len), intent(in)::  wnamei(1:nw+nwauxio)
     double precision, dimension(ixMlo1-1:ixMhi1,ixMlo2-1:ixMhi2,&
        ixMlo3-1:ixMhi3,ndim) :: xC
@@ -2328,7 +2329,7 @@ contains
            '" NumberOfCells="',nc,'">'
         write(qunit,'(a)')'<PointData>'
         do iw=1,nw+nwauxio
-          if(iw<=nw) then 
+          if(iw<=nw) then
             if(.not.w_write(iw)) cycle
           end if
           write(qunit,'(a,a,a)')'<DataArray type="Float64" Name="',&
@@ -2342,15 +2343,15 @@ contains
         write(qunit,'(a)'&
            )'<DataArray type="Float32" NumberOfComponents="3" format="ascii">'
            ! write cell corner coordinates in a backward dimensional loop, always 3D output
-        do ix3=ixCmin3,ixCmax3 
-        do ix2=ixCmin2,ixCmax2 
-        do ix1=ixCmin1,ixCmax1 
+        do ix3=ixCmin3,ixCmax3
+        do ix2=ixCmin2,ixCmax2
+        do ix1=ixCmin1,ixCmax1
               x_VTK(1:3)=zero;
               x_VTK(1:ndim)=xC(ix1,ix2,ix3,1:ndim)*normconv(0);
               write(qunit,'(3(1pe14.6))') x_VTK
-        end do 
-        end do 
-        end do 
+        end do
+        end do
+        end do
         write(qunit,'(a)')'</DataArray>'
         write(qunit,'(a)')'</Points>'
 
@@ -2360,7 +2361,7 @@ contains
            '" NumberOfCells="',nc,'">'
         write(qunit,'(a)')'<CellData>'
         do iw=1,nw+nwauxio
-          if(iw<=nw) then 
+          if(iw<=nw) then
             if(.not.w_write(iw)) cycle
           end if
           write(qunit,'(a,a,a)')'<DataArray type="Float64" Name="',&
@@ -2375,15 +2376,15 @@ contains
         write(qunit,'(a)'&
            )'<DataArray type="Float32" NumberOfComponents="3" format="ascii">'
         ! write cell corner coordinates in a backward dimensional loop, always 3D output
-        do ix3=ixCmin3,ixCmax3 
-        do ix2=ixCmin2,ixCmax2 
-        do ix1=ixCmin1,ixCmax1 
+        do ix3=ixCmin3,ixCmax3
+        do ix2=ixCmin2,ixCmax2
+        do ix1=ixCmin1,ixCmax1
            x_VTK(1:3)=zero;
            x_VTK(1:ndim)=xC(ix1,ix2,ix3,1:ndim)*normconv(0);
            write(qunit,'(3(1pe14.6))') x_VTK
-        end do 
-        end do 
-        end do 
+        end do
+        end do
+        end do
         write(qunit,'(a)')'</DataArray>'
         write(qunit,'(a)')'</Points>'
     end select
@@ -2403,9 +2404,9 @@ contains
     ! VTK cell type data array
     write(qunit,'(a)')'<DataArray type="Int32" Name="types" format="ascii">'
     ! VTK_LINE=3; VTK_PIXEL=8; VTK_VOXEL=11 -> vtk-syntax
-    
-    
-     VTK_type=11 
+
+
+     VTK_type=11
     do icel=1,nc
       write(qunit,'(i2)') VTK_type
     end do
@@ -2426,7 +2427,7 @@ contains
        ixCmin1,ixCmin2,ixCmin3,ixCmax1,ixCmax2,ixCmax3,ixCCmin1,ixCCmin2,&
        ixCCmin3,ixCCmax1,ixCCmax2,ixCCmax3
     integer, intent(in) :: ig1,ig2,ig3,nx1,nx2,nx3
-    double precision, intent(in) :: normconv(0:nw+nwauxio) 
+    double precision, intent(in) :: normconv(0:nw+nwauxio)
     character(len=name_len), intent(in)::  wnamei(1:nw+nwauxio)
     double precision, dimension(ixMlo1-1:ixMhi1,ixMlo2-1:ixMhi2,&
        ixMlo3-1:ixMhi3,nw+nwauxio)   :: wC
@@ -2448,7 +2449,7 @@ contains
         write(qunit,'(a,6(i10),a)') '<Piece Extent="',extent,'">'
         write(qunit,'(a)')'<PointData>'
         do iw=1,nw+nwauxio
-          if(iw<=nw) then 
+          if(iw<=nw) then
              if(.not.w_write(iw)) cycle
           end if
           write(qunit,'(a,a,a)')'<DataArray type="Float64" Name="',&
@@ -2463,7 +2464,7 @@ contains
         write(qunit,'(a,6(i10),a)') '<Piece Extent="',extent,'">'
         write(qunit,'(a)')'<CellData>'
         do iw=1,nw+nwauxio
-          if(iw<=nw) then 
+          if(iw<=nw) then
             if(.not.w_write(iw)) cycle
           end if
           write(qunit,'(a,a,a)')'<DataArray type="Float64" Name="',&
@@ -2501,7 +2502,7 @@ contains
     end select
     inquire(qunit,opened=fileopen)
     if(.not.fileopen)then
-       ! generate filename 
+       ! generate filename
        filenr=snapshotini
        if (autoconvert) filenr=snapshotnext
        write(filename,'(a,i4.4,a)') TRIM(base_filename),filenr,".pvtu"
@@ -2554,7 +2555,7 @@ contains
     ! output for tecplot (ASCII format)
     ! parallel, uses calc_grid to compute nwauxio variables
     ! allows renormalizing using convert factors
-    ! the current implementation is such that tecplotmpi and tecplotCCmpi will 
+    ! the current implementation is such that tecplotmpi and tecplotCCmpi will
     ! create different length output ASCII files when used on 1 versus multiple CPUs
     ! in fact, on 1 CPU, there will be as many zones as there are levels
     ! on multiple CPUs, there will be a number of zones up to the number of
@@ -2646,12 +2647,12 @@ contains
 
     if(mype==0.and.npe>1) allocate(intstatus(MPI_STATUS_SIZE,1))
 
-    
+
     if(mype/=0) then
       itag=1000*Morton_stop(mype)
-      call MPI_SEND(levmin,1,MPI_INTEGER, 0,itag,icomm,ierrmpi)
+      call mpi_send_wrapper(levmin,1,MPI_INTEGER, 0,itag,icomm,ierrmpi)
       itag=2000*Morton_stop(mype)
-      call MPI_SEND(levmax,1,MPI_INTEGER, 0,itag,icomm,ierrmpi)
+      call mpi_send_wrapper(levmax,1,MPI_INTEGER, 0,itag,icomm,ierrmpi)
     end if
 
     do level=levmin,levmax
@@ -2663,12 +2664,12 @@ contains
        ! with the AMR grid LEVEL. Other options would be
        !    let each grid define a zone: inefficient for TECPLOT internal workings
        !       hence not implemented
-       !    let entire octree define 1 zone: no difference in interpolation 
+       !    let entire octree define 1 zone: no difference in interpolation
        !       properties across TECPLOT zones detected as yet, hence not done
        select case(convert_type)
          case('tecplotmpi')
            ! in this option, we store the corner coordinates, as well as the corner
-           ! values of all variables (obtained by averaging). This allows POINT packaging, 
+           ! values of all variables (obtained by averaging). This allows POINT packaging,
            ! and thus we can save full grid info by using one call to calc_grid
            if (mype==0.and.(nodesonlevelmype>0.and.&
               elemsonlevelmype>0))write(qunit,&
@@ -2680,9 +2681,9 @@ contains
              igrid = sfc_to_igrid(Morton_no)
              if (mype/=0)then
                itag=Morton_no
-               call MPI_SEND(igrid,1,MPI_INTEGER, 0,itag,icomm,ierrmpi)
+               call mpi_send_wrapper(igrid,1,MPI_INTEGER, 0,itag,icomm,ierrmpi)
                itag=igrid
-               call MPI_SEND(node(plevel_,igrid),1,MPI_INTEGER, 0,itag,icomm,&
+               call mpi_send_wrapper(node(plevel_,igrid),1,MPI_INTEGER, 0,itag,icomm,&
                   ierrmpi)
              end if
              if (node(plevel_,igrid)/=level) cycle
@@ -2694,14 +2695,14 @@ contains
                 itag=Morton_no
                 ind_send=(/ ixCmin1,ixCmin2,ixCmin3,ixCmax1,ixCmax2,ixCmax3 /)
                 siz_ind=2*3
-                call MPI_SEND(ind_send,siz_ind, MPI_INTEGER, 0,itag,icomm,&
+                call mpi_send_wrapper(ind_send,siz_ind, MPI_INTEGER, 0,itag,icomm,&
                    ierrmpi)
-                call MPI_SEND(normconv,nw+nwauxio+1,MPI_DOUBLE_PRECISION, 0,&
+                call mpi_send_wrapper(normconv,nw+nwauxio+1,MPI_DOUBLE_PRECISION, 0,&
                    itag,icomm,ierrmpi)
-    
-                call MPI_SEND(wC_TMP,1,type_block_wc_io, 0,itag,icomm,ierrmpi)
-                call MPI_SEND(xC_TMP,1,type_block_xc_io, 0,itag,icomm,ierrmpi)
-             else  
+
+                call mpi_send_wrapper(wC_TMP,1,type_block_wc_io, 0,itag,icomm,ierrmpi)
+                call mpi_send_wrapper(xC_TMP,1,type_block_xc_io, 0,itag,icomm,ierrmpi)
+             else
                do ix3=ixCmin3,ixCmax3
                do ix2=ixCmin2,ixCmax2
                do ix1=ixCmin1,ixCmax1
@@ -2716,9 +2717,9 @@ contains
            end do
          case('tecplotCCmpi')
            ! in this option, we store the corner coordinates, and the cell center
-           ! values of all variables. Due to this mix of corner/cell center, we must 
-           ! use BLOCK packaging, and thus we have enormous overhead by using 
-           ! calc_grid repeatedly to merely fill values of cell corner coordinates 
+           ! values of all variables. Due to this mix of corner/cell center, we must
+           ! use BLOCK packaging, and thus we have enormous overhead by using
+           ! calc_grid repeatedly to merely fill values of cell corner coordinates
            ! and cell center values per dimension, per variable
            if(ndim+nw+nwauxio>99) call mpistop(&
               "adjust format specification in writeout")
@@ -2759,9 +2760,9 @@ contains
                igrid = sfc_to_igrid(Morton_no)
                if (mype/=0)then
                  itag=Morton_no*idim
-                 call MPI_SEND(igrid,1,MPI_INTEGER, 0,itag,icomm,ierrmpi)
+                 call mpi_send_wrapper(igrid,1,MPI_INTEGER, 0,itag,icomm,ierrmpi)
                  itag=igrid*idim
-                 call MPI_SEND(node(plevel_,igrid),1,MPI_INTEGER, 0,itag,icomm,&
+                 call mpi_send_wrapper(node(plevel_,igrid),1,MPI_INTEGER, 0,itag,icomm,&
                     ierrmpi)
                end if
                if (node(plevel_,igrid)/=level) cycle
@@ -2774,11 +2775,11 @@ contains
                     ixCmax3 /)
                  siz_ind=2*3
                  itag=igrid*idim
-                 call MPI_SEND(ind_send,siz_ind, MPI_INTEGER, 0,itag,icomm,&
+                 call mpi_send_wrapper(ind_send,siz_ind, MPI_INTEGER, 0,itag,icomm,&
                     ierrmpi)
-                 call MPI_SEND(normconv,nw+nwauxio+1,MPI_DOUBLE_PRECISION, 0,&
+                 call mpi_send_wrapper(normconv,nw+nwauxio+1,MPI_DOUBLE_PRECISION, 0,&
                     itag,icomm,ierrmpi)
-                 call MPI_SEND(xC_TMP,1,type_block_xc_io, 0,itag,icomm,&
+                 call mpi_send_wrapper(xC_TMP,1,type_block_xc_io, 0,itag,icomm,&
                     ierrmpi)
                else
                  write(qunit,fmt="(100(e14.6))") xC_TMP(ixCmin1:ixCmax1,&
@@ -2791,9 +2792,9 @@ contains
                igrid = sfc_to_igrid(Morton_no)
                if(mype/=0)then
                  itag=Morton_no*(ndim+iw)
-                 call MPI_SEND(igrid,1,MPI_INTEGER, 0,itag,icomm,ierrmpi)
+                 call mpi_send_wrapper(igrid,1,MPI_INTEGER, 0,itag,icomm,ierrmpi)
                  itag=igrid*(ndim+iw)
-                 call MPI_SEND(node(plevel_,igrid),1,MPI_INTEGER, 0,itag,icomm,&
+                 call mpi_send_wrapper(node(plevel_,igrid),1,MPI_INTEGER, 0,itag,icomm,&
                     ierrmpi)
                end if
                if (node(plevel_,igrid)/=level) cycle
@@ -2807,11 +2808,11 @@ contains
                     ixCCmax3 /)
                  siz_ind=2*3
                  itag=igrid*(ndim+iw)
-                 call MPI_SEND(ind_send,siz_ind, MPI_INTEGER, 0,itag,icomm,&
+                 call mpi_send_wrapper(ind_send,siz_ind, MPI_INTEGER, 0,itag,icomm,&
                     ierrmpi)
-                 call MPI_SEND(normconv,nw+nwauxio+1,MPI_DOUBLE_PRECISION, 0,&
+                 call mpi_send_wrapper(normconv,nw+nwauxio+1,MPI_DOUBLE_PRECISION, 0,&
                     itag,icomm,ierrmpi)
-                 call MPI_SEND(wCC_TMP,1,type_block_wcc_io, 0,itag,icomm,&
+                 call mpi_send_wrapper(wCC_TMP,1,type_block_wcc_io, 0,itag,icomm,&
                     ierrmpi)
                else
                  write(qunit,fmt="(100(e14.6))") wCC_TMP(ixCCmin1:ixCCmax1,&
@@ -2828,16 +2829,16 @@ contains
          igrid = sfc_to_igrid(Morton_no)
          if(mype/=0)then
            itag=Morton_no
-           call MPI_SEND(igrid,1,MPI_INTEGER, 0,itag,icomm,ierrmpi)
+           call mpi_send_wrapper(igrid,1,MPI_INTEGER, 0,itag,icomm,ierrmpi)
            itag=igrid
-           call MPI_SEND(node(plevel_,igrid),1,MPI_INTEGER, 0,itag,icomm,&
+           call mpi_send_wrapper(node(plevel_,igrid),1,MPI_INTEGER, 0,itag,icomm,&
               ierrmpi)
          end if
          if(node(plevel_,igrid)/=level) cycle
          igonlevel=igonlevel+1
          if(mype/=0)then
            itag=igrid
-           call MPI_SEND(igonlevel,1,MPI_INTEGER, 0,itag,icomm,ierrmpi)
+           call mpi_send_wrapper(igonlevel,1,MPI_INTEGER, 0,itag,icomm,ierrmpi)
          end if
          if(mype==0)then
            call save_conntec(qunit,igrid,igonlevel)
@@ -2848,10 +2849,10 @@ contains
     if(mype==0 .and.npe>1) then
       do ipe=1,npe-1
         itag=1000*Morton_stop(ipe)
-        call MPI_RECV(levmin_recv,1,MPI_INTEGER, ipe,itag,icomm,intstatus(:,1),&
+        call mpi_recv_wrapper(levmin_recv,1,MPI_INTEGER, ipe,itag,icomm,intstatus(:,1),&
            ierrmpi)
         itag=2000*Morton_stop(ipe)
-        call MPI_RECV(levmax_recv,1,MPI_INTEGER, ipe,itag,icomm,intstatus(:,1),&
+        call mpi_recv_wrapper(levmax_recv,1,MPI_INTEGER, ipe,itag,icomm,intstatus(:,1),&
            ierrmpi)
         do level=levmin_recv,levmax_recv
           nodesonlevelmype=NumGridsOnLevel_mype(level,ipe)*nxC1*nxC2*nxC3
@@ -2861,7 +2862,7 @@ contains
           select case(convert_type)
            case('tecplotmpi')
               ! in this option, we store the corner coordinates, as well as the corner
-              ! values of all variables (obtained by averaging). This allows POINT packaging, 
+              ! values of all variables (obtained by averaging). This allows POINT packaging,
               ! and thus we can save full grid info by using one call to calc_grid
               if(nodesonlevelmype>0.and.elemsonlevelmype>0) write(qunit,&
                  "(a,i7,a,a,i7,a,i7,a,f25.16,a,a)") 'ZONE T="',level,'"',&
@@ -2870,24 +2871,24 @@ contains
                  ', DATAPACKING=POINT, ZONETYPE=',  'FEBRICK'
               do  Morton_no=Morton_start(ipe),Morton_stop(ipe)
                itag=Morton_no
-               call MPI_RECV(igrid_recv,1,MPI_INTEGER, ipe,itag,icomm,&
+               call mpi_recv_wrapper(igrid_recv,1,MPI_INTEGER, ipe,itag,icomm,&
                   intstatus(:,1),ierrmpi)
                itag=igrid_recv
-               call MPI_RECV(level_recv,1,MPI_INTEGER, ipe,itag,icomm,&
+               call mpi_recv_wrapper(level_recv,1,MPI_INTEGER, ipe,itag,icomm,&
                   intstatus(:,1),ierrmpi)
                if (level_recv/=level) cycle
                itag=Morton_no
                siz_ind=2*3
-               call MPI_RECV(ind_recv,siz_ind, MPI_INTEGER, ipe,itag,icomm,&
+               call mpi_recv_wrapper(ind_recv,siz_ind, MPI_INTEGER, ipe,itag,icomm,&
                   intstatus(:,1),ierrmpi)
                ixrvCmin1=ind_recv(1);ixrvCmin2=ind_recv(2)
                ixrvCmin3=ind_recv(3);ixrvCmax1=ind_recv(3+1)
                ixrvCmax2=ind_recv(3+2);ixrvCmax3=ind_recv(3+3);
-               call MPI_RECV(normconv,nw+nwauxio+1, MPI_DOUBLE_PRECISION,ipe,&
+               call mpi_recv_wrapper(normconv,nw+nwauxio+1, MPI_DOUBLE_PRECISION,ipe,&
                   itag,icomm,intstatus(:,1),ierrmpi)
-               call MPI_RECV(wC_TMP_recv,1,type_block_wc_io, ipe,itag,icomm,&
+               call mpi_recv_wrapper(wC_TMP_recv,1,type_block_wc_io, ipe,itag,icomm,&
                   intstatus(:,1),ierrmpi)
-               call MPI_RECV(xC_TMP_recv,1,type_block_xc_io, ipe,itag,icomm,&
+               call mpi_recv_wrapper(xC_TMP_recv,1,type_block_xc_io, ipe,itag,icomm,&
                   intstatus(:,1),ierrmpi)
                do ix3=ixrvCmin3,ixrvCmax3
                do ix2=ixrvCmin2,ixrvCmax2
@@ -2902,9 +2903,9 @@ contains
               end do
            case('tecplotCCmpi')
              ! in this option, we store the corner coordinates, and the cell center
-             ! values of all variables. Due to this mix of corner/cell center, we must 
-             ! use BLOCK packaging, and thus we have enormous overhead by using 
-             ! calc_grid repeatedly to merely fill values of cell corner coordinates 
+             ! values of all variables. Due to this mix of corner/cell center, we must
+             ! use BLOCK packaging, and thus we have enormous overhead by using
+             ! calc_grid repeatedly to merely fill values of cell corner coordinates
              ! and cell center values per dimension, per variable
              if(ndim+nw+nwauxio>99) call &
                 mpistop("adjust format specification in writeout")
@@ -2939,22 +2940,22 @@ contains
              do idim=1,ndim
                do  Morton_no=Morton_start(ipe),Morton_stop(ipe)
                  itag=Morton_no*idim
-                 call MPI_RECV(igrid_recv,1,MPI_INTEGER, ipe,itag,icomm,&
+                 call mpi_recv_wrapper(igrid_recv,1,MPI_INTEGER, ipe,itag,icomm,&
                     intstatus(:,1),ierrmpi)
                  itag=igrid_recv*idim
-                 call MPI_RECV(level_recv,1,MPI_INTEGER, ipe,itag,icomm,&
+                 call mpi_recv_wrapper(level_recv,1,MPI_INTEGER, ipe,itag,icomm,&
                     intstatus(:,1),ierrmpi)
                  if (level_recv/=level) cycle
                  siz_ind=2*3
                  itag=igrid_recv*idim
-                 call MPI_RECV(ind_recv,siz_ind, MPI_INTEGER, ipe,itag,icomm,&
+                 call mpi_recv_wrapper(ind_recv,siz_ind, MPI_INTEGER, ipe,itag,icomm,&
                     intstatus(:,1),ierrmpi)
                  ixrvCmin1=ind_recv(1);ixrvCmin2=ind_recv(2)
                  ixrvCmin3=ind_recv(3);ixrvCmax1=ind_recv(3+1)
-                 ixrvCmax2=ind_recv(3+2);ixrvCmax3=ind_recv(3+3);     
-                 call MPI_RECV(normconv,nw+nwauxio+1, MPI_DOUBLE_PRECISION,ipe,&
+                 ixrvCmax2=ind_recv(3+2);ixrvCmax3=ind_recv(3+3);
+                 call mpi_recv_wrapper(normconv,nw+nwauxio+1, MPI_DOUBLE_PRECISION,ipe,&
                     itag,icomm,intstatus(:,1),ierrmpi)
-                 call MPI_RECV(xC_TMP_recv,1,type_block_xc_io, ipe,itag,icomm,&
+                 call mpi_recv_wrapper(xC_TMP_recv,1,type_block_xc_io, ipe,itag,icomm,&
                     intstatus(:,1),ierrmpi)
                  write(qunit,fmt="(100(e14.6))") &
                     xC_TMP_recv(ixrvCmin1:ixrvCmax1,ixrvCmin2:ixrvCmax2,&
@@ -2964,22 +2965,22 @@ contains
              do iw=1,nw+nwauxio
                do Morton_no=Morton_start(ipe),Morton_stop(ipe)
                  itag=Morton_no*(ndim+iw)
-                 call MPI_RECV(igrid_recv,1,MPI_INTEGER, ipe,itag,icomm,&
+                 call mpi_recv_wrapper(igrid_recv,1,MPI_INTEGER, ipe,itag,icomm,&
                     intstatus(:,1),ierrmpi)
                  itag=igrid_recv*(ndim+iw)
-                 call MPI_RECV(level_recv,1,MPI_INTEGER, ipe,itag,icomm,&
+                 call mpi_recv_wrapper(level_recv,1,MPI_INTEGER, ipe,itag,icomm,&
                     intstatus(:,1),ierrmpi)
                  if (level_recv/=level) cycle
                  siz_ind=2*3
                  itag=igrid_recv*(ndim+iw)
-                 call MPI_RECV(ind_recv,siz_ind, MPI_INTEGER, ipe,itag,icomm,&
+                 call mpi_recv_wrapper(ind_recv,siz_ind, MPI_INTEGER, ipe,itag,icomm,&
                     intstatus(:,1),ierrmpi)
                  ixrvCCmin1=ind_recv(1);ixrvCCmin2=ind_recv(2)
                  ixrvCCmin3=ind_recv(3);ixrvCCmax1=ind_recv(3+1)
                  ixrvCCmax2=ind_recv(3+2);ixrvCCmax3=ind_recv(3+3);
-                 call MPI_RECV(normconv,nw+nwauxio+1, MPI_DOUBLE_PRECISION,ipe,&
+                 call mpi_recv_wrapper(normconv,nw+nwauxio+1, MPI_DOUBLE_PRECISION,ipe,&
                     itag,icomm,intstatus(:,1),ierrmpi)
-                 call MPI_RECV(wCC_TMP_recv,1,type_block_wcc_io, ipe,itag,&
+                 call mpi_recv_wrapper(wCC_TMP_recv,1,type_block_wcc_io, ipe,itag,&
                     icomm,intstatus(:,1),ierrmpi)
                  write(qunit,fmt="(100(e14.6))") &
                     wCC_TMP_recv(ixrvCCmin1:ixrvCCmax1,ixrvCCmin2:ixrvCCmax2,&
@@ -2992,21 +2993,21 @@ contains
 
           do Morton_no=Morton_start(ipe),Morton_stop(ipe)
             itag=Morton_no
-            call MPI_RECV(igrid_recv,1,MPI_INTEGER, ipe,itag,icomm,intstatus(:,&
+            call mpi_recv_wrapper(igrid_recv,1,MPI_INTEGER, ipe,itag,icomm,intstatus(:,&
                1),ierrmpi)
             itag=igrid_recv
-            call MPI_RECV(level_recv,1,MPI_INTEGER, ipe,itag,icomm,intstatus(:,&
+            call mpi_recv_wrapper(level_recv,1,MPI_INTEGER, ipe,itag,icomm,intstatus(:,&
                1),ierrmpi)
             if (level_recv/=level) cycle
             itag=igrid_recv
-            call MPI_RECV(igonlevel_recv,1,MPI_INTEGER, ipe,itag,icomm,&
+            call mpi_recv_wrapper(igonlevel_recv,1,MPI_INTEGER, ipe,itag,icomm,&
                intstatus(:,1),ierrmpi)
             call save_conntec(qunit,igrid_recv,igonlevel_recv)
           end do ! morton loop
         end do ! level loop
       end do ! ipe loop
     end if ! mype=0 if
-    
+
 
     if (npe>1) then
       call MPI_BARRIER(icomm,ierrmpi)
@@ -3066,7 +3067,7 @@ contains
     ! Now write the Source files:
     inquire(qunit,opened=fileopen)
     if(.not.fileopen)then
-      ! generate filename 
+      ! generate filename
       filenr=snapshotnext-1
       if (autoconvert) filenr=snapshotnext
       ! Open the file for the header part
@@ -3129,7 +3130,7 @@ contains
              write(qunit,'(a)')'<PointData>'
              do iw=1,nw
                 if(.not.w_write(iw))cycle
-    
+
                 write(qunit,'(a,a,a,i16,a)')'<DataArray type="Float32" Name="',&
                    TRIM(wnamei(iw)), '" format="appended" offset="',offset,&
                    '">'
@@ -3137,7 +3138,7 @@ contains
                 offset=offset+length+size_int
              enddo
              do iw=nw+1,nw+nwauxio
-    
+
                 write(qunit,'(a,a,a,i16,a)')'<DataArray type="Float32" Name="',&
                    TRIM(wnamei(iw)), '" format="appended" offset="',offset,&
                    '">'
@@ -3145,7 +3146,7 @@ contains
                 offset=offset+length+size_int
              enddo
              write(qunit,'(a)')'</PointData>'
-    
+
              write(qunit,'(a)')'<Points>'
              write(qunit,'(a,i16,a)')&
 '<DataArray type="Float32" NumberOfComponents="3" format="appended" offset="',&
@@ -3160,7 +3161,7 @@ contains
              write(qunit,'(a)')'<CellData>'
              do iw=1,nw
                 if(.not.w_write(iw))cycle
-    
+
                 write(qunit,'(a,a,a,i16,a)')'<DataArray type="Float32" Name="',&
                    TRIM(wnamei(iw)), '" format="appended" offset="',offset,&
                    '">'
@@ -3168,7 +3169,7 @@ contains
                 offset=offset+lengthcc+size_int
              enddo
              do iw=nw+1,nw+nwauxio
-    
+
                 write(qunit,'(a,a,a,i16,a)')'<DataArray type="Float32" Name="',&
                    TRIM(wnamei(iw)), '" format="appended" offset="',offset,&
                    '">'
@@ -3189,16 +3190,16 @@ contains
           write(qunit,'(a,i16,a)'&
 )'<DataArray type="Int32" Name="connectivity" format="appended" offset="',&
              offset,'"/>'
-          offset=offset+length_conn+size_int    
+          offset=offset+length_conn+size_int
           ! offsets data array
           write(qunit,'(a,i16,a)')&
 '<DataArray type="Int32" Name="offsets" format="appended" offset="',offset,&
              '"/>'
-          offset=offset+length_offsets+size_int    
+          offset=offset+length_offsets+size_int
           ! VTK cell type data array
           write(qunit,'(a,i16,a)')&
 '<DataArray type="Int32" Name="types" format="appended" offset="',offset,&
-             '"/>' 
+             '"/>'
           offset=offset+size_int+nc*size_int
           write(qunit,'(a)')'</Cells>'
           write(qunit,'(a)')'</Piece>'
@@ -3255,7 +3256,7 @@ contains
                   write(qunit) (((real(wCC_TMP(ix1,ix2,ix3,iw)*normconv(iw)),&
                      ix1=ixCCmin1,ixCCmax1),ix2=ixCCmin2,ixCCmax2),&
                      ix3=ixCCmin3,ixCCmax3)
-              end select 
+              end select
             enddo
             do iw=nw+1,nw+nwauxio
               select case(convert_type)
@@ -3269,34 +3270,34 @@ contains
                   write(qunit) (((real(wCC_TMP(ix1,ix2,ix3,iw)*normconv(iw)),&
                      ix1=ixCCmin1,ixCCmax1),ix2=ixCCmin2,ixCCmax2),&
                      ix3=ixCCmin3,ixCCmax3)
-              end select 
+              end select
             enddo
             write(qunit) length_coords
-            do ix3=ixCmin3,ixCmax3 
-            do ix2=ixCmin2,ixCmax2 
-            do ix1=ixCmin1,ixCmax1 
+            do ix3=ixCmin3,ixCmax3
+            do ix2=ixCmin2,ixCmax2
+            do ix1=ixCmin1,ixCmax1
                x_VTK(1:3)=zero;
                x_VTK(1:ndim)=xC_TMP(ix1,ix2,ix3,1:ndim)*normconv(0);
                do k=1,3
                  write(qunit) real(x_VTK(k))
                end do
-            end do 
-            end do 
-            end do 
+            end do
+            end do
+            end do
             write(qunit) length_conn
             do ix3=1,nx3
             do ix2=1,nx2
             do ix1=1,nx1
-            
-            
-            
+
+
+
             write(qunit)(ix3-1)*nxC2*nxC1+(ix2-1)*nxC1+ix1-1,&
                 (ix3-1)*nxC2*nxC1+(ix2-1)*nxC1+ix1,&
                (ix3-1)*nxC2*nxC1+    ix2*nxC1+ix1-1,&
                (ix3-1)*nxC2*nxC1+    ix2*nxC1+ix1,&
                ix3*nxC2*nxC1+(ix2-1)*nxC1+ix1-1,ix3*nxC2*nxC1+(ix2-1)*nxC1+ix1,&
                ix3*nxC2*nxC1+    ix2*nxC1+ix1-1,ix3*nxC2*nxC1+    ix2*nxC1+ix1
-             
+
             end do
             end do
             end do
@@ -3304,9 +3305,9 @@ contains
             do icel=1,nc
               write(qunit) icel*(2**3)
             end do
-           
-           
-            VTK_type=11 
+
+
+            VTK_type=11
             write(qunit) size_int*nc
             do icel=1,nc
               write(qunit) VTK_type
@@ -3324,6 +3325,6 @@ contains
     close(qunit)
 
   end subroutine punstructuredvtkB_mpi
-  
+
 
 end module mod_convert_files

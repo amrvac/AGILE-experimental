@@ -1,5 +1,6 @@
 !> Writes D-1 slice, can do so in various formats, depending on slice_type
 module mod_slice
+  use mod_mpi_wrapper
   use mod_basic_types
   use mod_comm_lib, only: mpistop
   implicit none
@@ -29,7 +30,7 @@ contains
 
   subroutine write_slice
     use mod_global_parameters
-    ! Writes a D-1 slice 
+    ! Writes a D-1 slice
     ! by Oliver Porth
     ! 22.Nov 2011
     integer :: islice
@@ -44,11 +45,11 @@ contains
   subroutine put_slice(dir,xslice)
     use mod_forest, only: Morton_sub_start, Morton_sub_stop
     use mod_global_parameters
-    ! Writes a D-1 slice 
+    ! Writes a D-1 slice
     ! For ONED simulations, output will be appended to one csv-file per slice
-    ! slices are sensitive to the saveprim switch and 
+    ! slices are sensitive to the saveprim switch and
     ! can contain auxiliary io variables (nwauxio)
-    ! Thus csv or vtu(CC)-files with primitive variables are obtained.  
+    ! Thus csv or vtu(CC)-files with primitive variables are obtained.
     ! when slice_type='dat', we save a D-1 dat file for potential restarts
     ! by Oliver Porth
     ! 22.Nov 2011
@@ -62,9 +63,9 @@ contains
     integer :: type_subblock_io, type_subblockC_io, type_subblock_x_io,&
         type_subblockC_x_io
     integer, dimension(ndim) :: sizes, subsizes, start
-    double precision,dimension(0:nw+nwauxio)          :: normconv 
-  
-    ! Preamble: 
+    double precision,dimension(0:nw+nwauxio)          :: normconv
+
+    ! Preamble:
     nx1=ixMhi1-ixMlo1+1;nx2=ixMhi2-ixMlo2+1;nx3=ixMhi3-ixMlo3+1;
     slice_fh=unitslice
 
@@ -83,22 +84,22 @@ contains
        case(1)
        if(xslice<xprobmin1.or.xslice>xprobmax1) call &
           mpistop("slice out of bounds")
-       
+
        case(2)
        if(xslice<xprobmin2.or.xslice>xprobmax2) call &
           mpistop("slice out of bounds")
-       
+
        case(3)
        if(xslice<xprobmin3.or.xslice>xprobmax3) call &
           mpistop("slice out of bounds")
-       
+
     end select
 
     ! Traverse the forest and fill nodes:
     call select_slice(dir,xslice,.false.,slice_fh,normconv)
 
     ! Create the MPI-datatype and select indices:
-    
+
     select case(dir)
     case (1)
        sizes(1) = ixGhi2; sizes(2) = ixGhi3;
@@ -124,16 +125,16 @@ contains
     case default
        call mpistop("slice direction not clear in put_slice")
     end select
-   
-    
-    
 
-    
+
+
+
+
     ixsubMlo(2-1) = ixsubGlo(2-1)+nghostcells
     ixsubMlo(3-1) = ixsubGlo(3-1)+nghostcells;
     ixsubMhi(2-1) = ixsubGhi(2-1)-nghostcells
     ixsubMhi(3-1) = ixsubGhi(3-1)-nghostcells;
-   
+
 
     sizes(ndim)=nw+nwexpand
     subsizes(ndim)=nw+nwexpand
@@ -154,11 +155,11 @@ contains
 
     ! Types for corner variables:
     subsizes(1:ndim-1) = subsizes(1:ndim-1) + 1
-    start(1:ndim-1)    = start(1:ndim-1) - 1 
+    start(1:ndim-1)    = start(1:ndim-1) - 1
     sizes(ndim)=nw+nwexpand
     subsizes(ndim)=nw+nwexpand
     start(ndim)=0
-    
+
     call MPI_TYPE_CREATE_SUBARRAY(ndim,sizes,subsizes,start, MPI_ORDER_FORTRAN,&
        MPI_DOUBLE_PRECISION, type_subblockC_io,ierrmpi)
     call MPI_TYPE_COMMIT(type_subblockC_io,ierrmpi)
@@ -170,12 +171,12 @@ contains
        MPI_DOUBLE_PRECISION, type_subblockC_x_io,ierrmpi)
     call MPI_TYPE_COMMIT(type_subblockC_x_io,ierrmpi)
 
-    
+
     ! local number of sub-grids:
     Njgrid=Morton_sub_stop(mype)-Morton_sub_start(mype)+1
 
-    ! Now output using various schemes: 
-    if (ndim==1) then 
+    ! Now output using various schemes:
+    if (ndim==1) then
        call put_slice_zerod
     else
        select case(slice_type)
@@ -215,7 +216,7 @@ contains
 
          inquire(slice_fh,opened=fileopen)
          if(.not.fileopen)then
-            ! generate filename: 
+            ! generate filename:
             write(xlabel,"(D9.2)")xslice
             xxlabel=trim(xlabel)
             if(xslice>=zero)then
@@ -225,7 +226,7 @@ contains
                '_x'//trim(xxlabel)//'_n',slicenext,'.vtu'
             open(slice_fh,file=filename,status='unknown',form='formatted')
          end if
-         ! get and write the header: 
+         ! get and write the header:
          call getheadernames(wnamei,xandwnamei,outfilehead)
          ! generate xml header
          write(slice_fh,'(a)')'<?xml version="1.0"?>'
@@ -259,28 +260,28 @@ contains
             do jgrid=1,Morton_sub_stop(ipe)-Morton_sub_start(ipe)+1
                itag=Morton_sub_start(ipe)+jgrid-1
                itag=itag*5
-               if (ipe == mype ) then 
-                  call MPI_SEND(ps_sub(jgrid)%x,1,type_subblock_x_io,0,itag,&
+               if (ipe == mype ) then
+                  call mpi_send_wrapper(ps_sub(jgrid)%x,1,type_subblock_x_io,0,itag,&
                      icomm,ierrmpi)
-                  call MPI_SEND(ps_sub(jgrid)%w,1,type_subblock_io,0,itag+1,&
+                  call mpi_send_wrapper(ps_sub(jgrid)%w,1,type_subblock_io,0,itag+1,&
                      icomm,ierrmpi)
-                  call MPI_SEND(ps_sub(jgrid)%xC,1,type_subblockC_x_io,0,&
+                  call mpi_send_wrapper(ps_sub(jgrid)%xC,1,type_subblockC_x_io,0,&
                      itag+2,icomm,ierrmpi)
-                  call MPI_SEND(ps_sub(jgrid)%wC,1,type_subblockC_io,0,itag+3,&
+                  call mpi_send_wrapper(ps_sub(jgrid)%wC,1,type_subblockC_io,0,itag+3,&
                      icomm,ierrmpi)
-                  call MPI_SEND(normconv,nw+nwauxio+1,MPI_DOUBLE_PRECISION,0,&
+                  call mpi_send_wrapper(normconv,nw+nwauxio+1,MPI_DOUBLE_PRECISION,0,&
                      itag+4,icomm,ierrmpi)
                end if
                if (mype == 0) then
-                  call MPI_RECV(ps_sub(Njgrid+1)%x,1,type_subblock_x_io,ipe,&
+                  call mpi_recv_wrapper(ps_sub(Njgrid+1)%x,1,type_subblock_x_io,ipe,&
                      itag,icomm,status,ierrmpi)
-                  call MPI_RECV(ps_sub(Njgrid+1)%w,1,type_subblock_io,ipe,&
+                  call mpi_recv_wrapper(ps_sub(Njgrid+1)%w,1,type_subblock_io,ipe,&
                      itag+1,icomm,status,ierrmpi)
-                  call MPI_RECV(ps_sub(Njgrid+1)%xC,1,type_subblockC_x_io,ipe,&
+                  call mpi_recv_wrapper(ps_sub(Njgrid+1)%xC,1,type_subblockC_x_io,ipe,&
                      itag+2,icomm,status,ierrmpi)
-                  call MPI_RECV(ps_sub(Njgrid+1)%wC,1,type_subblockC_io,ipe,&
+                  call mpi_recv_wrapper(ps_sub(Njgrid+1)%wC,1,type_subblockC_io,ipe,&
                      itag+3,icomm,status,ierrmpi)
-                  call MPI_RECV(normconv,nw+nwauxio+1,MPI_DOUBLE_PRECISION,ipe,&
+                  call mpi_recv_wrapper(normconv,nw+nwauxio+1,MPI_DOUBLE_PRECISION,ipe,&
                      itag+4,icomm,status,ierrmpi)
                   call write_slice_vtk(Njgrid+1,slice_fh,wnamei)
                end if
@@ -304,8 +305,8 @@ contains
       ! this only works for 2D and 3D, 1D reduction (line to point) not allowed
       integer, intent(in)           :: jgrid, slice_fh
       character(len=name_len), intent(in) :: wnamei(1:nw+nwauxio)
-      ! This remainder part only for more than 1D, but nesting with NOONED gives problems 
-      
+      ! This remainder part only for more than 1D, but nesting with NOONED gives problems
+
       ! .. local ..
       integer                       :: ixCmin1,ixCmin2,ixCmin3,ixCmax1,ixCmax2,&
          ixCmax3, ixCCmin1,ixCCmin2,ixCCmin3,ixCCmax1,ixCCmax2,ixCCmax3, nc,&
@@ -337,7 +338,7 @@ contains
       case('vtuCC') ! celldata
          write(slice_fh,'(a)')'<CellData>'
          do iw=1,nw+nwauxio
-            if(iw<=nw) then 
+            if(iw<=nw) then
                if(.not.w_write(iw)) cycle
             endif
             write(slice_fh,'(a,a,a)')'<DataArray type="Float64" Name="',&
@@ -354,7 +355,7 @@ contains
       case('vtu') ! pointdata
          write(slice_fh,'(a)')'<PointData>'
          do iw=1,nw+nwauxio
-            if(iw<=nw) then 
+            if(iw<=nw) then
                if(.not.w_write(iw)) cycle
             endif
             write(slice_fh,'(a,a,a)')'<DataArray type="Float64" Name="',&
@@ -365,8 +366,8 @@ contains
             write(slice_fh,'(a)')'</DataArray>'
          enddo
          write(slice_fh,'(a)')'</PointData>'
-         
-      
+
+
       end select
       !==============================
       ! Done: celldata or pointdata?
@@ -379,13 +380,13 @@ contains
       write(slice_fh,'(a)'&
          )'<DataArray type="Float32" NumberOfComponents="3" format="ascii">'
  !write cell corner coordinates in a backward dimensional loop, always 3D output
-      do ix2=ixCmin2,ixCmax2 
-      do ix1=ixCmin1,ixCmax1 
+      do ix2=ixCmin2,ixCmax2
+      do ix1=ixCmin1,ixCmax1
             x_VTK(1:3)=zero;
             x_VTK(1:ndim)=ps_sub(jgrid)%xC(ix1,ix2,1:ndim)*normconv(0);
             write(slice_fh,'(3(1pe14.6))') x_VTK
-      end do 
-      end do 
+      end do
+      end do
       write(slice_fh,'(a)')'</DataArray>'
       write(slice_fh,'(a)')'</Points>'
       !==============================
@@ -403,7 +404,7 @@ contains
 
        do ix2=1,nx2
        do ix1=1,nx1
-      
+
       write(slice_fh,'(4(i7,1x))')(ix2-1)*nxC1+ix1-1, (ix2-1)*nxC1+ix1,&
          ix2*nxC1+ix1-1,ix2*nxC1+ix1
       end do
@@ -423,20 +424,20 @@ contains
       write(slice_fh,'(a)'&
          )'<DataArray type="Int32" Name="types" format="ascii">'
       ! VTK_LINE=3; VTK_PIXEL=8; VTK_VOXEL=11 -> vtk-syntax
-      
-       VTK_type=8 
+
+       VTK_type=8
       do icell=1,nc
          write(slice_fh,'(i2)') VTK_type
       enddo
       write(slice_fh,'(a)')'</DataArray>'
-      
+
       write(slice_fh,'(a)')'</Cells>'
       !==============================
       ! Done: cell Metainformation
       !==============================
       write(slice_fh,'(a)')'</Piece>'
 
-      
+
     end subroutine write_slice_vtk
 
     subroutine put_slice_csv
@@ -455,7 +456,7 @@ contains
       if (mype==0) then
          inquire(slice_fh,opened=fileopen)
          if(.not.fileopen)then
-            ! generate filename: 
+            ! generate filename:
             write(xlabel,"(D9.2)")xslice
             xxlabel=trim(xlabel)
             if(xslice>=zero)then
@@ -465,7 +466,7 @@ contains
                '_x'//trim(xxlabel)//'_n',slicenext,'.csv'
             open(slice_fh,file=filename,status='unknown',form='formatted')
          end if
-         ! get and write the header: 
+         ! get and write the header:
          call getheadernames(wnamei,xandwnamei,outfilehead)
          line=''
          do iw=1,ndim+nw+nwauxio-1
@@ -487,20 +488,20 @@ contains
          do ipe=1,npe-1
             do jgrid=1,Morton_sub_stop(ipe)-Morton_sub_start(ipe)+1
                itag=Morton_sub_start(ipe)+jgrid-1
-               if (ipe == mype ) then 
-                  call MPI_SEND(ps_sub(jgrid)%x,1,type_subblock_x_io,0,itag,&
+               if (ipe == mype ) then
+                  call mpi_send_wrapper(ps_sub(jgrid)%x,1,type_subblock_x_io,0,itag,&
                      icomm,ierrmpi)
-                  call MPI_SEND(ps_sub(jgrid)%w,1,type_subblock_io,0,itag,&
+                  call mpi_send_wrapper(ps_sub(jgrid)%w,1,type_subblock_io,0,itag,&
                      icomm,ierrmpi)
-                  call MPI_SEND(normconv,nw+nwauxio+1,MPI_DOUBLE_PRECISION,0,&
+                  call mpi_send_wrapper(normconv,nw+nwauxio+1,MPI_DOUBLE_PRECISION,0,&
                      itag,icomm,ierrmpi)
                end if
                if (mype == 0) then
-                  call MPI_RECV(ps_sub(Njgrid+1)%x,1,type_subblock_x_io,ipe,&
+                  call mpi_recv_wrapper(ps_sub(Njgrid+1)%x,1,type_subblock_x_io,ipe,&
                      itag,icomm,status,ierrmpi)
-                  call MPI_RECV(ps_sub(Njgrid+1)%w,1,type_subblock_io,ipe,itag,&
+                  call mpi_recv_wrapper(ps_sub(Njgrid+1)%w,1,type_subblock_io,ipe,itag,&
                      icomm,status,ierrmpi)
-                  call MPI_RECV(normconv,nw+nwauxio+1,MPI_DOUBLE_PRECISION,ipe,&
+                  call mpi_recv_wrapper(normconv,nw+nwauxio+1,MPI_DOUBLE_PRECISION,ipe,&
                      itag,icomm,status,ierrmpi)
                   call put_slice_line(Njgrid+1,slice_fh)
                end if
@@ -522,44 +523,44 @@ contains
       integer :: ix1,ix2,ix3,idir,iw
       double precision, parameter :: minvalue = 1.0d-99, maxvalue = 1.0d+99
 
-      
+
       do ix2=ixsubMlo(2),ixsubMhi(2)
          do ix1=ixsubMlo(1),ixsubMhi(1)
-            
-            
+
+
                ! Format the line:
                line = ''
                do idir=1,ndim
-                  
+
                   write(data,"(es14.6)")roundoff_minmax(ps_sub(jout)%x(ix1,ix2,&
                      idir),minvalue,maxvalue)
-                 
-                  
-                  
+
+
+
 
                   line = trim(line)//trim(data)//', '
                end do
                do iw = 1,nw+nwauxio-1
-                  
+
                   write(data,"(es14.6)")roundoff_minmax(ps_sub(jout)%w(ix1,ix2,&
                      iw)*normconv(iw),minvalue,maxvalue)
-                 
-                  
-                  
+
+
+
                   line = trim(line)//trim(data)//', '
                end do
-               
+
                write(data,"(es14.6)")roundoff_minmax(ps_sub(jout)%w(ix1,ix2,&
                   nw+nwauxio)*normconv(nw+nwauxio),minvalue,maxvalue)
-              
-               
+
+
                line = trim(line)//trim(data)
                write(file_handle,'(a)')trim(line)
-               
-            
+
+
          end do
       end do
-      
+
 
     end subroutine put_slice_line
 
@@ -646,7 +647,7 @@ contains
       character(len=79)   :: xxlabel
       integer :: amode, iwrite, status(MPI_STATUS_SIZE)
 
-      
+
     end subroutine put_slice_zerod
 
   end subroutine put_slice
@@ -659,7 +660,7 @@ contains
     double precision, intent(in) :: xslice
     integer, intent(in) :: file_handle
     logical, intent(in) :: writeonly
-    double precision,dimension(0:nw+nwauxio),intent(out)       :: normconv 
+    double precision,dimension(0:nw+nwauxio),intent(out)       :: normconv
     ! .. local ..
     integer :: ig1,ig2,ig3, jgrid, slice_fh, ipe, mylevmax
     integer, dimension(nlevelshi) :: igslice
@@ -671,7 +672,7 @@ contains
     call get_igslice(dir,xslice,igslice)
 
     ! Traverse forest to find grids indicating slice:
-    
+
     select case(dir)
     case (1)
        ig1 = igslice(1)
@@ -697,12 +698,12 @@ contains
     case default
        call mpistop("slice direction not clear in select_slice")
     end select
-   
-    
-    
+
+
+
 
     if (.not.writeonly) then
-       ! Synchronize the levmax_sub for output (only rank 0 needs it): 
+       ! Synchronize the levmax_sub for output (only rank 0 needs it):
        levmax_sub = mylevmax
        call MPI_ALLREDUCE(MPI_IN_PLACE,levmax_sub,1,MPI_INTEGER,MPI_MAX,icomm,&
           ierrmpi)
@@ -749,19 +750,19 @@ contains
       select case (dir)
          case (1)
          ic1 = igslice(tree%node%level+1) - 2 * tree%node%ig1 + 2
-         
+
          case (2)
          ic2 = igslice(tree%node%level+1) - 2 * tree%node%ig2 + 2
-         
+
          case (3)
          ic3 = igslice(tree%node%level+1) - 2 * tree%node%ig3 + 2
-         
+
       case default
          call mpistop("slice direction not clear in traverse_slice")
       end select
 
       ! Recursively descend into the correct child branch:
-      
+
       select case(dir)
       case (1)
          do ic3=1,2
@@ -784,9 +785,9 @@ contains
       case default
          call mpistop("slice direction not clear in traverse_slice")
       end select
-     
-      
-      
+
+
+
 
     end subroutine traverse_slice
 
@@ -799,7 +800,7 @@ contains
     integer, intent(inout)                                    :: jgrid
     logical, intent(in)                                       :: active
     double precision, intent(in)                              :: xslice
-    double precision,dimension(0:nw+nwauxio),intent(out)      :: normconv 
+    double precision,dimension(0:nw+nwauxio),intent(out)      :: normconv
     ! .. local ..
     double precision, dimension(ixMlo1-1:ixMhi1,ixMlo2-1:ixMhi2,&
        ixMlo3-1:ixMhi3,ndim)       :: xC_TMP, xC
@@ -835,9 +836,9 @@ contains
     mask(ixMlo1:ixMhi1,ixMlo2:ixMhi2,ixMlo3:ixMhi3)=.true.
 
     ! Now hunt for the index closest to the slice:
-    
-    
-    
+
+
+
     select case (dir)
     case (1)
        ixslice = minloc(dabs(xslice-ps(igrid)%x(:,ixMlo2,ixMlo3,dir)),1,mask(:,&
@@ -851,7 +852,7 @@ contains
     case default
        call mpistop("slice direction not clear in fill_subnode")
     end select
-   
+
 
     call calc_x(igrid,xC,xCC)
     ! Set the coordinate to be exactly on the slice:
@@ -862,11 +863,11 @@ contains
        ixCCmin2,ixCCmin3,ixCCmax1,ixCCmax2,ixCCmax3,.true.)
     ! CC stands for CellCenter
     ! C  stands for Corner
-    
+
     ! Fill the subdimensional solution and position array:
-    
-    
-    
+
+
+
     select case (dir)
     case (1)
        ps_sub(jgrid)%w(ixCCmin2:ixCCmax2,ixCCmin3:ixCCmax3,&
@@ -891,23 +892,23 @@ contains
           1:nw+nwexpand) = wC_TMP(ixCmin1:ixCmax1,ixslice,ixCmin3:ixCmax3,&
           1:nw+nwexpand)
        ps_sub(jgrid)%xC(ixCmin1:ixCmax1,ixCmin3:ixCmax3,&
-          1:ndim) = xC_TMP(ixCmin1:ixCmax1,ixslice,ixCmin3:ixCmax3,1:ndim) 
+          1:ndim) = xC_TMP(ixCmin1:ixCmax1,ixslice,ixCmin3:ixCmax3,1:ndim)
     case (3)
        ps_sub(jgrid)%w(ixCCmin1:ixCCmax1,ixCCmin2:ixCCmax2,&
           1:nw+nwexpand) = wCC_TMP(ixCCmin1:ixCCmax1,ixCCmin2:ixCCmax2,ixslice,&
-          1:nw+nwexpand) 
+          1:nw+nwexpand)
        ps_sub(jgrid)%x(ixCCmin1:ixCCmax1,ixCCmin2:ixCCmax2,&
           1:ndim) = xCC_TMP(ixCCmin1:ixCCmax1,ixCCmin2:ixCCmax2,ixslice,&
           1:ndim)
        ps_sub(jgrid)%wC(ixCmin1:ixCmax1,ixCmin2:ixCmax2,&
           1:nw+nwexpand) = wC_TMP(ixCmin1:ixCmax1,ixCmin2:ixCmax2,ixslice,&
-          1:nw+nwexpand) 
+          1:nw+nwexpand)
        ps_sub(jgrid)%xC(ixCmin1:ixCmax1,ixCmin2:ixCmax2,&
-          1:ndim) = xC_TMP(ixCmin1:ixCmax1,ixCmin2:ixCmax2,ixslice,1:ndim) 
+          1:ndim) = xC_TMP(ixCmin1:ixCmax1,ixCmin2:ixCmax2,ixslice,1:ndim)
     case default
        call mpistop("slice direction not clear in fill_subnode")
     end select
-   
+
 
   end subroutine fill_subnode
 
@@ -916,9 +917,9 @@ contains
     integer, intent(in) :: jgrid, dir, nwexpand
 
     ! take care, what comes out is not necessarily a right handed system!
-    
-    
-    
+
+
+
     select case (dir)
     case (1)
        allocate(ps_sub(jgrid)%w(ixGlo2:ixGhi2,ixGlo3:ixGhi3,1:nw+nwexpand),&
@@ -938,7 +939,7 @@ contains
     case default
        call mpistop("slice direction not clear in alloc_subnode")
     end select
-   
+
   end subroutine alloc_subnode
 
   subroutine dealloc_subnode(jgrid)
@@ -963,7 +964,7 @@ contains
     integer, intent(in) :: igrid,jgrid,dir
 
     node_sub(plevel_,jgrid)=node(plevel_,igrid)
-    
+
     select case(dir)
     case (1)
        node_sub(pig1_,jgrid)=node(pig2_,igrid)
@@ -989,9 +990,9 @@ contains
     case default
        call mpistop("slice direction not clear in fill_subnode_info")
     end select
-   
-    
-    
+
+
+
 
   end subroutine fill_subnode_info
 
@@ -1106,8 +1107,8 @@ contains
 
       case default
         call mpistop("stretch type not supported by get_igslice")
-      end select 
-    
+      end select
+
     case (2)
       select case (stretch_type(2))
       case (stretch_none) ! This dimension is unstretched
@@ -1205,8 +1206,8 @@ contains
 
       case default
         call mpistop("stretch type not supported by get_igslice")
-      end select 
-    
+      end select
+
     case (3)
       select case (stretch_type(3))
       case (stretch_none) ! This dimension is unstretched
@@ -1304,8 +1305,8 @@ contains
 
       case default
         call mpistop("stretch type not supported by get_igslice")
-      end select 
-    
+      end select
+
     case default
       call mpistop("slice direction not clear in get_igslice")
     end select
@@ -1328,10 +1329,9 @@ contains
        roundoff_minmax = -maxval
     end if
 
-    ! Replace NaN with maxval (e.g. Paraview chokes on ASCII NaN): 
+    ! Replace NaN with maxval (e.g. Paraview chokes on ASCII NaN):
     if (roundoff_minmax /= roundoff_minmax) roundoff_minmax = maxval
 
   end function roundoff_minmax
 
 end module mod_slice
-

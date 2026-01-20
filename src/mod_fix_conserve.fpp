@@ -1,5 +1,6 @@
 !> Module for flux conservation near refinement boundaries
 module mod_fix_conserve
+  use mod_mpi_wrapper
   implicit none
   private
 
@@ -80,7 +81,7 @@ module mod_fix_conserve
            nxCo1=1;nxCo2=ixGhi2/2-nghostcells+1;nxCo3=ixGhi3/2-nghostcells+1;
            isize_stg(1)=nxCo1*nxCo2*nxCo3*(3-1)
            ! the whole size is used (cell centered and staggered)
-           isize(1)=isize(1)+isize_stg(1)      
+           isize(1)=isize(1)+isize_stg(1)
            recvsize=recvsize+nrecv_fc(1)*isize_stg(1)
            sendsize=sendsize+nsend_fc(1)*isize_stg(1)
            ! Coarse corner case
@@ -89,7 +90,7 @@ module mod_fix_conserve
            recvsize_cc=recvsize_cc+nrecv_cc(1)*isize_stg(1)
            sendsize_cc=sendsize_cc+nsend_cc(1)*isize_stg(1)
          end if
-         
+
          case (2)
          nrecv=nrecv+nrecv_fc(2)
          nsend=nsend+nsend_fc(2)
@@ -102,7 +103,7 @@ module mod_fix_conserve
            nxCo1=ixGhi1/2-nghostcells+1;nxCo2=1;nxCo3=ixGhi3/2-nghostcells+1;
            isize_stg(2)=nxCo1*nxCo2*nxCo3*(3-1)
            ! the whole size is used (cell centered and staggered)
-           isize(2)=isize(2)+isize_stg(2)      
+           isize(2)=isize(2)+isize_stg(2)
            recvsize=recvsize+nrecv_fc(2)*isize_stg(2)
            sendsize=sendsize+nsend_fc(2)*isize_stg(2)
            ! Coarse corner case
@@ -111,7 +112,7 @@ module mod_fix_conserve
            recvsize_cc=recvsize_cc+nrecv_cc(2)*isize_stg(2)
            sendsize_cc=sendsize_cc+nsend_cc(2)*isize_stg(2)
          end if
-         
+
          case (3)
          nrecv=nrecv+nrecv_fc(3)
          nsend=nsend+nsend_fc(3)
@@ -124,7 +125,7 @@ module mod_fix_conserve
            nxCo1=ixGhi1/2-nghostcells+1;nxCo2=ixGhi2/2-nghostcells+1;nxCo3=1;
            isize_stg(3)=nxCo1*nxCo2*nxCo3*(3-1)
            ! the whole size is used (cell centered and staggered)
-           isize(3)=isize(3)+isize_stg(3)      
+           isize(3)=isize(3)+isize_stg(3)
            recvsize=recvsize+nrecv_fc(3)*isize_stg(3)
            sendsize=sendsize+nsend_fc(3)*isize_stg(3)
            ! Coarse corner case
@@ -133,7 +134,7 @@ module mod_fix_conserve
            recvsize_cc=recvsize_cc+nrecv_cc(3)*isize_stg(3)
            sendsize_cc=sendsize_cc+nsend_cc(3)*isize_stg(3)
          end if
-         
+
        end select
      end do
 
@@ -250,7 +251,7 @@ module mod_fix_conserve
                if (ipe_neighbor/=mype) then
                  irecv=irecv+1
                  itag=4**3*(igrid-1)+inc1*4**(1-1)+inc2*4**(2-1)+inc3*4**(3-1)
-                 call MPI_IRECV(recvbuffer(ibuf),isize(idims),&
+                 call mpi_irecv_wrapper(recvbuffer(ibuf),isize(idims),&
                      MPI_DOUBLE_PRECISION,ipe_neighbor,itag, icomm,&
                     fc_recvreq(irecv),ierrmpi)
                  ibuf=ibuf+isize(idims)
@@ -307,7 +308,7 @@ module mod_fix_conserve
                          irecv_cc=irecv_cc+1
                          itag_cc=4**3*(igrid-1)+inc1*4**(1-1)+inc2*4**(2-1)+&
                             inc3*4**(3-1)
-                         call MPI_IRECV(recvbuffer_cc(ibuf_cc),&
+                         call mpi_irecv_wrapper(recvbuffer_cc(ibuf_cc),&
                             isize_stg(idims),MPI_DOUBLE_PRECISION,ipe_neighbor,&
                             itag_cc,icomm,cc_recvreq(irecv_cc),ierrmpi)
                          ibuf_cc=ibuf_cc+isize_stg(idims)
@@ -332,7 +333,7 @@ module mod_fix_conserve
                          irecv_cc=irecv_cc+1
                          itag_cc=4**3*(igrid-1)+inc1*4**(1-1)+inc2*4**(2-1)+&
                             inc3*4**(3-1)
-                         call MPI_IRECV(recvbuffer_cc(ibuf_cc),&
+                         call mpi_irecv_wrapper(recvbuffer_cc(ibuf_cc),&
                             isize_stg(idims),MPI_DOUBLE_PRECISION,ipe_neighbor,&
                             itag_cc,icomm,cc_recvreq(irecv_cc),ierrmpi)
                          ibuf_cc=ibuf_cc+isize_stg(idims)
@@ -402,12 +403,12 @@ module mod_fix_conserve
 
                    sendbuffer(ibuf_send_next-isize_stg(1):ibuf_send_next-&
                       1)=reshape(pflux(iside,1,igrid)%edge,(/isize_stg(1)/))
-                   call MPI_ISEND(sendbuffer(ibuf_send),isize(1),&
+                   call mpi_isend_wrapper(sendbuffer(ibuf_send),isize(1),&
                        MPI_DOUBLE_PRECISION,ipe_neighbor,itag, icomm,&
                       fc_sendreq(isend),ierrmpi)
                    ibuf_send=ibuf_send_next
                  else
-                   call MPI_ISEND(pflux(iside,1,igrid)%flux,isize(1),&
+                   call mpi_isend_wrapper(pflux(iside,1,igrid)%flux,isize(1),&
                        MPI_DOUBLE_PRECISION,ipe_neighbor,itag, icomm,&
                       fc_sendreq(isend),ierrmpi)
                  end if
@@ -444,12 +445,12 @@ module mod_fix_conserve
                      sendbuffer_cc(ibuf_cc_send:ibuf_cc_send_next-&
                         1)=reshape(pflux(iside,1,igrid)%edge,&
                         shape=(/isize_stg(1)/))
-                     call MPI_ISEND(sendbuffer_cc(ibuf_cc_send),isize_stg(1),&
+                     call mpi_isend_wrapper(sendbuffer_cc(ibuf_cc_send),isize_stg(1),&
                         MPI_DOUBLE_PRECISION,ipe_neighbor,itag_cc,icomm,&
                         cc_sendreq(isend_cc),ierrmpi)
                      ibuf_cc_send=ibuf_cc_send_next
                    end if
-       
+
                    if (neighbor_type(mi1,mi2,mi3,&
                       igrid)==2.and.neighbor_type(mh1,mh2,mh3,&
                       igrid)==2.and.mype/=neighbor(2,mi1,mi2,mi3,&
@@ -470,7 +471,7 @@ module mod_fix_conserve
                      sendbuffer_cc(ibuf_cc_send:ibuf_cc_send_next-&
                         1)=reshape(pflux(iside,1,igrid)%edge,&
                         shape=(/isize_stg(1)/))
-                     call MPI_ISEND(sendbuffer_cc(ibuf_cc_send),isize_stg(1),&
+                     call mpi_isend_wrapper(sendbuffer_cc(ibuf_cc_send),isize_stg(1),&
                         MPI_DOUBLE_PRECISION,ipe_neighbor,itag_cc,icomm,&
                         cc_sendreq(isend_cc),ierrmpi)
                      ibuf_cc_send=ibuf_cc_send_next
@@ -508,12 +509,12 @@ module mod_fix_conserve
 
                    sendbuffer(ibuf_send_next-isize_stg(2):ibuf_send_next-&
                       1)=reshape(pflux(iside,2,igrid)%edge,(/isize_stg(2)/))
-                   call MPI_ISEND(sendbuffer(ibuf_send),isize(2),&
+                   call mpi_isend_wrapper(sendbuffer(ibuf_send),isize(2),&
                        MPI_DOUBLE_PRECISION,ipe_neighbor,itag, icomm,&
                       fc_sendreq(isend),ierrmpi)
                    ibuf_send=ibuf_send_next
                  else
-                   call MPI_ISEND(pflux(iside,2,igrid)%flux,isize(2),&
+                   call mpi_isend_wrapper(pflux(iside,2,igrid)%flux,isize(2),&
                        MPI_DOUBLE_PRECISION,ipe_neighbor,itag, icomm,&
                       fc_sendreq(isend),ierrmpi)
                  end if
@@ -550,12 +551,12 @@ module mod_fix_conserve
                      sendbuffer_cc(ibuf_cc_send:ibuf_cc_send_next-&
                         1)=reshape(pflux(iside,2,igrid)%edge,&
                         shape=(/isize_stg(2)/))
-                     call MPI_ISEND(sendbuffer_cc(ibuf_cc_send),isize_stg(2),&
+                     call mpi_isend_wrapper(sendbuffer_cc(ibuf_cc_send),isize_stg(2),&
                         MPI_DOUBLE_PRECISION,ipe_neighbor,itag_cc,icomm,&
                         cc_sendreq(isend_cc),ierrmpi)
                      ibuf_cc_send=ibuf_cc_send_next
                    end if
-       
+
                    if (neighbor_type(mi1,mi2,mi3,&
                       igrid)==2.and.neighbor_type(mh1,mh2,mh3,&
                       igrid)==2.and.mype/=neighbor(2,mi1,mi2,mi3,&
@@ -576,7 +577,7 @@ module mod_fix_conserve
                      sendbuffer_cc(ibuf_cc_send:ibuf_cc_send_next-&
                         1)=reshape(pflux(iside,2,igrid)%edge,&
                         shape=(/isize_stg(2)/))
-                     call MPI_ISEND(sendbuffer_cc(ibuf_cc_send),isize_stg(2),&
+                     call mpi_isend_wrapper(sendbuffer_cc(ibuf_cc_send),isize_stg(2),&
                         MPI_DOUBLE_PRECISION,ipe_neighbor,itag_cc,icomm,&
                         cc_sendreq(isend_cc),ierrmpi)
                      ibuf_cc_send=ibuf_cc_send_next
@@ -614,12 +615,12 @@ module mod_fix_conserve
 
                    sendbuffer(ibuf_send_next-isize_stg(3):ibuf_send_next-&
                       1)=reshape(pflux(iside,3,igrid)%edge,(/isize_stg(3)/))
-                   call MPI_ISEND(sendbuffer(ibuf_send),isize(3),&
+                   call mpi_isend_wrapper(sendbuffer(ibuf_send),isize(3),&
                        MPI_DOUBLE_PRECISION,ipe_neighbor,itag, icomm,&
                       fc_sendreq(isend),ierrmpi)
                    ibuf_send=ibuf_send_next
                  else
-                   call MPI_ISEND(pflux(iside,3,igrid)%flux,isize(3),&
+                   call mpi_isend_wrapper(pflux(iside,3,igrid)%flux,isize(3),&
                        MPI_DOUBLE_PRECISION,ipe_neighbor,itag, icomm,&
                       fc_sendreq(isend),ierrmpi)
                  end if
@@ -656,12 +657,12 @@ module mod_fix_conserve
                      sendbuffer_cc(ibuf_cc_send:ibuf_cc_send_next-&
                         1)=reshape(pflux(iside,3,igrid)%edge,&
                         shape=(/isize_stg(3)/))
-                     call MPI_ISEND(sendbuffer_cc(ibuf_cc_send),isize_stg(3),&
+                     call mpi_isend_wrapper(sendbuffer_cc(ibuf_cc_send),isize_stg(3),&
                         MPI_DOUBLE_PRECISION,ipe_neighbor,itag_cc,icomm,&
                         cc_sendreq(isend_cc),ierrmpi)
                      ibuf_cc_send=ibuf_cc_send_next
                    end if
-       
+
                    if (neighbor_type(mi1,mi2,mi3,&
                       igrid)==2.and.neighbor_type(mh1,mh2,mh3,&
                       igrid)==2.and.mype/=neighbor(2,mi1,mi2,mi3,&
@@ -682,7 +683,7 @@ module mod_fix_conserve
                      sendbuffer_cc(ibuf_cc_send:ibuf_cc_send_next-&
                         1)=reshape(pflux(iside,3,igrid)%edge,&
                         shape=(/isize_stg(3)/))
-                     call MPI_ISEND(sendbuffer_cc(ibuf_cc_send),isize_stg(3),&
+                     call mpi_isend_wrapper(sendbuffer_cc(ibuf_cc_send),isize_stg(3),&
                         MPI_DOUBLE_PRECISION,ipe_neighbor,itag_cc,icomm,&
                         cc_sendreq(isend_cc),ierrmpi)
                      ibuf_cc_send=ibuf_cc_send_next
@@ -899,7 +900,7 @@ module mod_fix_conserve
 
              if (neighbor_type(i1,i2,i3,igrid)/=4) cycle
 
- !opedit: skip over active/passive interface since flux for passive ones is 
+ !opedit: skip over active/passive interface since flux for passive ones is
              ! not computed, keep the buffer counter up to date:
              if (.not.neighbor_active(i1,i2,i3,&
                 igrid).or..not.neighbor_active(0,0,0,igrid) ) then
@@ -1017,7 +1018,7 @@ module mod_fix_conserve
 
              if (neighbor_type(i1,i2,i3,igrid)/=4) cycle
 
- !opedit: skip over active/passive interface since flux for passive ones is 
+ !opedit: skip over active/passive interface since flux for passive ones is
              ! not computed, keep the buffer counter up to date:
              if (.not.neighbor_active(i1,i2,i3,&
                 igrid).or..not.neighbor_active(0,0,0,igrid) ) then
@@ -1135,7 +1136,7 @@ module mod_fix_conserve
 
              if (neighbor_type(i1,i2,i3,igrid)/=4) cycle
 
- !opedit: skip over active/passive interface since flux for passive ones is 
+ !opedit: skip over active/passive interface since flux for passive ones is
              ! not computed, keep the buffer counter up to date:
              if (.not.neighbor_active(i1,i2,i3,&
                 igrid).or..not.neighbor_active(0,0,0,igrid) ) then
@@ -1418,19 +1419,19 @@ module mod_fix_conserve
    subroutine store_edge(igrid,ixImin1,ixImin2,ixImin3,ixImax1,ixImax2,ixImax3,&
       fE,idimmin,idimmax)
      use mod_global_parameters
-     
+
      integer, intent(in)          :: igrid, ixImin1,ixImin2,ixImin3,ixImax1,&
         ixImax2,ixImax3, idimmin,idimmax
      double precision, intent(in) :: fE(ixImin1:ixImax1,ixImin2:ixImax2,&
         ixImin3:ixImax3,sdim:3)
-     
+
      integer :: idims, idir, iside, i1,i2,i3
      integer :: pi1,pi2,pi3, mi1,mi2,mi3, ph1,ph2,ph3, mh1,mh2,mh3 !To detect corners
      integer :: ixMcmin1,ixMcmin2,ixMcmin3,ixMcmax1,ixMcmax2,ixMcmax3
 
      do idims = idimmin,idimmax  !loop over face directions
        !! Loop over block faces
-       do iside=1,2 
+       do iside=1,2
          i1=kr(1,idims)*(2*iside-3);i2=kr(2,idims)*(2*iside-3)
          i3=kr(3,idims)*(2*iside-3);
          if (neighbor_pole(i1,i2,i3,igrid)/=0) cycle
@@ -1497,9 +1498,9 @@ module mod_fix_conserve
      ! over two cells on the fine side.
 
      do idir1=1,ndim-1
-       ! 3D: rotate indices among 1 and 2 to save space 
+       ! 3D: rotate indices among 1 and 2 to save space
        idir2=mod(idir1+idims-1,3)+1
-      
+
 
        if (restrict) then
          ! Set up indices for restriction
@@ -1507,7 +1508,7 @@ module mod_fix_conserve
          ixFmin3=ixMlo3-1+kr(3,idir2);
          ixFmax1=ixMhi1-kr(1,idir2);ixFmax2=ixMhi2-kr(2,idir2)
          ixFmax3=ixMhi3-kr(3,idir2);
-         
+
          jxFmin1=ixFmin1+kr(1,idir2);jxFmin2=ixFmin2+kr(2,idir2)
          jxFmin3=ixFmin3+kr(3,idir2);jxFmax1=ixFmax1+kr(1,idir2)
          jxFmax2=ixFmax2+kr(2,idir2);jxFmax3=ixFmax3+kr(3,idir2);
@@ -1525,7 +1526,7 @@ module mod_fix_conserve
              ixFmin1=ixFmax1
              jxFmin1=ixFmax1
            end select
-        
+
         case(2)
            ixEmin2=1;ixEmax2=1;
            select case(iside)
@@ -1536,7 +1537,7 @@ module mod_fix_conserve
              ixFmin2=ixFmax2
              jxFmin2=ixFmax2
            end select
-        
+
         case(3)
            ixEmin3=1;ixEmax3=1;
            select case(iside)
@@ -1547,7 +1548,7 @@ module mod_fix_conserve
              ixFmin3=ixFmax3
              jxFmin3=ixFmax3
            end select
-        
+
          end select
 
        pflux(iside,idims,igrid)%edge(ixEmin1:ixEmax1,ixEmin2:ixEmax2,&
@@ -1556,7 +1557,7 @@ module mod_fix_conserve
           jxFmin3:jxFmax3:2,idir2);
 
        else
-         ! Set up indices for copying 
+         ! Set up indices for copying
          ixFmin1=ixMlo1-1+kr(1,idir2);ixFmin2=ixMlo2-1+kr(2,idir2)
          ixFmin3=ixMlo3-1+kr(3,idir2);
          ixFmax1=ixMhi1;ixFmax2=ixMhi2;ixFmax3=ixMhi3;
@@ -1572,7 +1573,7 @@ module mod_fix_conserve
            case(2)
              ixFmin1=ixFmax1
            end select
-        
+
         case(2)
            ixEmin2=1;ixEmax2=1;
            select case(iside)
@@ -1581,7 +1582,7 @@ module mod_fix_conserve
            case(2)
              ixFmin2=ixFmax2
            end select
-        
+
         case(3)
            ixEmin3=1;ixEmax3=1;
            select case(iside)
@@ -1590,7 +1591,7 @@ module mod_fix_conserve
            case(2)
              ixFmin3=ixFmax3
            end select
-        
+
          end select
 
          pflux(iside,idims,igrid)%edge(ixEmin1:ixEmax1,ixEmin2:ixEmax2,&
@@ -1884,7 +1885,7 @@ module mod_fix_conserve
       ixfEmax2,ixfEmax3,igrid,idims,iside,add,CoCorner,inc1,inc2,inc3,pcorner,&
       mcorner)
      use mod_global_parameters
-     
+
      integer,intent(in)    :: igrid,idims,iside,inc1,inc2,inc3
      logical,intent(in)    :: add,CoCorner
      logical,intent(inout) :: pcorner(1:ndim),mcorner(1:ndim)
@@ -1927,17 +1928,17 @@ module mod_fix_conserve
          ixtEmin1=1;ixtEmax1=1;
          if (iside==1) ixtfEmax1=ixtfEmin1;
          if (iside==2) ixtfEmin1=ixtfEmax1;
-       
+
        case(2)
          ixtEmin2=1;ixtEmax2=1;
          if (iside==1) ixtfEmax2=ixtfEmin2;
          if (iside==2) ixtfEmin2=ixtfEmax2;
-       
+
        case(3)
          ixtEmin3=1;ixtEmax3=1;
          if (iside==1) ixtfEmax3=ixtfEmin3;
          if (iside==2) ixtfEmin3=ixtfEmax3;
-       
+
        end select
      end do
 
@@ -1955,7 +1956,7 @@ module mod_fix_conserve
           case(2)
           ixFmin1(idim1)=ixFmax1(idim1)
           end select
-       
+
        case(2)
           select case(iside)
           case(1)
@@ -1963,7 +1964,7 @@ module mod_fix_conserve
           case(2)
           ixFmin2(idim1)=ixFmax2(idim1)
           end select
-       
+
        case(3)
           select case(iside)
           case(1)
@@ -1971,7 +1972,7 @@ module mod_fix_conserve
           case(2)
           ixFmin3(idim1)=ixFmax3(idim1)
           end select
-       
+
        end select
      end do
      ! ... Relative position ...
@@ -1979,7 +1980,7 @@ module mod_fix_conserve
      if(add) then
        middle1=(ixMhi1+ixMlo1)/2;middle2=(ixMhi2+ixMlo2)/2
        middle3=(ixMhi3+ixMlo3)/2;
-       
+
        if(inc1==1) then
          ixFmax1(:)=middle1
          ixtfEmax1=middle1
@@ -1988,8 +1989,8 @@ module mod_fix_conserve
          ixFmin1(:)=middle1+1
          ixtfEmin1=middle1
        end if
-       
-       
+
+
        if(inc2==1) then
          ixFmax2(:)=middle2
          ixtfEmax2=middle2
@@ -1998,8 +1999,8 @@ module mod_fix_conserve
          ixFmin2(:)=middle2+1
          ixtfEmin2=middle2
        end if
-       
-       
+
+
        if(inc3==1) then
          ixFmax3(:)=middle3
          ixtfEmax3=middle3
@@ -2008,7 +2009,7 @@ module mod_fix_conserve
          ixFmin3(:)=middle3+1
          ixtfEmin3=middle3
        end if
-       
+
      end if
      ! ... Adjust ranges of edges according to direction ...
      do idim1=1,3
@@ -2104,9 +2105,9 @@ module mod_fix_conserve
      else
      ! Other kinds of corners
      ! Crop ranges to account for corners
-     ! When the fine fluxes are added, we consider 
+     ! When the fine fluxes are added, we consider
      ! whether they come from the same cpu or from
-     ! a different one, in order to minimise the 
+     ! a different one, in order to minimise the
      ! amount of communication
      ! Case for different processors still not implemented!!!
       if((idims.gt.1).and.pcorner(1)) then
@@ -2205,13 +2206,13 @@ module mod_fix_conserve
      ! ixE -> Total range for the edges
      ! ixfE -> Edges in fE (3D) array
      ! ix,hx,ixC,hxC -> Auxiliary indices
-     ! Assign quantities stored ad edges to make it as similar as 
+     ! Assign quantities stored ad edges to make it as similar as
      ! possible to the routine updatefaces.
      fE(:,:,:,:)=zero
      do idim1=1,ndim-1
         ! 3D: rotate indices (see routine flux_to_edge)
        idir=mod(idim1+idims-1,3)+1
-       
+
        ixfECmin1=ixfEmin1(idir);ixfECmin2=ixfEmin2(idir)
        ixfECmin3=ixfEmin3(idir);ixfECmax1=ixfEmax1(idir)
        ixfECmax2=ixfEmax2(idir);ixfECmax3=ixfEmax3(idir);

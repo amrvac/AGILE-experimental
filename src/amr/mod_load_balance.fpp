@@ -1,4 +1,5 @@
 module mod_load_balance
+  use mod_mpi_wrapper
   implicit none
 
   !> MPI buffers to send blocks
@@ -61,7 +62,7 @@ contains
             rcv_info(max_buff) )
        !$acc update device(snd_buff, rcv_buff, rcv_info)
     end if
-    
+
     do ipe=0,npe-1; do Morton_no=Morton_start(ipe),Morton_stop(ipe)
        recv_ipe=ipe
 
@@ -97,7 +98,7 @@ contains
       if(stagger_grid) call MPI_WAITALL(isend,sendrequest_stg,sendstatus_stg,&
          ierrmpi)
    end if
-   
+
     ! unpack the receive buffers on GPU
 #ifdef NOGPUDIRECT
    !$acc update device(rcv_buff(:,:,:,:,1:irecv))
@@ -118,7 +119,7 @@ contains
           end do
        end do
     end do
-    
+
     deallocate(recvstatus,recvrequest,sendstatus,sendrequest)
     if(stagger_grid) deallocate(recvstatus_stg,recvrequest_stg,sendstatus_stg,&
        sendrequest_stg)
@@ -135,13 +136,13 @@ contains
           call putnode(send_igrid,send_ipe)
        end if
     end do; end do
-    
+
 
     ! Update sfc array: igrid and ipe info in space filling curve
     call amr_Morton_order()
 
     contains
-      
+
       subroutine lb_recv
         use mod_amr_solution_node, only: alloc_node
 
@@ -155,7 +156,7 @@ contains
 #ifndef NOGPUDIRECT
         !$acc host_data use_device(rcv_buff)
 #endif
-        call MPI_IRECV(rcv_buff(:,:,:,:,irecv), &
+        call mpi_irecv_wrapper(rcv_buff(:,:,:,:,irecv), &
                         block_nx1*block_nx2*block_nx3*nw, MPI_DOUBLE_PRECISION, &
              send_ipe,itag, icomm, &
              recvrequest(irecv),ierrmpi)
@@ -165,7 +166,7 @@ contains
         rcv_info(irecv) = recv_igrid
         if(stagger_grid) then
            itag=recv_igrid+max_blocks
-           call MPI_IRECV(ps(recv_igrid)%ws,1,type_block_io_stg,send_ipe,itag,&
+           call mpi_irecv_wrapper(ps(recv_igrid)%ws,1,type_block_io_stg,send_ipe,itag,&
                 icomm,recvrequest_stg(irecv),ierrmpi)
         end if
 
@@ -190,13 +191,13 @@ contains
               end do
            end do
         end do
-        
+
 #ifndef NOGPUDIRECT
         !$acc host_data use_device(snd_buff)
 #else
         !$acc update host(snd_buff(:,:,:,:,isend))
 #endif
-        call MPI_ISEND(snd_buff(:,:,:,:,isend), &
+        call mpi_isend_wrapper(snd_buff(:,:,:,:,isend), &
                         block_nx1*block_nx2*block_nx3*nw, MPI_DOUBLE_PRECISION, &
              recv_ipe,itag, icomm, &
              sendrequest(isend),ierrmpi)
@@ -205,7 +206,7 @@ contains
 #endif
         if(stagger_grid) then
            itag=recv_igrid+max_blocks
-           call MPI_ISEND(ps(send_igrid)%ws,1,type_block_io_stg,recv_ipe,itag,&
+           call mpi_isend_wrapper(ps(send_igrid)%ws,1,type_block_io_stg,recv_ipe,itag,&
                 icomm,sendrequest_stg(isend),ierrmpi)
         end if
 

@@ -1,5 +1,6 @@
 !> Module to coarsen and refine grids for AMR
 module mod_coarsen_refine
+  use mod_mpi_wrapper
   implicit none
   private
   !> MPI recv send variables for AMR
@@ -17,7 +18,7 @@ module mod_coarsen_refine
   integer :: itag_stg
   integer, dimension(:), allocatable :: recvrequest_stg, sendrequest_stg
   integer, dimension(:,:), allocatable :: recvstatus_stg, sendstatus_stg
-  
+
   ! Public subroutines
   public :: amr_coarsen_refine
 
@@ -119,7 +120,7 @@ contains
           end if
        end do
     end do
-    
+
     if (irecv>0) then
        call MPI_WAITALL(irecv,recvrequest,recvstatus,ierrmpi)
        if(stagger_grid) call MPI_WAITALL(irecv,recvrequest_stg,recvstatus_stg,&
@@ -133,7 +134,7 @@ contains
 
     ! unpack the receive buffers on GPU
 #ifdef NOGPUDIRECT
-    !$acc update device(rcv_buff(:,:,:,:,1:irecv)) 
+    !$acc update device(rcv_buff(:,:,:,:,1:irecv))
 #endif
     !$acc update device(rcv_info(:,1:irecv))
 
@@ -163,7 +164,7 @@ contains
     deallocate(recvstatus,recvrequest,sendstatus,sendrequest)
     if(stagger_grid) deallocate(recvstatus_stg,recvrequest_stg,sendstatus_stg,&
          sendrequest_stg)
-    
+
     ! non-local coarsening done
     do ipe=0,npe-1
        do igrid=1,max_blocks
@@ -203,7 +204,7 @@ contains
        end do
     end do
 
-    ! A crash occurs in later MPI_WAITALL when initial condition comsumes too 
+    ! A crash occurs in later MPI_WAITALL when initial condition comsumes too
     ! much time to filling new blocks with both gfortran and intel fortran compiler.
     ! This barrier cure this problem
     !TODO to find the reason
@@ -443,7 +444,7 @@ contains
                    igridFi=child_igrid(ic1,ic2,ic3)
                    ipeFi=child_ipe(ic1,ic2,ic3)
                    !if (ipeFi==mype) then
-                   !   ! remove solution space of child      
+                   !   ! remove solution space of child
                    !   call dealloc_node(igridFi)
                    !end if
                 end do
@@ -513,7 +514,7 @@ contains
 #else
                    !$acc update host(snd_buff(:,:,:,:,isend))
 #endif
-                   call MPI_ISEND(snd_buff(:,:,:,:,isend), &
+                   call mpi_isend_wrapper(snd_buff(:,:,:,:,isend), &
                         block_nx1*block_nx2*block_nx3/8*nw,MPI_DOUBLE_PRECISION,ipe,itag, icomm,&
                         sendrequest(isend),ierrmpi)
 #ifndef NOGPUDIRECT
@@ -522,7 +523,7 @@ contains
                    if(stagger_grid) then
                       do idir=1,ndim
                          itag_stg=(npe+ipeFi+1)+igridFi*(ndir-1+idir)
-                         call MPI_ISEND(psc(igridFi)%ws,1,type_coarse_block_stg(idir,&
+                         call mpi_isend_wrapper(psc(igridFi)%ws,1,type_coarse_block_stg(idir,&
                               ic1,ic2,ic3),ipe,itag_stg, icomm,sendrequest_stg(isend),&
                               ierrmpi)
                       end do
@@ -537,8 +538,8 @@ contains
                    end if
 #ifndef NOGPUDIRECT
                    !$acc host_data use_device(rcv_buff)
-#endif                   
-                   call MPI_IRECV(rcv_buff(:,:,:,:,irecv), &
+#endif
+                   call mpi_irecv_wrapper(rcv_buff(:,:,:,:,irecv), &
                         block_nx1*block_nx2*block_nx3/8*nw,MPI_DOUBLE_PRECISION,ipeFi, &
                         itag, icomm,recvrequest(irecv),ierrmpi)
 #ifndef NOGPUDIRECT
@@ -548,7 +549,7 @@ contains
                    if(stagger_grid) then
                       do idir=1,ndim
                          itag_stg=(npe+ipeFi+1)+igridFi*(ndir-1+idir)
-                         call MPI_IRECV(ps(igrid)%ws,1,type_sub_block_stg(idir,ic1,ic2,&
+                         call mpi_irecv_wrapper(ps(igrid)%ws,1,type_sub_block_stg(idir,ic1,ic2,&
                               ic3),ipeFi,itag_stg, icomm,recvrequest_stg(irecv),ierrmpi)
                       end do
                    end if

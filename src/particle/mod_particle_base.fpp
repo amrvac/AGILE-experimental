@@ -1,5 +1,6 @@
 !> Module with shared functionality for all the particle movers
 module mod_particle_base
+  use mod_mpi_wrapper
   use mod_global_parameters, only: name_len, std_len
   use mod_physics
   use mod_random
@@ -953,14 +954,14 @@ contains
     double precision, intent(in)          :: xloc(1:3)
     double precision, intent(out)         :: gfloc
     double precision                      :: xd1,xd2,xd3, myq, dx1
-    
-    
+
+
     double precision                      :: c0, c1, c00, c10, c01, c11
-   
+
     integer                               :: ic1,ic2,ic3, ic11,ic12,ic13, ic21,&
        ic22,ic23, idir
 
-    
+
     if(stretch_type(1)==stretch_uni) then
       ! uniform stretch from xprobmin
       ic1 = ceiling(dlog((xloc(1)-xprobmin1)*(qstretch(ps(igrid)%level,&
@@ -994,8 +995,8 @@ contains
       ic1 = int((xloc(1)-rnode(rpxmin1_,igrid))/rnode(rpdx1_,&
          igrid)) + 1 + nghostcells
     end if
-    
-    
+
+
     if(stretch_type(2)==stretch_uni) then
       ! uniform stretch from xprobmin
       ic2 = ceiling(dlog((xloc(2)-xprobmin2)*(qstretch(ps(igrid)%level,&
@@ -1029,8 +1030,8 @@ contains
       ic2 = int((xloc(2)-rnode(rpxmin2_,igrid))/rnode(rpdx2_,&
          igrid)) + 1 + nghostcells
     end if
-    
-    
+
+
     if(stretch_type(3)==stretch_uni) then
       ! uniform stretch from xprobmin
       ic3 = ceiling(dlog((xloc(3)-xprobmin3)*(qstretch(ps(igrid)%level,&
@@ -1064,62 +1065,62 @@ contains
       ic3 = int((xloc(3)-rnode(rpxmin3_,igrid))/rnode(rpdx3_,&
          igrid)) + 1 + nghostcells
     end if
-    
+
 
     ! linear interpolation:
-    
+
     if (x(ic1,ic2,ic3,1) .lt. xloc(1)) then
       ic11 = ic1
     else
       ic11 = ic1 -1
     end if
     ic21 = ic11 + 1
-    
-    
+
+
     if (x(ic1,ic2,ic3,2) .lt. xloc(2)) then
       ic12 = ic2
     else
       ic12 = ic2 -1
     end if
     ic22 = ic12 + 1
-    
-    
+
+
     if (x(ic1,ic2,ic3,3) .lt. xloc(3)) then
       ic13 = ic3
     else
       ic13 = ic3 -1
     end if
     ic23 = ic13 + 1
-    
 
-    
+
+
     if(ic11.lt.ixGlo1+1 .or. ic21.gt.ixGhi1-1) then
       print *, 'direction: ',1
       print *, 'position: ',xloc(1:ndim)
       print *, 'indices:', ic11,ic21
       call mpistop('Trying to interpolate from out of grid!')
     end if
-    
-    
+
+
     if(ic12.lt.ixGlo2+1 .or. ic22.gt.ixGhi2-1) then
       print *, 'direction: ',2
       print *, 'position: ',xloc(1:ndim)
       print *, 'indices:', ic12,ic22
       call mpistop('Trying to interpolate from out of grid!')
     end if
-    
-    
+
+
     if(ic13.lt.ixGlo3+1 .or. ic23.gt.ixGhi3-1) then
       print *, 'direction: ',3
       print *, 'position: ',xloc(1:ndim)
       print *, 'indices:', ic13,ic23
       call mpistop('Trying to interpolate from out of grid!')
     end if
-    
 
-    
-    
-    
+
+
+
+
     xd1 = (xloc(1)-x(ic11,ic12,ic13,1)) / (x(ic21,ic12,ic13,1) - x(ic11,ic12,&
        ic13,1))
     xd2 = (xloc(2)-x(ic11,ic12,ic13,2)) / (x(ic11,ic22,ic13,2) - x(ic11,ic12,&
@@ -1136,7 +1137,7 @@ contains
     c1  = c01 * (1.0d0 - xd2) + c11 * xd2
 
     gfloc = c0 * (1.0d0 - xd3) + c1 * xd3
-   
+
 
   end subroutine interpolate_var
 
@@ -1204,7 +1205,7 @@ contains
     file_exists=.false.
     if (mype == 0) then
 !      write(filename,"(a,a,i4.4,a)") trim(base_filename),'_particles',snapshotini,'.dat'
-      ! Strip restart_from_filename of the ending 
+      ! Strip restart_from_filename of the ending
       pos = scan(restart_from_file, '.dat', back=.true.)
       write(filename,"(a,a,i4.4,a)") trim(restart_from_file(1:pos-8)),&
          '_particles',snapshotini,'.dat'
@@ -1317,7 +1318,7 @@ contains
     end if
 
     if (mype .ne. 0) then
-      call MPI_SEND(nparticles_on_mype,1,MPI_INTEGER,0,mype,icomm,ierrmpi)
+      call mpi_send_wrapper(nparticles_on_mype,1,MPI_INTEGER,0,mype,icomm,ierrmpi)
       ! fill the send_buffer
       send_n_particles_for_output = nparticles_on_mype
       allocate(send_particles(1:send_n_particles_for_output))
@@ -1329,15 +1330,15 @@ contains
     else
       ! get number of particles on other ipes
       do ipe=1,npe-1
-        call MPI_RECV(receive_n_particles_for_output_from_ipe(ipe),1,&
+        call mpi_recv_wrapper(receive_n_particles_for_output_from_ipe(ipe),1,&
            MPI_INTEGER,ipe,ipe,icomm,status,ierrmpi)
       end do
     end if
 
     if (mype .ne. 0) then
-      call MPI_SEND(send_particles,send_n_particles_for_output,type_particle,0,&
+      call mpi_send_wrapper(send_particles,send_n_particles_for_output,type_particle,0,&
          mype,icomm,ierrmpi)
-      call MPI_SEND(send_payload,npayload*send_n_particles_for_output,&
+      call mpi_send_wrapper(send_payload,npayload*send_n_particles_for_output,&
          MPI_DOUBLE_PRECISION,0,mype,icomm,ierrmpi)
       deallocate(send_particles)
       deallocate(send_payload)
@@ -1354,10 +1355,10 @@ contains
            ipe)))
         allocate(receive_payload(1:npayload,&
            1:receive_n_particles_for_output_from_ipe(ipe)))
-        call MPI_RECV(receive_particles&
+        call mpi_recv_wrapper(receive_particles&
            ,receive_n_particles_for_output_from_ipe(ipe),type_particle,ipe,ipe,&
            icomm,status,ierrmpi)
-        call MPI_RECV(receive_payload&
+        call mpi_recv_wrapper(receive_payload&
            ,npayload*receive_n_particles_for_output_from_ipe(ipe),&
            MPI_DOUBLE_PRECISION,ipe,ipe,icomm,status,ierrmpi)
         do ipart=1,receive_n_particles_for_output_from_ipe(ipe)
@@ -1631,13 +1632,13 @@ contains
 
     do ic3=1+int((1-i3)/2),2-int((1+i3)/2)
     inc3=2*i3+ic3
-    
+
     do ic2=1+int((1-i2)/2),2-int((1+i2)/2)
     inc2=2*i2+ic2
-    
+
     do ic1=1+int((1-i1)/2),2-int((1+i1)/2)
     inc1=2*i1+ic1
-    
+
     ipe_is_neighbor( neighbor_child(2,inc1,inc2,inc3,igrid) ) = .true.
 
     end do
@@ -1748,9 +1749,9 @@ contains
     if (sum(receive_n_particles_for_output_from_ipe(:)) == 0) return
 
     if (mype > 0) then
-      call MPI_SEND(send_particles,send_n_particles_for_output,type_particle,0,&
+      call mpi_send_wrapper(send_particles,send_n_particles_for_output,type_particle,0,&
          mype,icomm,ierrmpi)
-      call MPI_SEND(send_payload,npayload*send_n_particles_for_output,&
+      call mpi_send_wrapper(send_payload,npayload*send_n_particles_for_output,&
          MPI_DOUBLE_PRECISION,0,mype,icomm,ierrmpi)
     else
       ! Create file and write header
@@ -1787,10 +1788,10 @@ contains
            ipe)))
         allocate(receive_payload(1:npayload,&
            1:receive_n_particles_for_output_from_ipe(ipe)))
-        call MPI_RECV(receive_particles&
+        call mpi_recv_wrapper(receive_particles&
            ,receive_n_particles_for_output_from_ipe(ipe),type_particle,ipe,ipe,&
            icomm,status,ierrmpi)
-        call MPI_RECV(receive_payload&
+        call mpi_recv_wrapper(receive_payload&
            ,npayload*receive_n_particles_for_output_from_ipe(ipe),&
            MPI_DOUBLE_PRECISION,ipe,ipe,icomm,status,ierrmpi)
         do ipart=1,receive_n_particles_for_output_from_ipe(ipe)
@@ -1894,8 +1895,8 @@ contains
          xpcart(3) = xp(z_)
        case (spherical)
          xpcart(1) = xp(1)*sin(xp(2))*cos(xp(3))
-         
-         
+
+
          xpcart(2) = xp(1)*sin(xp(2))*sin(xp(3))
          xpcart(3) = xp(1)*cos(xp(2))
        case default
@@ -1925,8 +1926,8 @@ contains
       xp(z_) = xpcart(3)
     case (spherical)
       xx = xpcart(1)
-      
-      
+
+
       yy = xpcart(2)
       zz = xpcart(3)
       rr = sqrt(xx**2 + yy**2 + zz**2)
@@ -1961,9 +1962,9 @@ contains
       upcart(3) = up(z_)
     case (spherical)
       upcart(1) = up(1)*sin(xp(2))*cos(xp(3)) + up(2)*cos(xp(2))*cos(xp(3)) - &
-         up(3)*sin(xp(3)) 
-      
-      
+         up(3)*sin(xp(3))
+
+
       upcart(2) = up(1)*sin(xp(2))*sin(xp(3)) + up(2)*cos(xp(2))*sin(xp(3)) + &
          up(3)*cos(xp(3))
       upcart(3) = up(1)*cos(xp(2)) - up(2)*sin(xp(2))
@@ -1990,10 +1991,10 @@ contains
       up(phi_) = -sin(xp(phi_)) * upcart(1) + cos(xp(phi_)) * upcart(2)
       up(z_) = upcart(3)
     case (spherical)
-      
-      
+
+
       up(1) = upcart(1)*sin(xp(2))*cos(xp(3)) + &
-         upcart(2)*sin(xp(2))*sin(xp(3)) + upcart(3)*cos(xp(2)) 
+         upcart(2)*sin(xp(2))*sin(xp(3)) + upcart(3)*cos(xp(2))
       up(2) = upcart(1)*cos(xp(2))*cos(xp(3)) + &
          upcart(2)*cos(xp(2))*sin(xp(3)) - upcart(3)*sin(xp(2))
       up(3) = -upcart(1)*sin(xp(3)) + upcart(2)*cos(xp(3))
@@ -2036,11 +2037,11 @@ contains
     ! Case 2: particle has crossed from ~0 to ~2pi
     xpmod(phiind) = xp(phiind) - 2.d0*dpi
     if ((.not. point_in_igrid_ghostc(xp,igrid,&
-       0)) .and. (point_in_igrid_ghostc(xpmod,igrid,0))) then 
+       0)) .and. (point_in_igrid_ghostc(xpmod,igrid,0))) then
       xp(phiind) = xpmod(phiind)
       return
     end if
-      
+
   end subroutine fix_phi_crossing
 
   !> Quick check if particle coordinate is inside igrid
@@ -2116,7 +2117,7 @@ contains
            destroy_n_particles_mype  = destroy_n_particles_mype + 1
            particle_index_to_be_destroyed(destroy_n_particles_mype) = ipart
            !          !$OMP END CRITICAL(destroy)
-           cycle   
+           cycle
          end if
        end if
 
@@ -2126,7 +2127,7 @@ contains
              ipe_particle)
 
           ! destroy particle if out of domain (signalled by return value of -1)
-          if (igrid_particle == -1 )then 
+          if (igrid_particle == -1 )then
              call apply_periodB(particle(ipart)%self,igrid_particle,&
                 ipe_particle,BC_applied)
              if (.not. BC_applied .or. igrid_particle == -1) then
@@ -2173,9 +2174,9 @@ contains
        tag_send    = mype * npe + ipe
        tag_receive = ipe * npe + mype
        isnd = isnd + 1; ircv = ircv + 1
-       call MPI_ISEND(send_n_particles_to_ipe(ipe),1,MPI_INTEGER,ipe,tag_send,&
+       call mpi_isend_wrapper(send_n_particles_to_ipe(ipe),1,MPI_INTEGER,ipe,tag_send,&
           icomm,sndrqst(isnd),ierrmpi)
-       call MPI_IRECV(receive_n_particles_from_ipe(ipe),1,MPI_INTEGER,ipe,&
+       call mpi_irecv_wrapper(receive_n_particles_from_ipe(ipe),1,MPI_INTEGER,ipe,&
           tag_receive,icomm,rcvrqst(ircv),ierrmpi)
     end do
 
@@ -2212,9 +2213,9 @@ contains
                 ipe))%payload(1:npayload)
           end do ! ipart
           isnd = isnd + 1
-          call MPI_ISEND(send_particles(:,iipe),send_n_particles_to_ipe(ipe),&
+          call mpi_isend_wrapper(send_particles(:,iipe),send_n_particles_to_ipe(ipe),&
              type_particle,ipe,tag_send,icomm,sndrqst(isnd),ierrmpi)
-          call MPI_ISEND(send_payload(:,:,iipe),&
+          call mpi_isend_wrapper(send_payload(:,:,iipe),&
              npayload*send_n_particles_to_ipe(ipe),MPI_DOUBLE_PRECISION,ipe,&
              tag_send,icomm,sndrqst_payload(isnd),ierrmpi)
 
@@ -2224,10 +2225,10 @@ contains
        if (receive_n_particles_from_ipe(ipe) .gt. 0) then
 
           ircv = ircv + 1
-          call MPI_IRECV(receive_particles(:,iipe),&
+          call mpi_irecv_wrapper(receive_particles(:,iipe),&
              receive_n_particles_from_ipe(ipe),type_particle,ipe,tag_receive,&
              icomm,rcvrqst(ircv),ierrmpi)
-          call MPI_IRECV(receive_payload(:,:,iipe),&
+          call mpi_irecv_wrapper(receive_payload(:,:,iipe),&
              npayload*receive_n_particles_from_ipe(ipe),MPI_DOUBLE_PRECISION,&
              ipe,tag_receive,icomm,rcvrqst_payload(ircv),ierrmpi)
 
@@ -2351,17 +2352,17 @@ contains
     ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     ! opedit: I think this was the main bottleneck.
     ! 31.12.2017: made it nonblocking (easy, least invasive)
-    ! If this continues to be problematic, better to 
-    ! send particles with block in coarsen/refine/loadbalance. (best). 
+    ! If this continues to be problematic, better to
+    ! send particles with block in coarsen/refine/loadbalance. (best).
 
     isnd = 0; ircv = 0;
     do ipe=0,npe-1; if (ipe .eq. mype) cycle;
 
        tag_send = mype * npe + ipe;  tag_receive = ipe * npe + mype;
        isnd = isnd + 1;  ircv = ircv + 1;
-       call MPI_ISEND(send_n_particles_to_ipe(ipe),1,MPI_INTEGER, ipe,tag_send,&
+       call mpi_isend_wrapper(send_n_particles_to_ipe(ipe),1,MPI_INTEGER, ipe,tag_send,&
           icomm,sndrqst(isnd),ierrmpi)
-       call MPI_IRECV(receive_n_particles_from_ipe(ipe),1,MPI_INTEGER, ipe,&
+       call mpi_irecv_wrapper(receive_n_particles_from_ipe(ipe),1,MPI_INTEGER, ipe,&
           tag_receive,icomm,rcvrqst(ircv),ierrmpi)
     end do
 
@@ -2393,9 +2394,9 @@ contains
              ipe))%payload(1:npayload)
         end do ! ipart
 
-        call MPI_SEND(send_particles,send_n_particles_to_ipe(ipe),&
+        call mpi_send_wrapper(send_particles,send_n_particles_to_ipe(ipe),&
            type_particle,ipe,tag_send,icomm,ierrmpi)
-        call MPI_SEND(send_payload,npayload*send_n_particles_to_ipe(ipe),&
+        call mpi_send_wrapper(send_payload,npayload*send_n_particles_to_ipe(ipe),&
            MPI_DOUBLE_PRECISION,ipe,tag_send,icomm,ierrmpi)
         do ipart = 1, send_n_particles_to_ipe(ipe)
           deallocate(particle(particle_index_to_be_sent_to_ipe(ipart,&
@@ -2415,15 +2416,15 @@ contains
         allocate(receive_particles(1:receive_n_particles_from_ipe(ipe)))
         allocate(receive_payload(1:npayload,&
            1:receive_n_particles_from_ipe(ipe)))
- 
-        call MPI_RECV(receive_particles,receive_n_particles_from_ipe(ipe),&
+
+        call mpi_recv_wrapper(receive_particles,receive_n_particles_from_ipe(ipe),&
            type_particle,ipe,tag_receive,icomm,status,ierrmpi)
-        call MPI_RECV(receive_payload,npayload*receive_n_particles_from_ipe(&
+        call mpi_recv_wrapper(receive_payload,npayload*receive_n_particles_from_ipe(&
            ipe),MPI_DOUBLE_PRECISION,ipe,tag_receive,icomm,status,ierrmpi)
         do ipart = 1, receive_n_particles_from_ipe(ipe)
- 
+
           index = receive_particles(ipart)%index
-          !if (.not. allocated(particle(index)%self)) & 
+          !if (.not. allocated(particle(index)%self)) &
           allocate(particle(index)%self)
           particle(index)%self = receive_particles(ipart)
           !if (.not. allocated(particle(index)%payload)) &
@@ -2431,17 +2432,17 @@ contains
           particle(index)%payload(1:npayload) = receive_payload(1:npayload,&
              ipart)
           call push_particle_into_particles_on_mype(index)
- 
+
           ! since we don't send the igrid, need to re-locate it
           call find_particle_ipe(particle(index)%self%x,igrid_particle,&
              ipe_particle)
           particle(index)%igrid = igrid_particle
           particle(index)%ipe = ipe_particle
- 
+
         end do ! ipart
         deallocate(receive_particles)
         deallocate(receive_payload)
- 
+
       end if ! receive .gt. 0
     end do ! ipe
     deallocate(particle_index_to_be_sent_to_ipe)
@@ -2534,9 +2535,9 @@ contains
 !      tag_send    = mype * npe + ipe
 !      tag_receive = ipe * npe + mype
 !      isnd = isnd + 1;  ircv = ircv + 1;
-!      call MPI_ISEND(send_n_particles_to_ipe(ipe),1,MPI_INTEGER, &
+!      call mpi_isend_wrapper(send_n_particles_to_ipe(ipe),1,MPI_INTEGER, &
 !                     ipe,tag_send,icomm,sndrqst(isnd),ierrmpi)
-!      call MPI_IRECV(receive_n_particles_from_ipe(ipe),1,MPI_INTEGER, &
+!      call mpi_irecv_wrapper(receive_n_particles_from_ipe(ipe),1,MPI_INTEGER, &
 !                     ipe,tag_receive,icomm,rcvrqst(ircv),ierrmpi)
 !    end do
 !    call MPI_WAITALL(isnd,sndrqst,MPI_STATUSES_IGNORE,ierrmpi)
@@ -2551,13 +2552,13 @@ contains
 !      if (send_n_particles_to_ipe(ipe) > 0) then
 !        tag_send    = mype * npe + ipe
 !        isnd = isnd + 1
-!        call MPI_ISEND(particle_index_to_be_sent_to_ipe(:,ipe),send_n_particles_to_ipe(ipe),MPI_INTEGER, &
+!        call mpi_isend_wrapper(particle_index_to_be_sent_to_ipe(:,ipe),send_n_particles_to_ipe(ipe),MPI_INTEGER, &
 !                       ipe,tag_send,icomm,sndrqst(isnd),ierrmpi)
 !      end if
 !      if (receive_n_particles_from_ipe(ipe) > 0) then
 !        tag_receive = ipe * npe + mype
 !        ircv = ircv + 1
-!        call MPI_IRECV(particle_index_to_be_received_from_ipe(:,ipe),receive_n_particles_from_ipe(ipe),MPI_INTEGER, &
+!        call mpi_irecv_wrapper(particle_index_to_be_received_from_ipe(:,ipe),receive_n_particles_from_ipe(ipe),MPI_INTEGER, &
 !                       ipe,tag_receive,icomm,rcvrqst(ircv),ierrmpi)
 !      end if
 !    end do
@@ -2577,7 +2578,7 @@ contains
 !        do ipart = 1, send_n_particles_to_ipe(ipe)
 !          tag_send = mype * npe + ipe + ipart
 !          isnd = isnd+1
-!          call MPI_ISEND(particle(particle_index_to_be_sent_to_ipe(ipart,ipe))%self, &
+!          call mpi_isend_wrapper(particle(particle_index_to_be_sent_to_ipe(ipart,ipe))%self, &
 !                         1,type_particle,ipe,tag_send,icomm,sndrqst(isnd),ierrmpi)
 !        end do ! ipart
 !      end if ! send .gt. 0
@@ -2590,7 +2591,7 @@ contains
 !          ircv = ircv+1
 !          index = particle_index_to_be_received_from_ipe(ipart,ipe)
 !          allocate(particle(index)%self)
-!          call MPI_IRECV(particle(index)%self,1,type_particle,ipe,tag_receive,icomm,rcvrqst(ircv),ierrmpi)
+!          call mpi_irecv_wrapper(particle(index)%self,1,type_particle,ipe,tag_receive,icomm,rcvrqst(ircv),ierrmpi)
 !        end do ! ipart
 !
 !      end if ! receive .gt. 0
@@ -2612,7 +2613,7 @@ contains
 !        do ipart = 1, send_n_particles_to_ipe(ipe)
 !          tag_send    = mype * npe + ipe + ipart
 !          isnd = isnd+1
-!          call MPI_ISEND(particle(particle_index_to_be_sent_to_ipe(ipart,ipe))%payload(1:npayload), &
+!          call mpi_isend_wrapper(particle(particle_index_to_be_sent_to_ipe(ipart,ipe))%payload(1:npayload), &
 !                         npayload,MPI_DOUBLE_PRECISION,ipe,tag_send,icomm,sndrqst(isnd),ierrmpi)
 !        end do ! ipart
 !      end if ! send .gt. 0
@@ -2624,7 +2625,7 @@ contains
 !          ircv = ircv+1
 !          index = particle_index_to_be_received_from_ipe(ipart,ipe)
 !          allocate(particle(index)%payload(npayload))
-!          call MPI_IRECV(particle(index)%payload(1:npayload),npayload, &
+!          call mpi_irecv_wrapper(particle(index)%payload(1:npayload),npayload, &
 !                         MPI_DOUBLE_PRECISION,ipe,tag_receive,icomm,rcvrqst(ircv),ierrmpi)
 !        end do ! ipart
 !      end if ! receive .gt. 0
@@ -2706,8 +2707,8 @@ contains
 !    do ipe=0,npe-1;if (ipe .eq. mype) cycle;
 !      tag_send    = mype * npe + ipe
 !      tag_receive = ipe * npe + mype
-!      call MPI_SEND(send_n_particles_to_ipe(ipe),1,MPI_INTEGER,ipe,tag_send,icomm,ierrmpi)
-!      call MPI_RECV(receive_n_particles_from_ipe(ipe),1,MPI_INTEGER,ipe,tag_receive,icomm,status,ierrmpi)
+!      call mpi_send_wrapper(send_n_particles_to_ipe(ipe),1,MPI_INTEGER,ipe,tag_send,icomm,ierrmpi)
+!      call mpi_recv_wrapper(receive_n_particles_from_ipe(ipe),1,MPI_INTEGER,ipe,tag_receive,icomm,status,ierrmpi)
 !    end do
 !
 !    ! send and receive the data of the particles
@@ -2723,8 +2724,8 @@ contains
 !          send_particles(ipart) = particle(particle_index_to_be_sent_to_ipe(ipart,ipe))%self
 !          send_payload(1:npayload,ipart) = particle(particle_index_to_be_sent_to_ipe(ipart,ipe))%payload(1:npayload)
 !        end do ! ipart
-!        call MPI_SEND(send_particles,send_n_particles_to_ipe(ipe),type_particle,ipe,tag_send,icomm,ierrmpi)
-!        call MPI_SEND(send_payload,npayload*send_n_particles_to_ipe(ipe),MPI_DOUBLE_PRECISION,ipe,tag_send,icomm,ierrmpi)
+!        call mpi_send_wrapper(send_particles,send_n_particles_to_ipe(ipe),type_particle,ipe,tag_send,icomm,ierrmpi)
+!        call mpi_send_wrapper(send_payload,npayload*send_n_particles_to_ipe(ipe),MPI_DOUBLE_PRECISION,ipe,tag_send,icomm,ierrmpi)
 !        do ipart = 1, send_n_particles_to_ipe(ipe)
 !          deallocate(particle(particle_index_to_be_sent_to_ipe(ipart,ipe))%self)
 !          deallocate(particle(particle_index_to_be_sent_to_ipe(ipart,ipe))%payload)
@@ -2736,8 +2737,8 @@ contains
 !      ! should i receive some particles from ipe?
 !      if (receive_n_particles_from_ipe(ipe) .gt. 0) then
 !
-!        call MPI_RECV(receive_particles,receive_n_particles_from_ipe(ipe),type_particle,ipe,tag_receive,icomm,status,ierrmpi)
-!        call MPI_RECV(receive_payload,npayload*receive_n_particles_from_ipe(ipe),MPI_DOUBLE_PRECISION,ipe,tag_receive,icomm,status,ierrmpi)
+!        call mpi_recv_wrapper(receive_particles,receive_n_particles_from_ipe(ipe),type_particle,ipe,tag_receive,icomm,status,ierrmpi)
+!        call mpi_recv_wrapper(receive_payload,npayload*receive_n_particles_from_ipe(ipe),MPI_DOUBLE_PRECISION,ipe,tag_receive,icomm,status,ierrmpi)
 !
 !        do ipart = 1, receive_n_particles_from_ipe(ipe)
 !
@@ -2787,7 +2788,7 @@ contains
           particle%x(1) = particle%x(1) - (xprobmax1 - xprobmin1)
           BC_applied = .true.
         end if
-        
+
         case (2)
         if (particle%x(2) .lt. xprobmin2) then
           particle%x(2) = particle%x(2) + (xprobmax2 - xprobmin2)
@@ -2797,7 +2798,7 @@ contains
           particle%x(2) = particle%x(2) - (xprobmax2 - xprobmin2)
           BC_applied = .true.
         end if
-        
+
         case (3)
         if (particle%x(3) .lt. xprobmin3) then
           particle%x(3) = particle%x(3) + (xprobmax3 - xprobmin3)
@@ -2807,7 +2808,7 @@ contains
           particle%x(3) = particle%x(3) - (xprobmax3 - xprobmin3)
           BC_applied = .true.
         end if
-        
+
       end select
 
     end do

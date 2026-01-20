@@ -1,7 +1,8 @@
 module mod_convert
 
+  use mod_mpi_wrapper
   use mpi
-  use mod_variables, only: max_nw 
+  use mod_variables, only: max_nw
 
   implicit none
   public
@@ -17,7 +18,7 @@ module mod_convert
        double precision, intent(in)    :: w(ixImin1:ixImax1,ixImin2:ixImax2,&
           ixImin3:ixImax3, 1:nw)
        double precision, intent(in)    :: x(ixImin1:ixImax1,ixImin2:ixImax2,&
-          ixImin3:ixImax3,1:ndim) 
+          ixImin3:ixImax3,1:ndim)
        double precision    :: wnew(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
           ixOmin3:ixOmax3, 1:nwc)
      end function sub_convert_vars
@@ -31,7 +32,7 @@ module mod_convert
     character(len=40) :: dataset_names(max_nw)
     type(convert_vars_method), pointer :: next
   end type convert_vars_method
-  type(convert_vars_method), pointer :: head_convert_vars_methods 
+  type(convert_vars_method), pointer :: head_convert_vars_methods
 contains
 
 
@@ -64,7 +65,7 @@ contains
        double precision, intent(in)    :: w(ixImin1:ixImax1,ixImin2:ixImax2,&
           ixImin3:ixImax3, 1:nw)
        double precision, intent(in)    :: x(ixImin1:ixImax1,ixImin2:ixImax2,&
-          ixImin3:ixImax3,1:ndim) 
+          ixImin3:ixImax3,1:ndim)
        double precision    :: wnew(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
           ixOmin3:ixOmax3, 1:nwc)
      end function phys_convert_vars
@@ -93,7 +94,7 @@ contains
        double precision, intent(in)    :: w(ixImin1:ixImax1,ixImin2:ixImax2,&
           ixImin3:ixImax3, 1:nw)
        double precision, intent(in)    :: x(ixImin1:ixImax1,ixImin2:ixImax2,&
-          ixImin3:ixImax3,1:ndim) 
+          ixImin3:ixImax3,1:ndim)
        double precision    :: wnew(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
           ixOmin3:ixOmax3, 1:nwc)
      end function phys_convert_vars
@@ -103,7 +104,7 @@ contains
 
     if(nwc .gt. max_nw) then
       call mpistop("INCREASE max_nw ")
-    endif  
+    endif
 
     allocate(temp)
     temp%phys_convert_vars => phys_convert_vars
@@ -160,8 +161,8 @@ contains
     integer(kind=MPI_OFFSET_KIND), allocatable :: block_offset(:)
 
     integer, intent(in) :: nwc
-    character(len=*), intent(in) :: dataset_names(:) 
-    character(len=*), intent(in) :: file_suffix 
+    character(len=*), intent(in) :: dataset_names(:)
+    character(len=*), intent(in) :: file_suffix
     interface
 
       function convert_vars(ixImin1,ixImin2,ixImin3,ixImax1,ixImax2,ixImax3,&
@@ -248,16 +249,16 @@ contains
       igrid  = sfc_to_igrid(Morton_no)
       itag   = Morton_no
       block=>ps(igrid)
-      ! this might be used in convert function, 
+      ! this might be used in convert function,
       ! it was not used when the output is already computed vars  (write_snapshot)
       dxlevel(1)=rnode(rpdx1_,igrid);dxlevel(2)=rnode(rpdx2_,igrid)
       dxlevel(3)=rnode(rpdx3_,igrid);
 
-      ! start copied from block_shape_io, 
+      ! start copied from block_shape_io,
       ! because nwc is needed  as parameter
       ! TODO check if this will be used elsewehere and put it in separate subroutine
       n_ghost(:) = 0
-  
+
       if(save_physical_boundary) then
         do idim=1,ndim
           ! Include ghost cells on lower boundary
@@ -268,14 +269,14 @@ contains
              n_ghost(ndim+idim)=nghostcells
         end do
       end if
-  
+
       ixOmin1 = ixMlo1 - n_ghost(1)
       ixOmin2 = ixMlo2 - n_ghost(2)
       ixOmin3 = ixMlo3 - n_ghost(3)
       ixOmax1 = ixMhi1 + n_ghost(ndim+1)
       ixOmax2 = ixMhi2 + n_ghost(ndim+2)
       ixOmax3 = ixMhi3 + n_ghost(ndim+3)
- 
+
       n_values = count_ix(ixOmin1,ixOmin2,ixOmin3,ixOmax1,ixOmax2,&
          ixOmax3) * nwc
       ! end copied from block_shape_io
@@ -297,9 +298,9 @@ contains
       ix_buffer(2:) = n_ghost
 
       if (mype /= 0) then
-        call MPI_SEND(ix_buffer, 2*ndim+1, MPI_INTEGER, 0, itag, icomm,&
+        call mpi_send_wrapper(ix_buffer, 2*ndim+1, MPI_INTEGER, 0, itag, icomm,&
             ierrmpi)
-        call MPI_SEND(w_buffer, n_values, MPI_DOUBLE_PRECISION, 0, itag, icomm,&
+        call mpi_send_wrapper(w_buffer, n_values, MPI_DOUBLE_PRECISION, 0, itag, icomm,&
             ierrmpi)
       else
         iwrite = iwrite+1
@@ -321,11 +322,11 @@ contains
           iwrite=iwrite+1
           itag=Morton_no
 
-          call MPI_RECV(ix_buffer, 2*ndim+1, MPI_INTEGER, ipe, itag, icomm,&
+          call mpi_recv_wrapper(ix_buffer, 2*ndim+1, MPI_INTEGER, ipe, itag, icomm,&
              igrecvstatus, ierrmpi)
           n_values = ix_buffer(1)
 
-          call MPI_RECV(w_buffer, n_values, MPI_DOUBLE_PRECISION,ipe, itag,&
+          call mpi_recv_wrapper(w_buffer, n_values, MPI_DOUBLE_PRECISION,ipe, itag,&
               icomm, iorecvstatus, ierrmpi)
 
           call MPI_FILE_WRITE(file_handle, ix_buffer(2:), 2*ndim, MPI_INTEGER,&
