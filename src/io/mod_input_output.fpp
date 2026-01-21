@@ -1,5 +1,6 @@
 !> Module for reading input and writing output
 module mod_input_output
+  use mod_mpi_wrapper
   use mod_comm_lib, only: mpistop
 
   implicit none
@@ -28,7 +29,7 @@ module mod_input_output
   character(len=*), parameter :: fmt_i  = 'i8'     ! Integer format
 
   ! public methods
-  public :: snapshot_write_header  
+  public :: snapshot_write_header
 
 contains
 
@@ -233,7 +234,7 @@ contains
     integer :: windex, ipower
     double precision :: sizeuniformpart1,sizeuniformpart2,sizeuniformpart3
     double precision :: im_delta,im_nu,rka54,rka51,rkb54,rka55
- 
+
     namelist /filelist/ base_filename,restart_from_file, typefilelog,&
        firstprocess,reset_grid,snapshotnext, convert,convert_type,saveprim,&
        usr_filename,nwauxio,nocartesian, w_write,writelevel,writespshift,&
@@ -312,22 +313,22 @@ contains
     nghostcells = 2
 
     ! Allocate boundary conditions arrays in new and old style
-    
+
     allocate(typeboundary_min1(nwfluxbc))
     allocate(typeboundary_max1(nwfluxbc))
     typeboundary_min1 = undefined
     typeboundary_max1 = undefined
-    
+
     allocate(typeboundary_min2(nwfluxbc))
     allocate(typeboundary_max2(nwfluxbc))
     typeboundary_min2 = undefined
     typeboundary_max2 = undefined
-    
+
     allocate(typeboundary_min3(nwfluxbc))
     allocate(typeboundary_max3(nwfluxbc))
     typeboundary_min3 = undefined
     typeboundary_max3 = undefined
-   
+
 
     allocate(typeboundary(nwflux+nwaux,2*ndim))
     typeboundary=0
@@ -496,7 +497,7 @@ contains
     time_stepper    = 'twostep'
     time_integrator = 'default'
     ! default PC or explicit midpoint, hence alfa=0.5
-    rk2_alfa        = half 
+    rk2_alfa        = half
     ! default IMEX-RK22Ln hence lambda = 1 - 1/sqrt(2)
     imex222_lambda  = 1.0d0 - 1.0d0 / dsqrt(2.0d0)
     ! default SSPRK(3,3) or Gottlieb-Shu 1998 for threestep
@@ -921,7 +922,7 @@ contains
        if (t_integrator==RK2_alf) then
           if(rk2_alfa<smalldouble.or.rk2_alfa>one)call &
              mpistop("set rk2_alfa within [0,1]")
-          rk_a21=rk2_alfa 
+          rk_a21=rk2_alfa
           rk_b2=1.0d0/(2.0d0*rk2_alfa)
           rk_b1=1.0d0-rk_b2
        endif
@@ -949,28 +950,28 @@ contains
        end select
        if(t_integrator==RK3_BT) then
            select case(rk3_switch)
-             case(1) 
+             case(1)
               ! we code up Ralston 3rd order here
               rk3_a21=1.0d0/2.0d0
               rk3_a31=0.0d0
               rk3_a32=3.0d0/4.0d0
               rk3_b1=2.0d0/9.0d0
               rk3_b2=1.0d0/3.0d0
-             case(2) 
+             case(2)
               ! we code up RK-Wray 3rd order here
               rk3_a21=8.0d0/15.0d0
               rk3_a31=1.0d0/4.0d0
               rk3_a32=5.0d0/12.0d0
               rk3_b1=1.0d0/4.0d0
               rk3_b2=0.0d0
-             case(3) 
+             case(3)
               ! we code up Heun 3rd order here
               rk3_a21=1.0d0/3.0d0
               rk3_a31=0.0d0
               rk3_a32=2.0d0/3.0d0
               rk3_b1=1.0d0/4.0d0
               rk3_b2=0.0d0
-             case(4) 
+             case(4)
               ! we code up Nystrom 3rd order here
               rk3_a21=2.0d0/3.0d0
               rk3_a31=0.0d0
@@ -1130,7 +1131,7 @@ contains
        end select
        if(t_integrator==ssprk5) then
          select case(ssprk_order)
-           ! we use ssprk_order to intercompare the different coefficient choices 
+           ! we use ssprk_order to intercompare the different coefficient choices
            case(3) ! From Gottlieb 2005
             rk_beta11=0.391752226571890d0
             rk_beta22=0.368410593050371d0
@@ -1302,7 +1303,7 @@ contains
     end if
 
     ! Copy boundary conditions to typeboundary, which is used internally
-    
+
     do iw=1,nwfluxbc
       select case(typeboundary_min1(iw))
       case("special")
@@ -1361,7 +1362,7 @@ contains
              typeboundary_max1(iw),"for variable iw=",iw," and side iB=",2*1
       end select
     end do
-    
+
     do iw=1,nwfluxbc
       select case(typeboundary_min2(iw))
       case("special")
@@ -1420,7 +1421,7 @@ contains
              typeboundary_max2(iw),"for variable iw=",iw," and side iB=",2*2
       end select
     end do
-    
+
     do iw=1,nwfluxbc
       select case(typeboundary_min3(iw))
       case("special")
@@ -1479,7 +1480,7 @@ contains
              typeboundary_max3(iw),"for variable iw=",iw," and side iB=",2*3
       end select
     end do
-   
+
 
     ! psi, tracers take the same boundary type as the first variable
     if (nwfluxbc<nwflux) then
@@ -1515,7 +1516,7 @@ contains
           end do
        end if
     end do
-    
+
     do idim=1,ndim
       if(any(typeboundary(:,2*idim-1)==12)) then
         if(any(typeboundary(:,2*idim-1)/=12)) typeboundary(:,2*idim-1)=12
@@ -1566,12 +1567,12 @@ contains
         end if
       end if
    end do
-   
+
    if (any(typeboundary(:,:)==bc_special) .and. .not. specialboundary) then
       call mpistop('special boundary requested, set specialboundary=.true.')
    end if
-      
-   
+
+
     if(.not.phys_energy) then
       flatcd=.false.
       flatsh=.false.
@@ -1639,27 +1640,27 @@ contains
    !$acc update device(nghostcells)
 
       select case (coordinate)
-         
+
       case (spherical)
          xprobmin2=xprobmin2*two*dpi;xprobmin3=xprobmin3*two*dpi
          xprobmax2=xprobmax2*two*dpi;xprobmax3=xprobmax3*two*dpi;
-         
+
       case (cylindrical)
-         
+
          if (1==phi_) then
             xprobmin1=xprobmin1*two*dpi;xprobmax1=xprobmax1*two*dpi;
          end if
-         
-         
+
+
          if (2==phi_) then
             xprobmin2=xprobmin2*two*dpi;xprobmax2=xprobmax2*two*dpi;
          end if
-         
-         
+
+
          if (3==phi_) then
             xprobmin3=xprobmin3*two*dpi;xprobmax3=xprobmax3*two*dpi;
          end if
-         
+
       end select
 
     ! full block size including ghostcells
@@ -1686,10 +1687,10 @@ contains
 
       if(mod(domain_nx2,block_nx2)/=0) call &
          mpistop&
-         ('Grid (domain_nx^D) and block (block_nx^D) must be consistent') 
+         ('Grid (domain_nx^D) and block (block_nx^D) must be consistent')
       if(mod(domain_nx3,block_nx3)/=0) call &
          mpistop&
-         ('Grid (domain_nx^D) and block (block_nx^D) must be consistent') 
+         ('Grid (domain_nx^D) and block (block_nx^D) must be consistent')
 
     if(refine_max_level>nlevelshi.or.refine_max_level<1)then
        write(unitterm,*)'Error: refine_max_level',refine_max_level,&
@@ -1736,7 +1737,7 @@ contains
                     1) /(1.0d0+dsqrt(qstretch(ilev-1,1)))
               enddo
            endif
-        endif 
+        endif
        if (stretch_type(2) == stretch_uni) then
            ! first some sanity checks
            if(qstretch_baselevel(2)<1.0d0.or.qstretch_baselevel(2)==bigdouble) &
@@ -1769,7 +1770,7 @@ contains
                     2) /(1.0d0+dsqrt(qstretch(ilev-1,2)))
               enddo
            endif
-        endif 
+        endif
        if (stretch_type(3) == stretch_uni) then
            ! first some sanity checks
            if(qstretch_baselevel(3)<1.0d0.or.qstretch_baselevel(3)==bigdouble) &
@@ -1802,7 +1803,7 @@ contains
                     3) /(1.0d0+dsqrt(qstretch(ilev-1,3)))
               enddo
            endif
-        endif 
+        endif
         if(mype==0) then
            if(stretch_type(1) == stretch_uni) then
               write(*,*) 'Stretched dimension ', 1
@@ -1883,7 +1884,7 @@ contains
               sizeuniformpart1)>smalldouble) then
               call mpistop('mismatch in domain size!')
            endif
-        endif 
+        endif
        if(stretch_type(2) == stretch_symm) then
            if(mype==0) then
                write(*,*) 'will apply symmetric stretch in dimension', 2
@@ -1941,7 +1942,7 @@ contains
               sizeuniformpart2)>smalldouble) then
               call mpistop('mismatch in domain size!')
            endif
-        endif 
+        endif
        if(stretch_type(3) == stretch_symm) then
            if(mype==0) then
                write(*,*) 'will apply symmetric stretch in dimension', 3
@@ -1999,7 +2000,7 @@ contains
               sizeuniformpart3)>smalldouble) then
               call mpistop('mismatch in domain size!')
            endif
-        endif 
+        endif
         dxfirst_1mq(0:refine_max_level,1:ndim)=dxfirst(0:refine_max_level,&
            1:ndim) /(1.0d0-qstretch(0:refine_max_level,1:ndim))
     end if
@@ -2073,19 +2074,19 @@ contains
              write(uniterr,*)'Warning in read_par_files: ', 'Slice ', islice,&
               ' coordinate',slicecoord(islice),'out of bounds for dimension ',&
              slicedir(islice)
-          
+
           case(2)
           if(slicecoord(islice)<xprobmin2.or.slicecoord(islice)>xprobmax2) &
              write(uniterr,*)'Warning in read_par_files: ', 'Slice ', islice,&
               ' coordinate',slicecoord(islice),'out of bounds for dimension ',&
              slicedir(islice)
-          
+
           case(3)
           if(slicecoord(islice)<xprobmin3.or.slicecoord(islice)>xprobmax3) &
              write(uniterr,*)'Warning in read_par_files: ', 'Slice ', islice,&
               ' coordinate',slicecoord(islice),'out of bounds for dimension ',&
              slicedir(islice)
-          
+
        end select
     end do
 
@@ -2099,7 +2100,7 @@ contains
     deallocate(flux_scheme)
 
     !$acc update device(tvdlfeps,ixGhi1,ixGhi2,ixGhi3,ixGshi1,ixGshi2,ixGshi3,schmid_rad1,schmid_rad2,schmid_rad3,cada3_radius)
-    !$acc update device(fix_small_values,H_correction,type_limiter, boundspeed, max_blocks)    
+    !$acc update device(fix_small_values,H_correction,type_limiter, boundspeed, max_blocks)
     !$acc update device(rk_beta11,rk_beta22,rk_beta33,rk_beta44,rk_c2,rk_c3,rk_c4)
     !$acc update device(rk_alfa21,rk_alfa22,rk_alfa31,rk_alfa33,rk_alfa41,rk_alfa44)
     !$acc update device(rk_beta54,rk_beta55,rk_alfa53,rk_alfa54,rk_alfa55,rk_c5)
@@ -2177,7 +2178,7 @@ contains
     if(.not. phys_req_diagonal) then
       call getbc(global_time,0.d0,ps,iwstart,nwgc)
     end if
-    
+
     do iigrid=1,igridstail; igrid=igrids(iigrid);
        !$acc update host(ps(igrid)%w)
     end do
@@ -2288,21 +2289,21 @@ contains
     logical                               :: periodic(ndim)
 
     ! Version number
-    call MPI_FILE_READ(fh, version, 1, MPI_INTEGER, st, er)
+    call mpi_file_read_wrapper(fh, version, 1, MPI_INTEGER, st, er)
     if (all(compatible_versions /= version)) then
       call mpistop("Incompatible file version (maybe old format?)")
     end if
 
     ! offset_tree
-    call MPI_FILE_READ(fh, ibuf(1), 1, MPI_INTEGER, st, er)
+    call mpi_file_read_wrapper(fh, ibuf(1), 1, MPI_INTEGER, st, er)
     offset_tree = ibuf(1)
 
     ! offset_block
-    call MPI_FILE_READ(fh, ibuf(1), 1, MPI_INTEGER, st, er)
+    call mpi_file_read_wrapper(fh, ibuf(1), 1, MPI_INTEGER, st, er)
     offset_block = ibuf(1)
 
     ! nw
-    call MPI_FILE_READ(fh, ibuf(1), 1, MPI_INTEGER, st, er)
+    call mpi_file_read_wrapper(fh, ibuf(1), 1, MPI_INTEGER, st, er)
     nw_found=ibuf(1)
     if (nw /= ibuf(1)) then
       write(*,*) "nw=",nw," and nw found in restart file=",ibuf(1)
@@ -2311,7 +2312,7 @@ contains
     end if
 
     ! ndir
-    call MPI_FILE_READ(fh, ibuf(1), 1, MPI_INTEGER, st, er)
+    call mpi_file_read_wrapper(fh, ibuf(1), 1, MPI_INTEGER, st, er)
     if (ibuf(1) /= ndir) then
       write(*,*) "ndir in restart file = ",ibuf(1)
       write(*,*) "ndir = ",ndir
@@ -2319,7 +2320,7 @@ contains
     end if
 
     ! ndim
-    call MPI_FILE_READ(fh, ibuf(1), 1, MPI_INTEGER, st, er)
+    call mpi_file_read_wrapper(fh, ibuf(1), 1, MPI_INTEGER, st, er)
     if (ibuf(1) /= ndim) then
       write(*,*) "ndim in restart file = ",ibuf(1)
       write(*,*) "ndim = ",ndim
@@ -2327,7 +2328,7 @@ contains
     end if
 
     ! levmax
-    call MPI_FILE_READ(fh, ibuf(1), 1, MPI_INTEGER, st, er)
+    call mpi_file_read_wrapper(fh, ibuf(1), 1, MPI_INTEGER, st, er)
     if (ibuf(1) > refine_max_level) then
       write(*,*) "number of levels in restart file = ",ibuf(1)
       write(*,*) "refine_max_level = ",refine_max_level
@@ -2335,19 +2336,19 @@ contains
     end if
 
     ! nleafs
-    call MPI_FILE_READ(fh, nleafs, 1, MPI_INTEGER, st, er)
+    call mpi_file_read_wrapper(fh, nleafs, 1, MPI_INTEGER, st, er)
 
     ! nparents
-    call MPI_FILE_READ(fh, nparents, 1, MPI_INTEGER, st, er)
+    call mpi_file_read_wrapper(fh, nparents, 1, MPI_INTEGER, st, er)
 
     ! it
-    call MPI_FILE_READ(fh, it, 1, MPI_INTEGER, st, er)
+    call mpi_file_read_wrapper(fh, it, 1, MPI_INTEGER, st, er)
 
     ! global time
-    call MPI_FILE_READ(fh, global_time, 1, MPI_DOUBLE_PRECISION, st, er)
+    call mpi_file_read_wrapper(fh, global_time, 1, MPI_DOUBLE_PRECISION, st, er)
 
     ! xprobmin^D
-    call MPI_FILE_READ(fh,rbuf(1:ndim),ndim,MPI_DOUBLE_PRECISION,st,er)
+    call mpi_file_read_wrapper(fh,rbuf(1:ndim),ndim,MPI_DOUBLE_PRECISION,st,er)
     if (maxval(abs(rbuf(1:ndim) - [ xprobmin1,xprobmin2,&
        xprobmin3 ])) > 0) then
       write(*,*) "Error: xprobmin differs from restart data: ", rbuf(1:ndim)
@@ -2355,7 +2356,7 @@ contains
     end if
 
     ! xprobmax^D
-    call MPI_FILE_READ(fh,rbuf(1:ndim),ndim,MPI_DOUBLE_PRECISION,st,er)
+    call mpi_file_read_wrapper(fh,rbuf(1:ndim),ndim,MPI_DOUBLE_PRECISION,st,er)
     if (maxval(abs(rbuf(1:ndim) - [ xprobmax1,xprobmax2,&
        xprobmax3 ])) > 0) then
       write(*,*) "Error: xprobmax differs from restart data: ", rbuf(1:ndim)
@@ -2363,14 +2364,14 @@ contains
     end if
 
     ! domain_nx^D
-    call MPI_FILE_READ(fh,ibuf(1:ndim), ndim, MPI_INTEGER,st,er)
+    call mpi_file_read_wrapper(fh,ibuf(1:ndim), ndim, MPI_INTEGER,st,er)
     if (any(ibuf(1:ndim) /= [ domain_nx1,domain_nx2,domain_nx3 ])) then
       write(*,*) "Error: mesh size differs from restart data: ", ibuf(1:ndim)
       call mpistop("change domain_nx^D in par file")
     end if
 
     ! block_nx^D
-    call MPI_FILE_READ(fh,ibuf(1:ndim), ndim, MPI_INTEGER,st,er)
+    call mpi_file_read_wrapper(fh,ibuf(1:ndim), ndim, MPI_INTEGER,st,er)
     if (any(ibuf(1:ndim) /= [ block_nx1,block_nx2,block_nx3 ])) then
       write(*,*) "Error: block size differs from restart data:", ibuf(1:ndim)
       call mpistop("change block_nx^D in par file")
@@ -2378,21 +2379,21 @@ contains
 
     ! From version 5, read more info about the grid
     if (version > 4) then
-      call MPI_FILE_READ(fh, periodic, ndim, MPI_LOGICAL, st, er)
+      call mpi_file_read_wrapper(fh, periodic, ndim, MPI_LOGICAL, st, er)
       if (periodic(1) .and. .not.periodB(1) .or. .not.periodic(1) .and. &
          periodB(1) .or. periodic(2) .and. .not.periodB(2) .or. &
          .not.periodic(2) .and. periodB(2) .or. periodic(3) .and. &
          .not.periodB(3) .or. .not.periodic(3) .and. periodB(3)) call &
          mpistop("change in periodicity in par file")
 
-      call MPI_FILE_READ(fh, geom_name, name_len, MPI_CHARACTER, st, er)
+      call mpi_file_read_wrapper(fh, geom_name, name_len, MPI_CHARACTER, st, er)
 
       if (geom_name /= geometry_name(1:name_len)) then
         write(*,*) "type of coordinates in data is: ", geom_name
         call mpistop("select the correct coordinates in mod_usr.t file")
       end if
 
-      call MPI_FILE_READ(fh, stagger_mark_dat, 1, MPI_LOGICAL, st, er)
+      call mpi_file_read_wrapper(fh, stagger_mark_dat, 1, MPI_LOGICAL, st, er)
       if (stagger_grid .and. .not. stagger_mark_dat .or. &
          .not.stagger_grid.and.stagger_mark_dat) then
         write(*,*) "Warning: stagger grid flag differs from restart data:",&
@@ -2406,33 +2407,33 @@ contains
       ! w_names (not used here)
       allocate(var_names(nw_found))
       do iw = 1, nw_found
-        call MPI_FILE_READ(fh, var_names(iw), name_len, MPI_CHARACTER, st, er)
+        call mpi_file_read_wrapper(fh, var_names(iw), name_len, MPI_CHARACTER, st, er)
       end do
 
       ! Physics related information
-      call MPI_FILE_READ(fh, phys_name, name_len, MPI_CHARACTER, st, er)
+      call mpi_file_read_wrapper(fh, phys_name, name_len, MPI_CHARACTER, st, er)
 
       if (phys_name /= physics_type) then
 !        call mpistop("Cannot restart with a different physics type")
       end if
 
-      call MPI_FILE_READ(fh, n_par, 1, MPI_INTEGER, st, er)
+      call mpi_file_read_wrapper(fh, n_par, 1, MPI_INTEGER, st, er)
       allocate(params(n_par))
       allocate(param_names(n_par))
-      call MPI_FILE_READ(fh, params, n_par, MPI_DOUBLE_PRECISION, st, er)
-      call MPI_FILE_READ(fh, param_names, name_len * n_par, MPI_CHARACTER, st,&
+      call mpi_file_read_wrapper(fh, params, n_par, MPI_DOUBLE_PRECISION, st, er)
+      call mpi_file_read_wrapper(fh, param_names, name_len * n_par, MPI_CHARACTER, st,&
           er)
 
       ! Read snapshotnext etc. for restarting
-      call MPI_FILE_READ(fh, tmp_int, 1, MPI_INTEGER, st, er)
+      call mpi_file_read_wrapper(fh, tmp_int, 1, MPI_INTEGER, st, er)
 
       ! Only set snapshotnext if the user hasn't specified it
       if (snapshotnext == -1) snapshotnext = tmp_int
 
-      call MPI_FILE_READ(fh, tmp_int, 1, MPI_INTEGER, st, er)
+      call mpi_file_read_wrapper(fh, tmp_int, 1, MPI_INTEGER, st, er)
       if (slicenext == -1) slicenext = tmp_int
 
-      call MPI_FILE_READ(fh, tmp_int, 1, MPI_INTEGER, st, er)
+      call mpi_file_read_wrapper(fh, tmp_int, 1, MPI_INTEGER, st, er)
       if (collapsenext == -1) collapsenext = tmp_int
     else
       ! Guess snapshotnext from file name if not set
@@ -2527,7 +2528,7 @@ contains
 
       ! Block offsets are currently unknown, but will be overwritten later
       call MPI_File_get_position(file_handle, offset_offsets, ierrmpi)
-      call MPI_FILE_WRITE(file_handle, block_offset(1:nleafs), nleafs,&
+      call mpi_file_write_wrapper(file_handle, block_offset(1:nleafs), nleafs,&
           MPI_OFFSET, istatus, ierrmpi)
 
       call MPI_File_get_position(file_handle, offset_block_data, ierrmpi)
@@ -2557,9 +2558,9 @@ contains
         ixOsmin1 = ixOmin1 -1
         ixOsmin2 = ixOmin2 -1
         ixOsmin3 = ixOmin3 -1
-        ixOsmax1 = ixOmax1 
-        ixOsmax2 = ixOmax2 
-        ixOsmax3 = ixOmax3 
+        ixOsmax1 = ixOmax1
+        ixOsmax2 = ixOmax2
+        ixOsmax3 = ixOmax3
         n_values_stagger= count_ix(ixOsmin1,ixOsmin2,ixOsmin3,ixOsmax1,&
            ixOsmax2,ixOsmax3)*nws
         w_buffer(n_values+1:n_values+n_values_stagger) = &
@@ -2574,15 +2575,15 @@ contains
       ix_buffer(2:) = n_ghost
 
       if (mype /= 0) then
-        call MPI_SEND(ix_buffer, 2*ndim+1, MPI_INTEGER, 0, itag, icomm,&
+        call mpi_send_wrapper(ix_buffer, 2*ndim+1, MPI_INTEGER, 0, itag, icomm,&
             ierrmpi)
-        call MPI_SEND(w_buffer, n_values, MPI_DOUBLE_PRECISION, 0, itag, icomm,&
+        call mpi_send_wrapper(w_buffer, n_values, MPI_DOUBLE_PRECISION, 0, itag, icomm,&
             ierrmpi)
       else
         iwrite = iwrite+1
-        call MPI_FILE_WRITE(file_handle, ix_buffer(2:), 2*ndim, MPI_INTEGER,&
+        call mpi_file_write_wrapper(file_handle, ix_buffer(2:), 2*ndim, MPI_INTEGER,&
             istatus, ierrmpi)
-        call MPI_FILE_WRITE(file_handle, w_buffer, n_values,&
+        call mpi_file_write_wrapper(file_handle, w_buffer, n_values,&
             MPI_DOUBLE_PRECISION, istatus, ierrmpi)
 
         ! Set offset of next block
@@ -2598,16 +2599,16 @@ contains
           iwrite=iwrite+1
           itag=Morton_no
 
-          call MPI_RECV(ix_buffer, 2*ndim+1, MPI_INTEGER, ipe, itag, icomm,&
+          call mpi_recv_wrapper(ix_buffer, 2*ndim+1, MPI_INTEGER, ipe, itag, icomm,&
              igrecvstatus, ierrmpi)
           n_values = ix_buffer(1)
 
-          call MPI_RECV(w_buffer, n_values, MPI_DOUBLE_PRECISION,ipe, itag,&
+          call mpi_recv_wrapper(w_buffer, n_values, MPI_DOUBLE_PRECISION,ipe, itag,&
               icomm, iorecvstatus, ierrmpi)
 
-          call MPI_FILE_WRITE(file_handle, ix_buffer(2:), 2*ndim, MPI_INTEGER,&
+          call mpi_file_write_wrapper(file_handle, ix_buffer(2:), 2*ndim, MPI_INTEGER,&
               istatus, ierrmpi)
-          call MPI_FILE_WRITE(file_handle, w_buffer, n_values,&
+          call mpi_file_write_wrapper(file_handle, w_buffer, n_values,&
               MPI_DOUBLE_PRECISION, istatus, ierrmpi)
 
           ! Set offset of next block
@@ -2618,7 +2619,7 @@ contains
 
       ! Write block offsets (now we know them)
       call MPI_FILE_SEEK(file_handle, offset_offsets, MPI_SEEK_SET, ierrmpi)
-      call MPI_FILE_WRITE(file_handle, block_offset(1:nleafs), nleafs,&
+      call mpi_file_write_wrapper(file_handle, block_offset(1:nleafs), nleafs,&
           MPI_OFFSET, istatus, ierrmpi)
 
       ! Write header again, now with correct offsets
@@ -2668,7 +2669,7 @@ contains
 
       call MPI_FILE_OPEN(MPI_COMM_SELF,restart_from_file,MPI_MODE_RDONLY,&
           MPI_INFO_NULL,file_handle,ierrmpi)
-      call MPI_FILE_READ(file_handle, file_version, 1, MPI_INTEGER, istatus,&
+      call mpi_file_read_wrapper(file_handle, file_version, 1, MPI_INTEGER, istatus,&
           ierrmpi)
     end if
 
@@ -2741,7 +2742,7 @@ contains
           iread=iread+1
           itag=Morton_no
 
-          call MPI_FILE_READ(file_handle,ix_buffer(1:2*ndim), 2*ndim,&
+          call mpi_file_read_wrapper(file_handle,ix_buffer(1:2*ndim), 2*ndim,&
               MPI_INTEGER, istatus,ierrmpi)
 
           ! Construct ixO^L array from number of ghost cells
@@ -2765,7 +2766,7 @@ contains
                ixOsmax2,ixOsmax3) * nws
           end if
 
-          call MPI_FILE_READ(file_handle, w_buffer, n_values,&
+          call mpi_file_read_wrapper(file_handle, w_buffer, n_values,&
               MPI_DOUBLE_PRECISION, istatus, ierrmpi)
 
           if (mype == ipe) then ! Root task
@@ -2813,9 +2814,9 @@ contains
             end if
             !$acc update device(bg(1)%w(:,:,:,:,igrid))
           else
-            call MPI_SEND([ ixOmin1,ixOmin2,ixOmin3,ixOmax1,ixOmax2,ixOmax3,&
+            call mpi_send_wrapper([ ixOmin1,ixOmin2,ixOmin3,ixOmax1,ixOmax2,ixOmax3,&
                 n_values ], 2*ndim+1, MPI_INTEGER, ipe, itag, icomm, ierrmpi)
-            call MPI_SEND(w_buffer, n_values, MPI_DOUBLE_PRECISION, ipe, itag,&
+            call mpi_send_wrapper(w_buffer, n_values, MPI_DOUBLE_PRECISION, ipe, itag,&
                 icomm, ierrmpi)
           end if
         end do
@@ -2830,7 +2831,7 @@ contains
         block=>ps(igrid)
         itag=Morton_no
 
-        call MPI_RECV(ix_buffer, 2*ndim+1, MPI_INTEGER, 0, itag, icomm,&
+        call mpi_recv_wrapper(ix_buffer, 2*ndim+1, MPI_INTEGER, 0, itag, icomm,&
            iorecvstatus, ierrmpi)
         ixOmin1 = ix_buffer(1)
         ixOmin2 = ix_buffer(2)
@@ -2840,7 +2841,7 @@ contains
         ixOmax3 = ix_buffer(ndim+3)
         n_values = ix_buffer(2*ndim+1)
 
-        call MPI_RECV(w_buffer, n_values, MPI_DOUBLE_PRECISION,0, itag, icomm,&
+        call mpi_recv_wrapper(w_buffer, n_values, MPI_DOUBLE_PRECISION,0, itag, icomm,&
             iorecvstatus, ierrmpi)
 
         if(stagger_mark_dat) then
@@ -2924,15 +2925,15 @@ contains
       offset=-int(7*size_int+size_double,kind=MPI_OFFSET_KIND)
       call MPI_FILE_SEEK(fh,offset,MPI_SEEK_END,ierrmpi)
 
-      call MPI_FILE_READ(fh,nleafs,1,MPI_INTEGER,istatus,ierrmpi)
+      call mpi_file_read_wrapper(fh,nleafs,1,MPI_INTEGER,istatus,ierrmpi)
       nleafs_active = nleafs
-      call MPI_FILE_READ(fh,levmaxini,1,MPI_INTEGER,istatus,ierrmpi)
-      call MPI_FILE_READ(fh,ndimini,1,MPI_INTEGER,istatus,ierrmpi)
-      call MPI_FILE_READ(fh,ndirini,1,MPI_INTEGER,istatus,ierrmpi)
-      call MPI_FILE_READ(fh,nwini,1,MPI_INTEGER,istatus,ierrmpi)
-      call MPI_FILE_READ(fh,neqparini,1,MPI_INTEGER,istatus,ierrmpi)
-      call MPI_FILE_READ(fh,it,1,MPI_INTEGER,istatus,ierrmpi)
-      call MPI_FILE_READ(fh,global_time,1,MPI_DOUBLE_PRECISION,istatus,&
+      call mpi_file_read_wrapper(fh,levmaxini,1,MPI_INTEGER,istatus,ierrmpi)
+      call mpi_file_read_wrapper(fh,ndimini,1,MPI_INTEGER,istatus,ierrmpi)
+      call mpi_file_read_wrapper(fh,ndirini,1,MPI_INTEGER,istatus,ierrmpi)
+      call mpi_file_read_wrapper(fh,nwini,1,MPI_INTEGER,istatus,ierrmpi)
+      call mpi_file_read_wrapper(fh,neqparini,1,MPI_INTEGER,istatus,ierrmpi)
+      call mpi_file_read_wrapper(fh,it,1,MPI_INTEGER,istatus,ierrmpi)
+      call mpi_file_read_wrapper(fh,global_time,1,MPI_DOUBLE_PRECISION,istatus,&
          ierrmpi)
 
       ! check if settings are suitable for restart
@@ -2960,9 +2961,9 @@ contains
          kind=MPI_OFFSET_KIND)
       call MPI_FILE_SEEK(fh,offset,MPI_SEEK_END,ierrmpi)
 
-      call MPI_FILE_READ(fh,nxini1,1,MPI_INTEGER,istatus,ierrmpi)
-      call MPI_FILE_READ(fh,nxini2,1,MPI_INTEGER,istatus,ierrmpi)
-      call MPI_FILE_READ(fh,nxini3,1,MPI_INTEGER,istatus,ierrmpi)
+      call mpi_file_read_wrapper(fh,nxini1,1,MPI_INTEGER,istatus,ierrmpi)
+      call mpi_file_read_wrapper(fh,nxini2,1,MPI_INTEGER,istatus,ierrmpi)
+      call mpi_file_read_wrapper(fh,nxini3,1,MPI_INTEGER,istatus,ierrmpi)
       if (ixGhi1/=nxini1+2*nghostcells.or.ixGhi2/=&
          nxini2+2*nghostcells.or.ixGhi3/=nxini3+2*nghostcells) then
         write(*,*) "Error: reset resolution to ",nxini1+2*nghostcells,&
@@ -2970,7 +2971,7 @@ contains
         call mpistop("change with setamrvac")
       end if
 
-      call MPI_FILE_READ(fh,eqpar_dummy,neqparini, MPI_DOUBLE_PRECISION,&
+      call mpi_file_read_wrapper(fh,eqpar_dummy,neqparini, MPI_DOUBLE_PRECISION,&
          istatus,ierrmpi)
     end if
 
@@ -3010,7 +3011,7 @@ contains
         iread=iread+1
         offset=int(size_block_io,kind=MPI_OFFSET_KIND) *int(Morton_no-1,&
            kind=MPI_OFFSET_KIND)
-        call MPI_FILE_READ_AT(fh,offset,ps(igrid)%w,1,type_block_io, istatus,&
+        call mpi_file_read_at_wrapper(fh,offset,ps(igrid)%w,1,type_block_io, istatus,&
            ierrmpi)
       end do
       if (npe>1) then
@@ -3020,9 +3021,9 @@ contains
             itag=Morton_no
             offset=int(size_block_io,kind=MPI_OFFSET_KIND)*int(Morton_no-1,&
                kind=MPI_OFFSET_KIND)
-            call MPI_FILE_READ_AT(fh,offset,wio,1,type_block_io,istatus,&
+            call mpi_file_read_at_wrapper(fh,offset,wio,1,type_block_io,istatus,&
                ierrmpi)
-            call MPI_SEND(wio,1,type_block_io,ipe,itag,icomm,ierrmpi)
+            call mpi_send_wrapper(wio,1,type_block_io,ipe,itag,icomm,ierrmpi)
           end do
         end do
       end if
@@ -3035,7 +3036,7 @@ contains
         igrid=sfc_to_igrid(Morton_no)
         itag=Morton_no
         inrecv=inrecv+1
-        call MPI_RECV(ps(igrid)%w,1,type_block_io,0,itag,icomm,iorecvstatus(:,&
+        call mpi_recv_wrapper(ps(igrid)%w,1,type_block_io,0,itag,icomm,iorecvstatus(:,&
            inrecv),ierrmpi)
       end do
       deallocate(iorecvstatus)

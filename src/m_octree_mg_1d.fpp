@@ -21,6 +21,7 @@
 
 module m_octree_mg_1d
   use mpi
+  use mod_mpi_wrapper
   implicit none
   private
 
@@ -947,7 +948,7 @@ contains
 !               tmp(i, j, k+1) + tmp(i, j, k-1) - &
 !               dr2 * box%cc(i, j, k, mg_irhs))
 ! #endif
-!       end do; 
+!       end do;
 !     end associate
 !   end subroutine box_jacobi_lpl
 
@@ -1184,7 +1185,7 @@ contains
              end if
           end if
        end do
-    end do; 
+    end do;
 
     mg%lvls(mg%lowest_lvl)%ids = [(n, n=1, mg%n_boxes)]
 
@@ -1904,12 +1905,12 @@ contains
        if (mg%buf(i)%i_send > 0) then
           n_send = n_send + 1
           call sort_sendbuf(mg%buf(i), dsize)
-          call mpi_isend(mg%buf(i)%send, mg%buf(i)%i_send, MPI_DOUBLE, i, 0,&
+          call mpi_isend_wrapper(mg%buf(i)%send, mg%buf(i)%i_send, MPI_DOUBLE, i, 0,&
               mg%comm, send_req(n_send), ierr)
        end if
        if (mg%buf(i)%i_recv > 0) then
           n_recv = n_recv + 1
-          call mpi_irecv(mg%buf(i)%recv, mg%buf(i)%i_recv, MPI_DOUBLE, i, 0,&
+          call mpi_irecv_wrapper(mg%buf(i)%recv, mg%buf(i)%i_recv, MPI_DOUBLE, i, 0,&
               mg%comm, recv_req(n_recv), ierr)
        end if
     end do
@@ -3298,7 +3299,7 @@ contains
           do i=1, hnc
              mg%boxes(id)%cc(dix(1)+i, iv) = 0.5_dp * &
                 sum(mg%boxes(c_id)%cc(2*i-1:2*i, iv))
-          end do; 
+          end do;
        else
           i = mg%buf(c_rank)%i_recv
           mg%boxes(id)%cc(dix(1)+1:dix(1)+hnc,&
