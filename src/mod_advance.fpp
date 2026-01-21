@@ -217,8 +217,7 @@ contains
     end if
 
   end subroutine evaluate_implicit
-
-  !> Integrate all grids by one partial step
+  !> Integrate al<Right>l grids by one partial step
   subroutine advect1(method,dtfactor,idimmin,idimmax,qtC,psa,bga,qt,psb,bgb)
     use mod_global_parameters
     use mod_ghostcells_update
@@ -275,6 +274,11 @@ contains
         bgb, &                          ! second block grid
         fC, fE &                        ! fluxes
         )
+
+!   H.O. Comment:
+!   The call to store_flux() is here in BHAC
+!   but perhaps it would be good to put it inside the parallel loop
+!   inside finite_volume_local
 
     ! AGILE: todo
     ! if (fix_conserve_global .and. fix_conserve_at_step) then
