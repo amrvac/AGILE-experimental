@@ -280,6 +280,10 @@ contains
 !   but perhaps it would be good to put it inside the parallel loop
 !   inside finite_volume_local
 
+! Step 3: Make this work on device
+!    call store_flux()
+
+! Step 4: this stuff      
     ! AGILE: todo
     ! if (fix_conserve_global .and. fix_conserve_at_step) then
     !   call recvflux(idimmin,idimmax)
