@@ -4,11 +4,18 @@ module mod_fix_conserve
   private
 
   type fluxalloc
-     double precision, dimension(:,:,:,:), pointer:: flux => null()
-     double precision, dimension(:,:,:,:), pointer:: edge => null()
+     double precision, dimension(:,:,:,:), pointer :: flux => null()
+     double precision, dimension(:,:,:,:), pointer :: edge => null()
   end type fluxalloc
+  !!!JESSE: this does not work actually
+  !!!type fluxalloc
+  !!!   double precision, dimension(:,:,:,:) :: flux 
+  !!!   double precision, dimension(:,:,:,:) :: edge
+  !!!end type fluxalloc
   !> store flux to fix conservation
   type(fluxalloc), dimension(:,:,:), allocatable, public :: pflux
+
+  !$acc declare create(pflux) !JESSE, try to retain pointer structure
 
   integer, save                        :: nrecv, nsend
   double precision, allocatable, save  :: recvbuffer(:), sendbuffer(:)
@@ -717,14 +724,26 @@ module mod_fix_conserve
 
          select case (neighbor_type(i1,i2,i3,igrid))
          case(neighbor_fine)
+
            allocate(pflux(iside,1,igrid)%flux(1,1:nx2,1:nx3,1:nwflux))
+           !$acc enter data create(pflux(iside,1,igrid)%flux) !JESSE
+           !$acc enter data attach(pflux(iside,1,igrid)%flux) !JESSE
+
            if(stagger_grid) allocate(pflux(iside,1,igrid)%edge(1,0:nx2,0:nx3,&
               1:ndim-1))
+
          case(neighbor_coarse)
+
            allocate(pflux(iside,1,igrid)%flux(1,1:nxCo2,1:nxCo3,1:nwflux))
+!!           !$acc enter data create(pflux(iside,1,igrid)%flux(1,1:nxCo2,1:nxCo3,1:nwflux)) !JESSE
+           !$acc enter data create(pflux(iside,1,igrid)%flux) !JESSE: no copyin because the data is not initialized yet
+           !$acc enter data attach(pflux(iside,1,igrid)%flux) !JESSE: may need this because it is a pointer (device-side) pointer
+
            if(stagger_grid) allocate(pflux(iside,1,igrid)%edge(1,0:nxCo2,&
               0:nxCo3,1:ndim-1))
+
          case(neighbor_sibling)
+
            if(stagger_grid) then
              idim=1
              do idir=idim+1,ndim
@@ -753,10 +772,14 @@ module mod_fix_conserve
          select case (neighbor_type(i1,i2,i3,igrid))
          case(neighbor_fine)
            allocate(pflux(iside,2,igrid)%flux(1:nx1,1,1:nx3,1:nwflux))
+           !$acc enter data create(pflux(iside,2,igrid)%flux) !JESSE
+           !$acc enter data attach(pflux(iside,2,igrid)%flux) !JESSE
            if(stagger_grid) allocate(pflux(iside,2,igrid)%edge(0:nx1,1,0:nx3,&
               1:ndim-1))
          case(neighbor_coarse)
            allocate(pflux(iside,2,igrid)%flux(1:nxCo1,1,1:nxCo3,1:nwflux))
+           !$acc enter data create(pflux(iside,2,igrid)%flux) !JESSE
+           !$acc enter data attach(pflux(iside,2,igrid)%flux) !JESSE
            if(stagger_grid) allocate(pflux(iside,2,igrid)%edge(0:nxCo1,1,&
               0:nxCo3,1:ndim-1))
          case(neighbor_sibling)
@@ -788,10 +811,14 @@ module mod_fix_conserve
          select case (neighbor_type(i1,i2,i3,igrid))
          case(neighbor_fine)
            allocate(pflux(iside,3,igrid)%flux(1:nx1,1:nx2,1,1:nwflux))
+           !$acc enter data create(pflux(iside,3,igrid)%flux) !JESSE
+           !$acc enter data attach(pflux(iside,3,igrid)%flux) !JESSE
            if(stagger_grid) allocate(pflux(iside,3,igrid)%edge(0:nx1,0:nx2,1,&
               1:ndim-1))
          case(neighbor_coarse)
            allocate(pflux(iside,3,igrid)%flux(1:nxCo1,1:nxCo2,1,1:nwflux))
+           !$acc enter data create(pflux(iside,3,igrid)%flux) !JESSE
+           !$acc enter data attach(pflux(iside,3,igrid)%flux) !JESSE
            if(stagger_grid) allocate(pflux(iside,3,igrid)%edge(0:nxCo1,0:nxCo2,&
               1,1:ndim-1))
          case(neighbor_sibling)
@@ -821,11 +848,31 @@ module mod_fix_conserve
 
    subroutine deallocateBflux
      use mod_global_parameters
+     use openacc
 
      integer :: iigrid, igrid, iside
 
      do iigrid=1,igridstail; igrid=igrids(iigrid);
        do iside=1,2
+
+         if (acc_is_present(pflux(iside,1,igrid)%flux, &
+                  size(pflux(iside,1,igrid)%flux))) then
+         !$acc exit data detach(pflux(iside,1,igrid)%flux) !JESSE
+         !$acc exit data delete(pflux(iside,1,igrid)%flux) !JESSE
+         end if
+
+         if (acc_is_present(pflux(iside,1,igrid)%edge, &
+                  size(pflux(iside,1,igrid)%edge))) then
+         !$acc exit data detach(pflux(iside,1,igrid)%edge) !JESSE
+         !$acc exit data delete(pflux(iside,1,igrid)%edge) !JESSE
+         end if
+          
+         !! JESSE: the if_preset flag does not work unfortunately
+!!         !$acc exit data detach(pflux(iside,1,igrid)%flux) !JESSE
+!!         !$acc exit data delete(pflux(iside,1,igrid)%flux) !JESSE
+!!         !$acc exit data detach(pflux(iside,1,igrid)%edge) if_present !JESSE
+!!         !$acc exit data delete(pflux(iside,1,igrid)%edge) if_present !JESSE
+
          if (associated(pflux(iside,1,igrid)%flux)) then
            deallocate(pflux(iside,1,igrid)%flux)
            nullify(pflux(iside,1,igrid)%flux)
@@ -836,6 +883,16 @@ module mod_fix_conserve
          end if
        end do
        do iside=1,2
+         if (acc_is_present(pflux(iside,2,igrid)%flux, &
+                  size(pflux(iside,2,igrid)%flux))) then
+         !$acc exit data detach(pflux(iside,1,igrid)%flux) !JESSE
+         !$acc exit data delete(pflux(iside,1,igrid)%flux) !JESSE
+         end if
+         if (acc_is_present(pflux(iside,2,igrid)%edge, &
+                  size(pflux(iside,2,igrid)%edge))) then
+         !$acc exit data detach(pflux(iside,1,igrid)%edge) !JESSE
+         !$acc exit data delete(pflux(iside,1,igrid)%edge) !JESSE
+         end if
          if (associated(pflux(iside,2,igrid)%flux)) then
            deallocate(pflux(iside,2,igrid)%flux)
            nullify(pflux(iside,2,igrid)%flux)
@@ -846,6 +903,16 @@ module mod_fix_conserve
          end if
        end do
        do iside=1,2
+         if (acc_is_present(pflux(iside,3,igrid)%flux, &
+                  size(pflux(iside,2,igrid)%flux))) then
+         !$acc exit data detach(pflux(iside,1,igrid)%flux) !JESSE
+         !$acc exit data delete(pflux(iside,1,igrid)%flux) !JESSE
+         end if
+         if (acc_is_present(pflux(iside,3,igrid)%edge, &
+                  size(pflux(iside,2,igrid)%edge))) then
+         !$acc exit data detach(pflux(iside,1,igrid)%edge) !JESSE
+         !$acc exit data delete(pflux(iside,1,igrid)%edge) !JESSE
+         end if
          if (associated(pflux(iside,3,igrid)%flux)) then
            deallocate(pflux(iside,3,igrid)%flux)
            nullify(pflux(iside,3,igrid)%flux)

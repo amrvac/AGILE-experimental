@@ -81,6 +81,7 @@ contains
     allocate(node(nodehi,max_blocks),node_sub(nodehi,max_blocks),&
        phyboundblock(max_blocks))
     allocate(pflux(2,3,max_blocks))
+    !$acc enter data copyin(pflux(2,3,max_blocks)) !JESSE
 
     allocate( bg(1:nstep) )
     !$acc enter data copyin(bg)
