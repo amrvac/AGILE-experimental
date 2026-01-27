@@ -144,7 +144,7 @@ contains
   end subroutine lohner_grid
 
   subroutine forcedrefine_grid(igrid)
-    !$acc routine vector
+    !$acc routine worker
     #:if defined('REFINE_USR')
     use mod_usr, only: usr_refine_grid
     #:endif
@@ -156,6 +156,10 @@ contains
     integer :: level
     integer :: my_refine, my_coarsen
     double precision :: qt
+    integer :: ix1, ix2, ix3
+    logical :: has_interface
+!    double precision :: x(ixGlo1:ixGhi1,&
+!         ixGlo2:ixGhi2,ixGlo3:ixGhi3,1:ndim)
 
     level=node(plevel_,igrid)
 
@@ -170,10 +174,34 @@ contains
     end if
 
 #:if defined('REFINE_USR')
-    call usr_refine_grid(igrid,level,ixGlo1,ixGlo2,ixGlo3,ixGhi1,ixGhi2, &
-         ixGhi3,ixMlo1,ixMlo2,ixMlo3,ixMhi1,ixMhi2,ixMhi3,qt, &
-         bg(1)%w(:,:,:,:, igrid), ps(igrid)%x, &
-         my_refine,my_coarsen)
+    has_interface = .false.
+    !$acc loop vector collapse(3) reduction(.or.:has_interface)
+    do ix3 = ixMlo3, ixMhi3
+       do ix2 = ixMlo2, ixMhi2
+          do ix1 = ixMlo1, ixMhi1
+! works:
+!             if ( bg(1)%w(ix1, ix2, ix3, 1, igrid) < 5.0d0 .and. &
+!                  bg(1)%w(ix1, ix2+1, ix3, 1, igrid) >= 5.0d0) then
+! breaks:
+             if ( abs(ps(igrid)%x(ix1, ix2, ix3, 2) - 0.75d0) < 1.0d-1 .or. &
+                  abs(ps(igrid)%x(ix1, ix2, ix3, 2) - 0.25d0) < 1.0d-1 ) then
+                has_interface = .true.
+             end if
+          end do
+       end do
+    end do
+
+    if (has_interface) then
+       my_coarsen = -1
+       my_refine  = 1
+    else 
+       my_coarsen = 1
+       my_refine  = -1
+    end if
+!    call usr_refine_grid(igrid,level,ixGlo1,ixGlo2,ixGlo3,ixGhi1,ixGhi2, &
+!         ixGhi3,ixMlo1,ixMlo2,ixMlo3,ixMhi1,ixMhi2,ixMhi3,qt, &
+!         bg(1)%w(:,:,:,:, igrid), ps(igrid)%x, &
+!         my_refine,my_coarsen)
 #:endif
 
     if (my_coarsen==1) then
