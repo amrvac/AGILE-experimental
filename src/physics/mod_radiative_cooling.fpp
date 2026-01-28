@@ -21,6 +21,13 @@ module mod_radiative_cooling
 
   implicit none
 
+! Debugging is only intended to work on CPU.
+  logical, save :: rc_debug_enable = .false.
+  integer, save :: rc_debug_unit = -1
+  integer, save :: rc_debug_k = 0
+  integer, save :: rc_debug_it = 1
+  character(len=std_len), save :: rc_dbg_file = 'rc_debug.csv'
+
   !> to be pushed to the device
   !> Helium abundance over Hydrogen
   double precision, private    :: He_abundance_rc
@@ -81,11 +88,9 @@ module mod_radiative_cooling
 
   ! Interpolatable tables
 
-  double precision :: t_JCcorona(1:45), t_DM_2(1:76), t_Colgan(1:55) 
-
-  double precision :: l_JCcorona(1:45), l_DM_2(1:76), l_Colgan(1:55) 
-
-  integer          :: n_JCcorona, n_DM_2 , n_Colgan
+  double precision :: t_JCcorona(1:45), t_DM_2(1:76), t_Colgan(1:55), t_lognormal(1:100)
+  double precision :: l_JCcorona(1:45), l_DM_2(1:76), l_Colgan(1:55), l_lognormal(1:100)
+  integer          :: n_JCcorona, n_DM_2 , n_Colgan, n_lognormal
 
   data    n_JCcorona / 45 /
 
@@ -172,6 +177,75 @@ module mod_radiative_cooling
                      -22.48895932, -22.46071057, -22.42908363, -22.39358639, -22.35456791, &
                      -22.31261375, -22.26827428, -22.22203698, -22.17422996, -22.12514145  /
 
+  ! data n_lognormal / 50 /
+  ! data t_lognormal / 1.        , 1.16326531, 1.32653061, 1.48979592, 1.65306122,&
+  !      1.81632653, 1.97959184, 2.14285714, 2.30612245, 2.46938776,&
+  !      2.63265306, 2.79591837, 2.95918367, 3.12244898, 3.28571429,&
+  !      3.44897959, 3.6122449 , 3.7755102 , 3.93877551, 4.10204082,&
+  !      4.26530612, 4.42857143, 4.59183673, 4.75510204, 4.91836735,&
+  !      5.08163265, 5.24489796, 5.40816327, 5.57142857, 5.73469388,&
+  !      5.89795918, 6.06122449, 6.2244898 , 6.3877551 , 6.55102041,&
+  !      6.71428571, 6.87755102, 7.04081633, 7.20408163, 7.36734694,&
+  !      7.53061224, 7.69387755, 7.85714286, 8.02040816, 8.18367347,&
+  !      8.34693878, 8.51020408, 8.67346939, 8.83673469, 9.        /
+  ! data l_lognormal / -54.33729066, -51.85884132, -49.47629307, -47.1896459 ,&
+  !      -44.99889981, -42.90405482, -40.90511091, -39.00206809,&
+  !      -37.19492635, -35.4836857 , -33.86834614, -32.34890767,&
+  !      -30.92537028, -29.59773398, -28.36599876, -27.23016464,&
+  !      -26.1902316 , -25.24619964, -24.39806877, -23.64583899,&
+  !      -22.9895103 , -22.42908269, -21.96455617, -21.59593074,&
+  !      -21.32320639, -21.14638313, -21.06546096, -21.08043987,&
+  !      -21.19131987, -21.39810095, -21.70078313, -22.09936639,&
+  !      -22.59385074, -23.18423617, -23.87052269, -24.6527103 ,&
+  !      -25.53079899, -26.50478877, -27.57467964, -28.74047159,&
+  !      -30.00216463, -31.35975876, -32.81325398, -34.36265028,&
+  !      -36.00794767, -37.74914614, -39.5862457 , -41.51924635,&
+  !      -43.54814809, -45.67295091 /
+
+  data n_lognormal / 100 /
+  data t_lognormal /&
+       1.0,        1.08080808, 1.16161616, 1.24242424, 1.32323232,&
+       1.4040404 , 1.48484848, 1.56565657, 1.64646465, 1.72727273,&
+       1.80808081, 1.88888889, 1.96969697, 2.05050505, 2.13131313,&
+       2.21212121, 2.29292929, 2.37373737, 2.45454545, 2.53535354,&
+       2.61616162, 2.6969697 , 2.77777778, 2.85858586, 2.93939394,&
+       3.02020202, 3.1010101 , 3.18181818, 3.26262626, 3.34343434,&
+       3.42424242, 3.50505051, 3.58585859, 3.66666667, 3.74747475,&
+       3.82828283, 3.90909091, 3.98989899, 4.07070707, 4.15151515,&
+       4.23232323, 4.31313131, 4.39393939, 4.47474747, 4.55555556,&
+       4.63636364, 4.71717172, 4.7979798 , 4.87878788, 4.95959596,&
+       5.04040404, 5.12121212, 5.2020202 , 5.28282828, 5.36363636,&
+       5.44444444, 5.52525253, 5.60606061, 5.68686869, 5.76767677,&
+       5.84848485, 5.92929293, 6.01010101, 6.09090909, 6.17171717,&
+       6.25252525, 6.33333333, 6.41414141, 6.49494949, 6.57575758,&
+       6.65656566, 6.73737374, 6.81818182, 6.8989899 , 6.97979798,&
+       7.06060606, 7.14141414, 7.22222222, 7.3030303 , 7.38383838,&
+       7.46464646, 7.54545455, 7.62626263, 7.70707071, 7.78787879,&
+       7.86868687, 7.94949495, 8.03030303, 8.11111111, 8.19191919,&
+       8.27272727, 8.35353535, 8.43434343, 8.51515152, 8.5959596 ,&
+       8.67676768, 8.75757576, 8.83838384, 8.91919192, 9.0        /
+  data l_lognormal /&
+       -54.33729066, -53.098597  , -51.88339671, -50.69168978, -49.52347623,&
+       -48.37875604, -47.25752922, -46.15979577, -45.08555569, -44.03480898,&
+       -43.00755564, -42.00379566, -41.02352906, -40.06675582, -39.13347596,&
+       -38.22368946, -37.33739633, -36.47459657, -35.63529018, -34.81947716,&
+       -34.02715751, -33.25833122, -32.51299831, -31.79115876, -31.09281259,&
+       -30.41795978, -29.76660034, -29.13873427, -28.53436157, -27.95348224,&
+       -27.39609628, -26.86220368, -26.35180446, -25.8648986 , -25.40148611,&
+       -24.961567  , -24.54514125, -24.15220887, -23.78276986, -23.43682421,&
+       -23.11437194, -22.81541304, -22.5399475 , -22.28797533, -22.05949654,&
+       -21.85451111, -21.67301905, -21.51502036, -21.38051504, -21.26950309,&
+       -21.1819845 , -21.11795929, -21.07742744, -21.06038897, -21.06684386,&
+       -21.09679212, -21.15023375, -21.22716875, -21.32759712, -21.45151886,&
+       -21.59893396, -21.76984244, -21.96424428, -22.18213949, -22.42352808,&
+       -22.68841003, -22.97678535, -23.28865404, -23.6240161 , -23.98287152,&
+       -24.36522032, -24.77106248, -25.20039802, -25.65322692, -26.12954919,&
+       -26.62936483, -27.15267384, -27.69947622, -28.26977197, -28.86356109,&
+       -29.48084357, -30.12161943, -30.78588865, -31.47365124, -32.18490721,&
+       -32.91965654, -33.67789924, -34.4596353 , -35.26486474, -36.09358755,&
+       -36.94580372, -37.82151327, -38.72071618, -39.64341246, -40.58960212,&
+       -41.55928514, -42.55246153, -43.56913128, -44.60929441, -45.67295091 /
+
   contains
 
   !> get physical quantities from simulation result in specific physics module
@@ -236,6 +310,15 @@ module mod_radiative_cooling
         L_table(1:n_DM_2) = L_DM_2(1:n_DM_2)
         t_table(n_DM_2+1:ntable) = t_Colgan(1:n_Colgan)
         L_table(n_DM_2+1:ntable) = l_Colgan(1:n_Colgan)
+
+      case('lognormal')
+        if(mype==0)&
+        print *, 'lognormal cooling'
+        ntable = n_lognormal
+        allocate(t_table(1:ntable))
+        allocate(L_table(1:ntable))
+        t_table(1:ntable) = t_lognormal(1:n_lognormal)
+        L_table(1:ntable) = L_lognormal(1:n_lognormal)
 
       case default
         call mpistop("This coolingcurve is unknown")
@@ -338,6 +421,10 @@ module mod_radiative_cooling
       invgam = 1.d0/rc_gamma_1
       !$acc update device(rc_gamma_1, invgam)
 
+      if (rc_debug_enable) then
+        call rc_debug_open()
+      end if
+
     contains
 
       subroutine rc_params_read(fl)
@@ -348,7 +435,7 @@ module mod_radiative_cooling
         integer                      :: n
         integer :: ncool = 4000
         double precision :: cfrac=0.1d0
-    
+  
         !> Name of cooling curve
         character(len=std_len)  :: coolcurve='JCcorona'
     
@@ -365,7 +452,8 @@ module mod_radiative_cooling
         double precision :: rad_cut_hgt=0.5d0
         double precision :: rad_cut_dey=0.15d0
 
-        namelist /rc_list/ coolcurve, coolmethod, ncool, cfrac, tlow, Tfix, rad_cut, rad_cut_hgt, rad_cut_dey
+        namelist /rc_list/ coolcurve, coolmethod, ncool, cfrac, tlow, Tfix,&
+          rad_cut, rad_cut_hgt, rad_cut_dey, rc_debug_enable, rc_debug_it
 
         do n = 1, size(par_files)
           open(unitpar, file=trim(par_files(n)), status="old")
@@ -386,6 +474,30 @@ module mod_radiative_cooling
       end subroutine rc_params_read
 
     end subroutine radiative_cooling_init
+
+    subroutine rc_debug_open()
+      use mod_global_parameters, only: mype, it
+      integer :: u
+      character(len=256) :: fname, rank_str
+
+      write(rank_str,'(i0)') mype
+      fname = 'rc_debug_it'//trim(adjustl(to_str(it)))//'.rank'//trim(rank_str)//'.csv'
+      open(newunit=u, file=trim(fname), status='replace', action='write', form='formatted')
+      rc_debug_unit  = u
+      rc_debug_k = 0
+      write(rc_debug_unit,'(a)') &
+        'k,branch,it,dt,mype,Rfactor,rho,pth,Te,Te_pth,Y1,Y2,Tlocal2,tcoolmin,tcoolmax,tlow,emin,emax,Lmax,fact,de,wnew(iw_e)'
+      flush(rc_debug_unit)
+
+    contains
+
+      pure function to_str(i) result(s)
+        integer, intent(in) :: i
+        character(len=16) :: s
+        write(s,'(i0)') i
+      end function to_str
+
+    end subroutine rc_debug_open
 
     subroutine radiative_cooling_add_source(qdt,wCT,wCTprim,wnew,x)
       !$acc routine seq
@@ -425,6 +537,7 @@ module mod_radiative_cooling
 
     subroutine cool_exact(qdt,wCT,wCTprim,wnew,x,fl)
       !$acc routine seq
+      use mod_global_parameters, only: it, dt
     !  Cooling routine using exact integration method from Townsend 2009
       double precision, intent(in)    :: qdt, wCT(nw_phys), wCTprim(nw_phys), x(1:ndim)
       double precision, intent(inout) :: wnew(nw_phys)
@@ -435,14 +548,28 @@ module mod_radiative_cooling
       double precision :: emin, Lmax, fact
       double precision :: de, emax
 
+! Only used for debugging.
+      double precision :: debug_pth, debug_Te_pth
+      integer :: debug_branch
+
       rho = get_rho(wCT,x)
       Rfactor = get_Rfactor()
       Te=wCTprim(iw_e)/(rho*Rfactor)
       pnew = get_pthermal(wCT,x)
       rhonew = get_rho(wnew,x)
 
-      fact = fl%lref*qdt/fl%tref
+      if (rc_debug_enable .and. it == rc_debug_it) then
+        debug_pth = get_pthermal(wCT,x)
+        debug_Te_pth = debug_pth/(rho*Rfactor)
+        debug_branch = -1
+        L1 = 0d0
+        Tlocal2 = 0d0
+        Y1 = 0d0
+        Y2 = 0d0
+        de = 0d0
+      end if
 
+      fact = fl%lref*qdt/fl%tref
       emin = rhonew*fl%tlow*Rfactor*invgam
       Lmax = max(zero,pnew*invgam-emin)/qdt
       emax = max(zero,pnew*invgam-emin)
@@ -452,17 +579,21 @@ module mod_radiative_cooling
       !  If the temperature is higher than the maximum,
       !  assume Bremsstrahlung
       if( Te<=fl%tcoolmin ) then
+        debug_branch = 0
         L1 = zero
-      else if( Te>=fl%tcoolmax )then
+        de = zero
+      else if( Te>=fl%tcoolmax ) then
+        debug_branch = 1
         call calc_l_extended(Te, L1, fl)
         L1 = L1*rho**2
-
         L1 = min(L1,Lmax)
         if(slab_uniform .and. fl%rad_cut .and. x(ndim) .le. fl%rad_cut_hgt) then
           L1 = L1*exp(-(x(ndim)-fl%rad_cut_hgt)**2/fl%rad_cut_dey**2)
         end if
-        wnew(iw_e) = wnew(iw_e)-L1*qdt
+        de = L1*qdt
+        wnew(iw_e) = wnew(iw_e)-de
       else
+        debug_branch = 2
         call findY(Te,Y1,fl)
         Y2 = Y1 + fact*rho*rc_gamma_1
         call findT(Tlocal2,Y2,fl)
@@ -477,6 +608,16 @@ module mod_radiative_cooling
         end if
         wnew(iw_e) = wnew(iw_e)-de
       end if
+
+      if (rc_debug_enable .and. rc_debug_unit /= -1 .and. it == rc_debug_it) then
+        rc_debug_k = rc_debug_k + 1
+        write(rc_debug_unit,
+          '(i0,",",i0,",",i0,",",es23.15,","i0, 17(",",es23.15))')&
+          rc_debug_k, debug_branch, it, dt, mype, Rfactor, rho, debug_pth, Te,&
+          debug_Te_pth, Y1, Y2, Tlocal2, fl%tcoolmin, fl%tcoolmax, fl%tlow,&
+          emin, emax, Lmax, fact, de, wnew(iw_e)
+      end if
+
     end subroutine cool_exact
 
     subroutine calc_l_extended (tpoint, lpoint,fl)
@@ -509,8 +650,33 @@ module mod_radiative_cooling
       Lpoint = fl%Lcool(jl)+ (tpoint-fl%tcool(jl)) &
                 * (fl%Lcool(jl+1)-fl%Lcool(jl)) &
                 / (fl%tcool(jl+1)-fl%tcool(jl))
-
     end subroutine findL
+
+! A safer version for debugging.
+    ! subroutine findL(tpoint, Lpoint, fl)
+    !   !$acc routine seq
+    !   double precision, intent(in)  :: tpoint
+    !   double precision, intent(out) :: Lpoint
+    !   type(rc_fluid), intent(in)    :: fl
+    !
+    !   double precision :: lgtp
+    !   integer :: jl
+    !
+    !   lgtp = dlog10(tpoint)
+    !   jl = int((lgtp - fl%lgtcoolmin) / fl%lgstep) + 1
+    !
+    !   if (jl < 1) jl = 1
+    !   if (jl > fl%ncool-1) jl = fl%ncool-1
+    !
+    !   Lpoint = fl%Lcool(jl) + (tpoint - fl%tcool(jl)) * &
+    !     (fl%Lcool(jl+1) - fl%Lcool(jl)) / (fl%tcool(jl+1) - fl%tcool(jl))
+    !
+    !   if (Lpoint /= Lpoint .or. Lpoint <= 0d0 .or. abs(Lpoint) > 1d100) then
+    !     Lpoint = fl%Lcool(1)
+    !     return
+    !   end if
+    !
+    ! end subroutine findL
 
     subroutine findY (tpoint,Ypoint,fl)
     !  Fast search option to find correct point in cooling time (TEF)
@@ -532,6 +698,32 @@ module mod_radiative_cooling
 
     end subroutine findY
 
+! A safer version for debugging.
+    ! subroutine findY(tpoint, Ypoint, fl)
+    !   !$acc routine seq
+    !   double precision, intent(in)  :: tpoint
+    !   double precision, intent(out) :: Ypoint
+    !   type(rc_fluid), intent(in)    :: fl
+    !
+    !   double precision :: lgtp
+    !   integer :: jl
+    !
+    !   lgtp = dlog10(tpoint)
+    !   jl = int((lgtp - fl%lgtcoolmin) / fl%lgstep) + 1
+    !
+    !   ! Clamp to valid interpolation interval [1, ncool-1]
+    !   if (jl < 1) jl = 1
+    !   if (jl > fl%ncool-1) jl = fl%ncool-1
+    !
+    !   Ypoint = fl%Yc(jl) + (tpoint - fl%tcool(jl)) * &
+    !     (fl%Yc(jl+1) - fl%Yc(jl)) / (fl%tcool(jl+1) - fl%tcool(jl))
+    !
+    !   if (tpoint /= tpoint .or. tpoint <= 0d0 .or. abs(tpoint) > 1d100) then
+    !     Ypoint = fl%Yc(1)
+    !     return
+    !   end if
+    ! end subroutine findY
+
     subroutine findT (tpoint,Ypoint,fl)
     !  Fast search option to find correct temperature 
     !  from temporal evolution function. Only possible this way because T is a monotonously
@@ -539,7 +731,7 @@ module mod_radiative_cooling
     !  Uses eq. A7 from Townsend 2009 for piecewise power laws
       !$acc routine seq
 
-      double precision,intent(OUT)   :: tpoint
+      double precision, intent(OUT) :: tpoint
       double precision, intent(IN) :: Ypoint
       type(rc_fluid), intent(in) :: fl
 
@@ -562,6 +754,7 @@ module mod_radiative_cooling
             jh=jc
           end if
         end do
+
         ! Linear interpolation to obtain correct temperature
         tpoint = fl%tcool(jl)+ (Ypoint-fl%Yc(jl)) &
                 * (fl%tcool(jl+1)-fl%tcool(jl)) &
@@ -569,6 +762,58 @@ module mod_radiative_cooling
       end if
 
     end subroutine findT
+
+! A safer version for debugging.
+    ! subroutine findT (tpoint,Ypoint,fl)
+    ! !  Fast search option to find correct temperature 
+    ! !  from temporal evolution function. Only possible this way because T is a monotonously
+    ! !  decreasing function for the interpolated tables
+    ! !  Uses eq. A7 from Townsend 2009 for piecewise power laws
+    !   !$acc routine seq
+    !
+    !   double precision, intent(OUT) :: tpoint
+    !   double precision, intent(IN) :: Ypoint
+    !   type(rc_fluid), intent(in) :: fl
+    !
+    !   double precision :: factor
+    !   integer :: jl,jc,jh,i
+    !
+    !   if (Ypoint /= Ypoint .or. abs(Ypoint) > 1.d300) then
+    !     tpoint = fl%tcoolmin
+    !     return
+    !   end if
+    !
+    !   if(Ypoint >= fl%Yc(1)) then
+    !     tpoint = fl%tcoolmin
+    !   else if (Ypoint == fl%Yc(fl%ncool)) then
+    !     tpoint = fl%tcoolmax
+    !   else
+    !     jl=0
+    !     jh=fl%ncool+1
+    !     do
+    !       if(jh-jl <= 1) exit
+    !       jc=(jh+jl)/2
+    !       if(Ypoint <= fl%Yc(jc)) then
+    !         jl=jc
+    !       else
+    !         jh=jc
+    !       end if
+    !     end do
+    !
+    !     if (jl < 1) jl = 1
+    !     if (jl > fl%ncool - 1) jl = fl%ncool - 1
+    !
+    !     if (fl%Yc(jl+1) == fl%Yc(jl)) then
+    !       tpoint = fl%tcool(jl)
+    !       return
+    !     end if
+    !
+    !     ! Linear interpolation to obtain correct temperature
+    !     tpoint = fl%tcool(jl)+ (Ypoint-fl%Yc(jl)) &
+    !             * (fl%tcool(jl+1)-fl%tcool(jl)) &
+    !             / (fl%Yc(jl+1)-fl%Yc(jl))
+    !   end if
+    ! end subroutine findT
 
     subroutine getvar_cooling_exact(qdt, wCT, w, x, coolrate, fl)
       !$acc routine seq
@@ -630,7 +875,7 @@ module mod_radiative_cooling
         end if
       end if
       coolrate = de/qdt
-      end subroutine getvar_cooling_exact
+    end subroutine getvar_cooling_exact
     
 #:endif
 
