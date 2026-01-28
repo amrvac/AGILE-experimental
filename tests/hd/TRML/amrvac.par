@@ -1,0 +1,114 @@
+! TRML_1
+
+! TODO: Set up support for slice outputs and 3D vtu output. That stopped working due to
+!   the small values but should work again now with the proper units.
+ &filelist
+   base_filename    = '/volume2/scratch/olafw/off/project_2_trying_AGILE/TRML_1/out_33/TRML'
+   convert_type     = 'vtuBCCmpi'
+!  autoconvert      = T
+   saveprim         = T
+ /
+
+! unit_t = 3.94e-01
+! t_sh=1.44e-01
+
+ &savelist
+   itsave(1,1)      = 0
+   itsave(1,2)      = 0
+   ditsave_log      = 100
+   dtsave_dat       = 3.6d-1 ! t_sh/unit_time
+ /
+
+ &stoplist
+   time_max         = 7.2d-1 ! 2 t_sh/unit_time
+   it_max           = 3
+ /
+
+ &methodlist
+   time_stepper    = 'threestep'
+   flux_scheme     = 20*'tvdlf'
+   limiter         = 20*'vanleer'
+   small_values_method = 'ignore'
+   phys                = 'hd'
+ /
+
+ &boundlist
+   specialboundary = T
+   typeboundary_min1 = 5*'periodic'
+   typeboundary_max1 = 5*'periodic'
+   typeboundary_min2 = 5*'periodic'
+   typeboundary_max2 = 5*'periodic'
+   typeboundary_min3 = 5*'special'
+   typeboundary_max3 = 5*'special'
+ /
+
+ &meshlist
+! SMR stuff.
+!  refine_max_level   = 2
+! User-defined refine criterion. 
+!  refine_criterion   = 1 ! AMRVAC mark as user-defined criterion
+!  refine_usr         = T ! AGILE-specific additional option switch
+! 
+   max_blocks         = 128
+   block_nx1          = 16
+   block_nx2          = 16
+   block_nx3          = 16
+   domain_nx1         = 32
+   domain_nx2         = 32
+   domain_nx3         = 192
+   xprobmin1       = +0d0
+   xprobmax1       = +1d0
+   xprobmin2       = +0d0
+   xprobmax2       = +1d0
+   xprobmin3       = -3d0
+   xprobmax3       = +3d0
+ /
+
+ &paramlist
+   slowsteps        = 10
+   courantpar       = 0.6d0
+   typecourant      = 'maxsum'
+ /
+
+! TODO: He_abundance, hd_radiative_cooling, and SI_unit are missing from hd_list in the source
+!   code, since they're not implemented yet. For radiative cooling, there is radiative cooling in
+!   MHD, just not in hd.
+! TODO: Despite specifying hd_gamma here, the `.dat` file seems to have a different gamma
+!  (different rounding). Probably it's assigning it to 5/3 somewhere, not listening to this
+!  namelist.
+ &hd_list
+   He_abundance = 0d0
+   hd_radiative_cooling = T
+ /
+
+ &rc_list
+    ncool=4000
+    coolcurve='lognormal'
+    coolmethod='exact'
+    Tfix=.true.
+!   cfrac = 1d0
+    rc_dbg_enabled = T
+    rc_dbg_it = 0
+ /
+
+! NOTE: These parameters are in CGS units.
+ &usr_list
+   seed      = 20360812
+   xi        = 1d1
+   chi       = 1d2
+   mach_H    = 3d-1
+   rho_C     = 1d-10
+   L_x       = 7.17d5
+   v_sh      = 4.98d6
+   v_off     = 0d0
+   v_per(2)  = 4.98d4
+   v_per(3)  = 4.98d4
+   z0        = -7.17d5
+   d_z       = 3.59d4
+   sig_z     = 1.43d5
+   s         = 1d2
+   f_til(2)  = 5d-2
+   f_til(3)  = 5d-2
+   mode_root = 1
+   n_modes   = 10
+ /
