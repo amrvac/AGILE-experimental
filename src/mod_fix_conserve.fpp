@@ -5,7 +5,8 @@ module mod_fix_conserve
 
   type fluxalloc
      double precision, dimension(:,:,:,:), pointer :: flux => null()
-     double precision, dimension(:,:,:,:), pointer :: edge => null()
+  ! Need to bring the below back for staggered
+  !   double precision, dimension(:,:,:,:), pointer :: edge => null()
   end type fluxalloc
   !!!JESSE: this does not work actually
   !!!type fluxalloc
@@ -16,6 +17,8 @@ module mod_fix_conserve
   type(fluxalloc), dimension(:,:,:), allocatable, public :: pflux
 
   !$acc declare create(pflux) !JESSE, try to retain pointer structure
+
+  ! Hector, note to self: pflux is of type fluxalloc, not a pointer to an array 
 
   integer, save                        :: nrecv, nsend
   double precision, allocatable, save  :: recvbuffer(:), sendbuffer(:)
@@ -40,9 +43,9 @@ module mod_fix_conserve
   public :: sendflux
   public :: recvflux
   public :: store_flux
-  public :: store_edge
+!  public :: store_edge
   public :: fix_conserve
-  public :: fix_edges
+!  public :: fix_edges
 
  contains
 
@@ -729,8 +732,8 @@ module mod_fix_conserve
            !$acc enter data create(pflux(iside,1,igrid)%flux) !JESSE
            !$acc enter data attach(pflux(iside,1,igrid)%flux) !JESSE
 
-           if(stagger_grid) allocate(pflux(iside,1,igrid)%edge(1,0:nx2,0:nx3,&
-              1:ndim-1))
+        !   if(stagger_grid) allocate(pflux(iside,1,igrid)%edge(1,0:nx2,0:nx3,&
+        !      1:ndim-1))
 
          case(neighbor_coarse)
 
@@ -739,29 +742,30 @@ module mod_fix_conserve
            !$acc enter data create(pflux(iside,1,igrid)%flux) !JESSE: no copyin because the data is not initialized yet
            !$acc enter data attach(pflux(iside,1,igrid)%flux) !JESSE: may need this because it is a pointer (device-side) pointer
 
-           if(stagger_grid) allocate(pflux(iside,1,igrid)%edge(1,0:nxCo2,&
-              0:nxCo3,1:ndim-1))
+        !   if(stagger_grid) allocate(pflux(iside,1,igrid)%edge(1,0:nxCo2,&
+        !      0:nxCo3,1:ndim-1))
 
-         case(neighbor_sibling)
+        ! Need to bring back the following when implementing staggered.
+        ! case(neighbor_sibling)
 
-           if(stagger_grid) then
-             idim=1
-             do idir=idim+1,ndim
-             !do idir=min(idim+1,ndim),ndim
-               pi1=i1+kr(idir,1);pi2=i2+kr(idir,2);pi3=i3+kr(idir,3);
-               mi1=i1-kr(idir,1);mi2=i2-kr(idir,2);mi3=i3-kr(idir,3);
-               ph1=pi1-kr(1,1)*(2*iside-3);ph2=pi2-kr(1,2)*(2*iside-3)
-               ph3=pi3-kr(1,3)*(2*iside-3);
-               mh1=mi1-kr(1,1)*(2*iside-3);mh2=mi2-kr(1,2)*(2*iside-3)
-               mh3=mi3-kr(1,3)*(2*iside-3);
-               if ((neighbor_type(pi1,pi2,pi3,igrid)==4.and.neighbor_type(ph1,&
-                  ph2,ph3,igrid)==3).or.(neighbor_type(mi1,mi2,mi3,&
-                  igrid)==4.and.neighbor_type(mh1,mh2,mh3,igrid)==3)) then
-                 allocate(pflux(iside,1,igrid)%edge(1,0:nx2,0:nx3,1:ndim-1))
-                 exit
-               end if
-             end do
-           end if
+        !   if(stagger_grid) then
+        !     idim=1
+        !     do idir=idim+1,ndim
+        !     !do idir=min(idim+1,ndim),ndim
+        !       pi1=i1+kr(idir,1);pi2=i2+kr(idir,2);pi3=i3+kr(idir,3);
+        !       mi1=i1-kr(idir,1);mi2=i2-kr(idir,2);mi3=i3-kr(idir,3);
+        !       ph1=pi1-kr(1,1)*(2*iside-3);ph2=pi2-kr(1,2)*(2*iside-3)
+        !       ph3=pi3-kr(1,3)*(2*iside-3);
+        !       mh1=mi1-kr(1,1)*(2*iside-3);mh2=mi2-kr(1,2)*(2*iside-3)
+        !       mh3=mi3-kr(1,3)*(2*iside-3);
+        !       if ((neighbor_type(pi1,pi2,pi3,igrid)==4.and.neighbor_type(ph1,&
+        !          ph2,ph3,igrid)==3).or.(neighbor_type(mi1,mi2,mi3,&
+        !          igrid)==4.and.neighbor_type(mh1,mh2,mh3,igrid)==3)) then
+        !         allocate(pflux(iside,1,igrid)%edge(1,0:nx2,0:nx3,1:ndim-1))
+        !         exit
+        !       end if
+        !     end do
+        !   end if
          end select
        end do
        do iside=1,2
@@ -774,33 +778,35 @@ module mod_fix_conserve
            allocate(pflux(iside,2,igrid)%flux(1:nx1,1,1:nx3,1:nwflux))
            !$acc enter data create(pflux(iside,2,igrid)%flux) !JESSE
            !$acc enter data attach(pflux(iside,2,igrid)%flux) !JESSE
-           if(stagger_grid) allocate(pflux(iside,2,igrid)%edge(0:nx1,1,0:nx3,&
-              1:ndim-1))
+        !   if(stagger_grid) allocate(pflux(iside,2,igrid)%edge(0:nx1,1,0:nx3,&
+        !      1:ndim-1))
          case(neighbor_coarse)
            allocate(pflux(iside,2,igrid)%flux(1:nxCo1,1,1:nxCo3,1:nwflux))
            !$acc enter data create(pflux(iside,2,igrid)%flux) !JESSE
            !$acc enter data attach(pflux(iside,2,igrid)%flux) !JESSE
-           if(stagger_grid) allocate(pflux(iside,2,igrid)%edge(0:nxCo1,1,&
-              0:nxCo3,1:ndim-1))
-         case(neighbor_sibling)
-           if(stagger_grid) then
-             idim=2
-             do idir=idim+1,ndim
-             !do idir=min(idim+1,ndim),ndim
-               pi1=i1+kr(idir,1);pi2=i2+kr(idir,2);pi3=i3+kr(idir,3);
-               mi1=i1-kr(idir,1);mi2=i2-kr(idir,2);mi3=i3-kr(idir,3);
-               ph1=pi1-kr(2,1)*(2*iside-3);ph2=pi2-kr(2,2)*(2*iside-3)
-               ph3=pi3-kr(2,3)*(2*iside-3);
-               mh1=mi1-kr(2,1)*(2*iside-3);mh2=mi2-kr(2,2)*(2*iside-3)
-               mh3=mi3-kr(2,3)*(2*iside-3);
-               if ((neighbor_type(pi1,pi2,pi3,igrid)==4.and.neighbor_type(ph1,&
-                  ph2,ph3,igrid)==3).or.(neighbor_type(mi1,mi2,mi3,&
-                  igrid)==4.and.neighbor_type(mh1,mh2,mh3,igrid)==3)) then
-                 allocate(pflux(iside,2,igrid)%edge(0:nx1,1,0:nx3,1:ndim-1))
-                 exit
-               end if
-             end do
-           end if
+        !   if(stagger_grid) allocate(pflux(iside,2,igrid)%edge(0:nxCo1,1,&
+        !      0:nxCo3,1:ndim-1))
+
+        ! Need to bring back the following when implementing staggered.
+        ! case(neighbor_sibling)
+        !   if(stagger_grid) then
+        !     idim=2
+        !     do idir=idim+1,ndim
+        !     !do idir=min(idim+1,ndim),ndim
+        !       pi1=i1+kr(idir,1);pi2=i2+kr(idir,2);pi3=i3+kr(idir,3);
+        !       mi1=i1-kr(idir,1);mi2=i2-kr(idir,2);mi3=i3-kr(idir,3);
+        !       ph1=pi1-kr(2,1)*(2*iside-3);ph2=pi2-kr(2,2)*(2*iside-3)
+        !       ph3=pi3-kr(2,3)*(2*iside-3);
+        !       mh1=mi1-kr(2,1)*(2*iside-3);mh2=mi2-kr(2,2)*(2*iside-3)
+        !       mh3=mi3-kr(2,3)*(2*iside-3);
+        !       if ((neighbor_type(pi1,pi2,pi3,igrid)==4.and.neighbor_type(ph1,&
+        !          ph2,ph3,igrid)==3).or.(neighbor_type(mi1,mi2,mi3,&
+        !          igrid)==4.and.neighbor_type(mh1,mh2,mh3,igrid)==3)) then
+        !         allocate(pflux(iside,2,igrid)%edge(0:nx1,1,0:nx3,1:ndim-1))
+        !         exit
+        !       end if
+        !     end do
+        !   end if
          end select
        end do
        do iside=1,2
@@ -813,33 +819,37 @@ module mod_fix_conserve
            allocate(pflux(iside,3,igrid)%flux(1:nx1,1:nx2,1,1:nwflux))
            !$acc enter data create(pflux(iside,3,igrid)%flux) !JESSE
            !$acc enter data attach(pflux(iside,3,igrid)%flux) !JESSE
-           if(stagger_grid) allocate(pflux(iside,3,igrid)%edge(0:nx1,0:nx2,1,&
-              1:ndim-1))
+        !   if(stagger_grid) allocate(pflux(iside,3,igrid)%edge(0:nx1,0:nx2,1,&
+        !      1:ndim-1))
          case(neighbor_coarse)
            allocate(pflux(iside,3,igrid)%flux(1:nxCo1,1:nxCo2,1,1:nwflux))
            !$acc enter data create(pflux(iside,3,igrid)%flux) !JESSE
            !$acc enter data attach(pflux(iside,3,igrid)%flux) !JESSE
-           if(stagger_grid) allocate(pflux(iside,3,igrid)%edge(0:nxCo1,0:nxCo2,&
-              1,1:ndim-1))
-         case(neighbor_sibling)
-           if(stagger_grid) then
-             idim=3
-             do idir=idim+1,ndim
-             !do idir=min(idim+1,ndim),ndim
-               pi1=i1+kr(idir,1);pi2=i2+kr(idir,2);pi3=i3+kr(idir,3);
-               mi1=i1-kr(idir,1);mi2=i2-kr(idir,2);mi3=i3-kr(idir,3);
-               ph1=pi1-kr(3,1)*(2*iside-3);ph2=pi2-kr(3,2)*(2*iside-3)
-               ph3=pi3-kr(3,3)*(2*iside-3);
-               mh1=mi1-kr(3,1)*(2*iside-3);mh2=mi2-kr(3,2)*(2*iside-3)
-               mh3=mi3-kr(3,3)*(2*iside-3);
-               if ((neighbor_type(pi1,pi2,pi3,igrid)==4.and.neighbor_type(ph1,&
-                  ph2,ph3,igrid)==3).or.(neighbor_type(mi1,mi2,mi3,&
-                  igrid)==4.and.neighbor_type(mh1,mh2,mh3,igrid)==3)) then
-                 allocate(pflux(iside,3,igrid)%edge(0:nx1,0:nx2,1,1:ndim-1))
-                 exit
-               end if
-             end do
-           end if
+        ! 
+        !   if(stagger_grid) allocate(pflux(iside,3,igrid)%edge(0:nxCo1,0:nxCo2,&
+        !      1,1:ndim-1))
+
+         ! Need to bring back the following when implementing staggered.
+         !case(neighbor_sibling)
+         !  if(stagger_grid) then
+         !    idim=3
+         !    do idir=idim+1,ndim
+         !    !do idir=min(idim+1,ndim),ndim
+         !      pi1=i1+kr(idir,1);pi2=i2+kr(idir,2);pi3=i3+kr(idir,3);
+         !      mi1=i1-kr(idir,1);mi2=i2-kr(idir,2);mi3=i3-kr(idir,3);
+         !      ph1=pi1-kr(3,1)*(2*iside-3);ph2=pi2-kr(3,2)*(2*iside-3)
+         !      ph3=pi3-kr(3,3)*(2*iside-3);
+         !      mh1=mi1-kr(3,1)*(2*iside-3);mh2=mi2-kr(3,2)*(2*iside-3)
+         !      mh3=mi3-kr(3,3)*(2*iside-3);
+
+         !      if ((neighbor_type(pi1,pi2,pi3,igrid)==4.and.neighbor_type(ph1,&
+         !         ph2,ph3,igrid)==3).or.(neighbor_type(mi1,mi2,mi3,&
+         !         igrid)==4.and.neighbor_type(mh1,mh2,mh3,igrid)==3)) then
+         !        allocate(pflux(iside,3,igrid)%edge(0:nx1,0:nx2,1,1:ndim-1))
+         !        exit
+         !      end if
+         !    end do
+         !  end if
          end select
        end do
      end do
@@ -861,11 +871,11 @@ module mod_fix_conserve
          !$acc exit data delete(pflux(iside,1,igrid)%flux) !JESSE
          end if
 
-         if (acc_is_present(pflux(iside,1,igrid)%edge, &
-                  size(pflux(iside,1,igrid)%edge))) then
-         !$acc exit data detach(pflux(iside,1,igrid)%edge) !JESSE
-         !$acc exit data delete(pflux(iside,1,igrid)%edge) !JESSE
-         end if
+        ! if (acc_is_present(pflux(iside,1,igrid)%edge, &
+        !          size(pflux(iside,1,igrid)%edge))) then
+        ! !$acc exit data detach(pflux(iside,1,igrid)%edge) !JESSE
+        ! !$acc exit data delete(pflux(iside,1,igrid)%edge) !JESSE
+        ! end if
           
          !! JESSE: the if_preset flag does not work unfortunately
 !!         !$acc exit data detach(pflux(iside,1,igrid)%flux) !JESSE
@@ -877,10 +887,10 @@ module mod_fix_conserve
            deallocate(pflux(iside,1,igrid)%flux)
            nullify(pflux(iside,1,igrid)%flux)
          end if
-         if (associated(pflux(iside,1,igrid)%edge)) then
-           deallocate(pflux(iside,1,igrid)%edge)
-           nullify(pflux(iside,1,igrid)%edge)
-         end if
+        ! if (associated(pflux(iside,1,igrid)%edge)) then
+        !   deallocate(pflux(iside,1,igrid)%edge)
+        !   nullify(pflux(iside,1,igrid)%edge)
+        ! end if
        end do
        do iside=1,2
          if (acc_is_present(pflux(iside,2,igrid)%flux, &
@@ -888,19 +898,19 @@ module mod_fix_conserve
          !$acc exit data detach(pflux(iside,1,igrid)%flux) !JESSE
          !$acc exit data delete(pflux(iside,1,igrid)%flux) !JESSE
          end if
-         if (acc_is_present(pflux(iside,2,igrid)%edge, &
-                  size(pflux(iside,2,igrid)%edge))) then
-         !$acc exit data detach(pflux(iside,1,igrid)%edge) !JESSE
-         !$acc exit data delete(pflux(iside,1,igrid)%edge) !JESSE
-         end if
+        ! if (acc_is_present(pflux(iside,2,igrid)%edge, &
+        !          size(pflux(iside,2,igrid)%edge))) then
+        ! !$acc exit data detach(pflux(iside,1,igrid)%edge) !JESSE
+        ! !$acc exit data delete(pflux(iside,1,igrid)%edge) !JESSE
+        ! end if
          if (associated(pflux(iside,2,igrid)%flux)) then
            deallocate(pflux(iside,2,igrid)%flux)
            nullify(pflux(iside,2,igrid)%flux)
          end if
-         if (associated(pflux(iside,2,igrid)%edge)) then
-           deallocate(pflux(iside,2,igrid)%edge)
-           nullify(pflux(iside,2,igrid)%edge)
-         end if
+        ! if (associated(pflux(iside,2,igrid)%edge)) then
+        !   deallocate(pflux(iside,2,igrid)%edge)
+        !   nullify(pflux(iside,2,igrid)%edge)
+        ! end if
        end do
        do iside=1,2
          if (acc_is_present(pflux(iside,3,igrid)%flux, &
@@ -908,19 +918,19 @@ module mod_fix_conserve
          !$acc exit data detach(pflux(iside,1,igrid)%flux) !JESSE
          !$acc exit data delete(pflux(iside,1,igrid)%flux) !JESSE
          end if
-         if (acc_is_present(pflux(iside,3,igrid)%edge, &
-                  size(pflux(iside,2,igrid)%edge))) then
-         !$acc exit data detach(pflux(iside,1,igrid)%edge) !JESSE
-         !$acc exit data delete(pflux(iside,1,igrid)%edge) !JESSE
-         end if
+        ! if (acc_is_present(pflux(iside,3,igrid)%edge, &
+        !          size(pflux(iside,2,igrid)%edge))) then
+        ! !$acc exit data detach(pflux(iside,1,igrid)%edge) !JESSE
+        ! !$acc exit data delete(pflux(iside,1,igrid)%edge) !JESSE
+        ! end if
          if (associated(pflux(iside,3,igrid)%flux)) then
            deallocate(pflux(iside,3,igrid)%flux)
            nullify(pflux(iside,3,igrid)%flux)
          end if
-         if (associated(pflux(iside,3,igrid)%edge)) then
-           deallocate(pflux(iside,3,igrid)%edge)
-           nullify(pflux(iside,3,igrid)%edge)
-         end if
+        ! if (associated(pflux(iside,3,igrid)%edge)) then
+        !   deallocate(pflux(iside,3,igrid)%edge)
+        !   nullify(pflux(iside,3,igrid)%edge)
+        ! end if
        end do
      end do
 
