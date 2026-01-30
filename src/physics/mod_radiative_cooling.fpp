@@ -510,6 +510,8 @@ module mod_radiative_cooling
       select case(rc_fl%coolmethod)
       case ('exact')   
         call cool_exact(qdt,wCT,wCTprim,wnew,x,rc_fl)
+      case ('lognormal')
+        call cool_lognormal(qdt, wCT, wCTprim, wnew)
       case default
         call mpistop("This cooling method is unknown")
       end select
@@ -611,14 +613,57 @@ module mod_radiative_cooling
 
       if (rc_debug_enable .and. rc_debug_unit /= -1 .and. it == rc_debug_it) then
         rc_debug_k = rc_debug_k + 1
-        write(rc_debug_unit,
-          '(i0,",",i0,",",i0,",",es23.15,","i0, 17(",",es23.15))')&
-          rc_debug_k, debug_branch, it, dt, mype, Rfactor, rho, debug_pth, Te,&
-          debug_Te_pth, Y1, Y2, Tlocal2, fl%tcoolmin, fl%tcoolmax, fl%tlow,&
+        write(rc_debug_unit, &
+          '(i0,",",i0,",",i0,",",es23.15,",",i0, 17(",",es23.15))') &
+          rc_debug_k, debug_branch, it, dt, mype, Rfactor, rho, debug_pth, Te, &
+          debug_Te_pth, Y1, Y2, Tlocal2, fl%tcoolmin, fl%tcoolmax, fl%tlow, &
           emin, emax, Lmax, fact, de, wnew(iw_e)
       end if
-
     end subroutine cool_exact
+
+    subroutine cool_lognormal(qdt, wCT, wCTprim, wnew)
+      !$acc routine seq
+      use mod_global_parameters
+      use mod_constants
+
+      double precision, intent(in) :: qdt
+      double precision, intent(in) :: wCT(nw_phys), wCTprim(nw_phys)
+      double precision, intent(inout) :: wnew(nw_phys)
+
+      double precision, parameter :: T_peak = 2d5
+      double precision, parameter :: A = 1.2d-21*T_peak
+      double precision, parameter :: sig = 8d-1
+      double precision, parameter :: mu = dlog10(T_peak)+sig**2
+
+      double precision :: T_code, T
+      double precision :: Lam_code, Lam
+      double precision :: n_code
+      double precision :: de
+
+      ! if (mype == 0) then
+      !   print *, 'e', wCT(iw_e)
+      ! end if
+
+      T_code = wCTprim(iw_e)/wCT(iw_rho)
+      T = T_code*unit_temperature
+      Lam = 10d0**(log10(A)-log10(T)-(log(10d0)*log10(T)-mu)**2/(2*sig**2)/log(10d0))
+      Lam_code = Lam*unit_numberdensity**2*unit_time/unit_pressure
+      n_code = wCT(iw_rho)
+      de = n_code**2*Lam_code*qdt
+
+      ! if (mype == 0) then
+      !   print *, 'T_code', T_code
+      !   print *, 'T', T
+      !   print *, 'Lam', Lam
+      !   print *, 'Lam_code', Lam_code
+      !   print *, 'n_code', n_code
+      !   print *, 'qdt', qdt
+      !   print *, 'de', de
+      !   call mpistop('stopping')
+      ! end if
+
+      wnew(iw_e) = wnew(iw_e)-de
+    end subroutine cool_lognormal
 
     subroutine calc_l_extended (tpoint, lpoint,fl)
       !$acc routine seq
