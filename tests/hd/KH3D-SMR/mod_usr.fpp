@@ -150,8 +150,6 @@ contains
     do ix3 = ixmin3, ixmax3
        do ix2 = ixmin2, ixmax2
           do ix1 = ixmin1, ixmax1
-!             if ( w(ix1, ix2, ix3, 1) < 5.0d0 .and. &
-!                  w(ix1, ix2+1, ix3, 1) >= 5.0d0) then
              if ( abs(x(ix1, ix2, ix3, 2) - 0.75d0) < 1.0d-1 .or. &
                   abs(x(ix1, ix2, ix3, 2) - 0.25d0) < 1.0d-1 ) then
                 has_interface = .true.

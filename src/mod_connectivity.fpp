@@ -94,7 +94,7 @@ module mod_connectivity
       type(nbinfo_buffer_t), allocatable   :: c_rcv(:)             ! double precision receive data
       type(nbinfo_buffer_i_t), allocatable :: c_info_send(:)       ! info package send
       type(nbinfo_buffer_i_t), allocatable :: c_info_rcv(:)        ! info package receive
-      integer                              :: max_size = 4194304   ! maximum buffer size
+      integer                              :: max_size = 6000000   ! maximum buffer size
       integer                              :: max_nbprocs = 64     ! maximum nr of neighbor procs
       integer                              :: max_igrids = 4096    ! maximum nr of igrids per neighbor proc
     contains
@@ -449,7 +449,7 @@ module mod_connectivity
         end do
 
         if (isize_S*nwgc > self%max_size .or. isize_R*nwgc > self%max_size) then
-           print *, 'alloc_buffers_srl: exceeding max_size for ghost-cell buffer', isize_S*nwgc, isize_R*nwgc
+           print *, 'alloc_buffers_srl: exceeding max_size for ghost-cell buffer', isize_S*nwgc, isize_R*nwgc, self%max_size
            stop
         end if
 
@@ -524,7 +524,7 @@ module mod_connectivity
         end do
 
         if (isize_S*nwgc > self%max_size .or. isize_R*nwgc > self%max_size) then
-           print *, 'alloc_buffers_f: exceeding max_size for ghost-cell buffer', isize_S*nwgc, isize_R*nwgc
+           print *, 'alloc_buffers_f: exceeding max_size for ghost-cell buffer', isize_S*nwgc, isize_R*nwgc, self%max_size
            stop
         end if
 
@@ -605,7 +605,7 @@ module mod_connectivity
         end do
 
         if (isize_S*nwgc > self%max_size .or. isize_R*nwgc > self%max_size) then
-           print *, 'alloc_buffers_c: exceeding max_size for ghost-cell buffer', isize_S*nwgc, isize_R*nwgc
+           print *, 'alloc_buffers_c: exceeding max_size for ghost-cell buffer', isize_S*nwgc, isize_R*nwgc, self%max_size
            stop
         end if
 

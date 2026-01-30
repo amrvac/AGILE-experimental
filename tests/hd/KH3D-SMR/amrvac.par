@@ -42,8 +42,8 @@
  /
 
  &meshlist
-   max_blocks         = 16384
-   refine_max_level   = 4
+   max_blocks         = 32768
+   refine_max_level   = 3
    refine_criterion   = 1 !user-defined criterion only (in mod_usr)
    refine_usr         = .true.
    itfixgrid          = 0 
