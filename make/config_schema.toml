@@ -38,7 +38,6 @@ flags = ["fypp", "hash"]
 default = false
 implies = ["components.source_local"]
 
-# OLAF
 [hd_list.hd_radiative_cooling]
 type = "flag"
 name = "COOLING"
