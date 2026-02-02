@@ -1595,7 +1595,10 @@ contains
    end if
 
    !$acc update device( phyboundblock(igrid) )
-   !$acc update device(ps(igrid), ps1(igrid), ps2(igrid))
+! breaks it, compiler error???: !!!!
+!   !$acc update device(ps(igrid), ps1(igrid), ps2(igrid))
+! explicitly add all needed members instead:   
+   !$acc update device(ps(igrid)%igrid, ps1(igrid)%igrid, ps2(igrid)%igrid)
    !$acc enter data copyin(ps(igrid)%w, ps1(igrid)%w, ps2(igrid)%w)
    !$acc enter data attach(ps(igrid)%w, ps1(igrid)%w, ps2(igrid)%w)
    !$acc enter data copyin(ps(igrid)%x, ps(igrid)%is_physical_boundary)

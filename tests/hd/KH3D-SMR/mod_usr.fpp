@@ -107,12 +107,14 @@ contains
   subroutine usr_refine_grid(igrid,level,ixGmin1,ixGmin2,ixGmin3,&
     ixGmax1,ixGmax2,ixGmax3,ixmin1,ixmin2,ixmin3,ixmax1,ixmax2,ixmax3,&
     qt,w,x,refine,coarsen)
+#ifdef _CRAYFTN
 #ifdef _OPENACC
     ! The Cray compiler fails when trying to inline this routine, for now
     ! disable inlining for Cray
     !dir$ inlinenever usr_refine_grid
 #endif
-    !$acc routine seq
+#endif
+    !$acc routine vector
 
     use mod_global_parameters
 
@@ -132,24 +134,36 @@ contains
     integer, intent(in)             :: igrid, level, ixGmin1,ixGmin2,&
         ixGmin3,ixGmax1,ixGmax2,ixGmax3, ixmin1,ixmin2,ixmin3,ixmax1,&
         ixmax2,ixmax3
-    double precision, intent(in)    :: qt, x(ixGmin1:ixGmax1,&
-         ixGmin2:ixGmax2,ixGmin3:ixGmax3,1:ndim)
+    double precision, intent(in)    :: qt
+    double precision, intent(in)    :: x(ixGmin1:ixGmax1,&
+         ixGmin2:ixGmax2,ixGmin3:ixGmax3,1:3)
     double precision, intent(in)    :: w(ixGmin1:ixGmax1,&
          ixGmin2:ixGmax2,ixGmin3:ixGmax3,1:nw)
     integer, intent(inout) :: refine, coarsen
+    ! .. local ..
+    integer                         :: ix1, ix2, ix3
+    logical                         :: has_interface
 
-    if ( any(x(ixGmin1:ixGmax1,ixGmin2:ixGmax2,ixGmin3:ixGmax3,2) & 
-         <0.75d0) .and. any(x(ixGmin1:ixGmax1,ixGmin2:ixGmax2,ixGmin3:ixGmax3,2) & 
-         >0.75d0) &
-         .or. &
-         any(x(ixGmin1:ixGmax1,ixGmin2:ixGmax2,ixGmin3:ixGmax3,2) & 
-         <0.25d0) .and. any(x(ixGmin1:ixGmax1,ixGmin2:ixGmax2,ixGmin3:ixGmax3,2) & 
-         >0.25d0)) then
+
+    has_interface = .false.
+    !$acc loop vector collapse(3) reduction(.or.:has_interface)
+    do ix3 = ixmin3, ixmax3
+       do ix2 = ixmin2, ixmax2
+          do ix1 = ixmin1, ixmax1
+             if ( abs(x(ix1, ix2, ix3, 2) - 0.75d0) < 1.0d-1 .or. &
+                  abs(x(ix1, ix2, ix3, 2) - 0.25d0) < 1.0d-1 ) then
+                has_interface = .true.
+             end if
+          end do
+       end do
+    end do
+
+    if (has_interface) then
        coarsen = -1
        refine  = 1
-    else
-       coarsen = 0
-       refine  = 0
+    else 
+       coarsen = 1
+       refine  = -1
     end if
 
   end subroutine usr_refine_grid
