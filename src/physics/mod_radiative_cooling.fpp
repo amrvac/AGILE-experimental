@@ -23,10 +23,12 @@ module mod_radiative_cooling
 
 ! Debugging is only intended to work on CPU.
   logical, save :: rc_debug_enable = .false.
-  integer, save :: rc_debug_unit = -1
-  integer, save :: rc_debug_k = 0
-  integer, save :: rc_debug_it = 1
+  integer, save :: rc_debug_it     = 0
+#ifndef _OPENACC
+  integer, save :: rc_debug_unit   = -1
+  integer, save :: rc_debug_k      = 0
   character(len=std_len), save :: rc_dbg_file = 'rc_debug.csv'
+#endif
 
   !> to be pushed to the device
   !> Helium abundance over Hydrogen
@@ -421,9 +423,11 @@ module mod_radiative_cooling
       invgam = 1.d0/rc_gamma_1
       !$acc update device(rc_gamma_1, invgam)
 
+#ifndef _OPENACC
       if (rc_debug_enable) then
         call rc_debug_open()
       end if
+#endif
 
     contains
 
@@ -475,6 +479,7 @@ module mod_radiative_cooling
 
     end subroutine radiative_cooling_init
 
+#ifndef _OPENACC
     subroutine rc_debug_open()
       use mod_global_parameters, only: mype, it
       integer :: u
@@ -498,6 +503,7 @@ module mod_radiative_cooling
       end function to_str
 
     end subroutine rc_debug_open
+#endif
 
     subroutine radiative_cooling_add_source(qdt,wCT,wCTprim,wnew,x)
       !$acc routine seq
@@ -551,8 +557,10 @@ module mod_radiative_cooling
       double precision :: de, emax
 
 ! Only used for debugging.
+#ifndef _OPENACC
       double precision :: debug_pth, debug_Te_pth
       integer :: debug_branch
+#endif
 
       rho = get_rho(wCT,x)
       Rfactor = get_Rfactor()
@@ -560,6 +568,7 @@ module mod_radiative_cooling
       pnew = get_pthermal(wCT,x)
       rhonew = get_rho(wnew,x)
 
+#ifndef _OPENACC
       if (rc_debug_enable .and. it == rc_debug_it) then
         debug_pth = get_pthermal(wCT,x)
         debug_Te_pth = debug_pth/(rho*Rfactor)
@@ -570,6 +579,7 @@ module mod_radiative_cooling
         Y2 = 0d0
         de = 0d0
       end if
+#endif
 
       fact = fl%lref*qdt/fl%tref
       emin = rhonew*fl%tlow*Rfactor*invgam
@@ -581,11 +591,15 @@ module mod_radiative_cooling
       !  If the temperature is higher than the maximum,
       !  assume Bremsstrahlung
       if( Te<=fl%tcoolmin ) then
+#ifndef _OPENACC
         debug_branch = 0
+#endif
         L1 = zero
         de = zero
       else if( Te>=fl%tcoolmax ) then
+#ifndef _OPENACC
         debug_branch = 1
+#endif
         call calc_l_extended(Te, L1, fl)
         L1 = L1*rho**2
         L1 = min(L1,Lmax)
@@ -595,7 +609,9 @@ module mod_radiative_cooling
         de = L1*qdt
         wnew(iw_e) = wnew(iw_e)-de
       else
+#ifndef _OPENACC
         debug_branch = 2
+#endif
         call findY(Te,Y1,fl)
         Y2 = Y1 + fact*rho*rc_gamma_1
         call findT(Tlocal2,Y2,fl)
@@ -611,6 +627,7 @@ module mod_radiative_cooling
         wnew(iw_e) = wnew(iw_e)-de
       end if
 
+#ifndef _OPENACC
       if (rc_debug_enable .and. rc_debug_unit /= -1 .and. it == rc_debug_it) then
         rc_debug_k = rc_debug_k + 1
         write(rc_debug_unit, &
@@ -619,6 +636,7 @@ module mod_radiative_cooling
           debug_Te_pth, Y1, Y2, Tlocal2, fl%tcoolmin, fl%tcoolmax, fl%tlow, &
           emin, emax, Lmax, fact, de, wnew(iw_e)
       end if
+#endif
     end subroutine cool_exact
 
     subroutine cool_lognormal(qdt, wCT, wCTprim, wnew)
