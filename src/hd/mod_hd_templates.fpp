@@ -54,8 +54,7 @@
   logical, public                         :: hd_particles = .false.
   !$acc declare copyin(hd_particles)
 
-  ! OLAF
-  logical, public :: hd_radiative_cooling = .false.
+  logical, public                         :: hd_radiative_cooling = .false.
   !$acc declare copyin(hd_radiative_cooling)
 
 #:enddef
@@ -67,9 +66,6 @@
     character(len=*), intent(in) :: files(:)
     integer                      :: n
 
-    ! namelist /hd_list/ hd_energy, hd_gamma, hd_adiab, hd_partial_ionization,&
-    !    hd_force_diagonal, hd_particles, hd_gravity
-    ! OLAF
     namelist /hd_list/ hd_energy, hd_gamma, hd_adiab, hd_partial_ionization,&
        hd_force_diagonal, hd_particles, hd_gravity, hd_radiative_cooling, He_abundance
 
@@ -80,7 +76,7 @@
     end do
 
 #ifdef _OPENACC
- !$acc update device(hd_energy, hd_gamma, hd_adiab, hd_partial_ionization, hd_force_diagonal, hd_particles, hd_gravity)
+ !$acc update device(hd_energy, hd_gamma, hd_adiab, hd_partial_ionization, hd_force_diagonal, hd_particles, hd_gravity, hd_radiative_cooling, He_abundance)
 #endif
 
   end subroutine read_params
@@ -283,9 +279,6 @@ subroutine addsource_local(qdt, dtfactor, qtC, wCT, wCTprim, qt, wnew, x, dr, &
 #:endif    
 #:if defined('COOLING')
   ! use mod_radiative_cooling, only: rc_fl, radiative_cooling_add_source
-  ! OLAF
-  !   the rc_fl thing is now a global in mod_radiative_cooling, it doesn't need
-  !   to be passed.
   use mod_radiative_cooling, only: radiative_cooling_add_source
 #:endif
 
@@ -308,7 +301,6 @@ subroutine addsource_local(qdt, dtfactor, qtC, wCT, wCTprim, qt, wnew, x, dr, &
 
 #:if defined('COOLING')
   ! call radiative_cooling_add_source(qdt,wCT,wCTprim,wnew,x,rc_fl)
-  ! OLAF
   call radiative_cooling_add_source(qdt,wCT,wCTprim,wnew,x)
 #:endif
 
