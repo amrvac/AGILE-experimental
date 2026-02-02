@@ -144,7 +144,7 @@ contains
   end subroutine lohner_grid
 
   subroutine forcedrefine_grid(igrid)
-    !$acc routine worker
+    !$acc routine vector
     #:if defined('REFINE_USR')
     use mod_usr, only: usr_refine_grid
     #:endif
