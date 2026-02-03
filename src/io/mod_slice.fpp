@@ -1,6 +1,11 @@
 !> Writes D-1 slice, can do so in various formats, depending on slice_type
 module mod_slice
+#ifdef USE_MPIWRAPPERS
   use mod_mpi_wrapper
+#else
+#define mpi_recv_wrapper MPI_RECV
+#define mpi_send_wrapper MPI_SEND
+#endif
   use mod_basic_types
   use mod_comm_lib, only: mpistop
   implicit none

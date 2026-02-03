@@ -1,6 +1,14 @@
 !> Module for reading input and writing output
 module mod_input_output
+#ifdef USE_MPIWRAPPERS
   use mod_mpi_wrapper
+#else
+#define mpi_file_read_wrapper MPI_FILE_READ
+#define mpi_file_read_at_wrapper MPI_FILE_READ_AT
+#define mpi_file_write_wrapper MPI_FILE_WRITE
+#define mpi_recv_wrapper MPI_RECV
+#define mpi_send_wrapper MPI_SEND
+#endif
   use mod_comm_lib, only: mpistop
 
   implicit none

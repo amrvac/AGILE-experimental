@@ -1,6 +1,10 @@
 module mod_convert
-
+#ifdef USE_MPIWRAPPERS
   use mod_mpi_wrapper
+#else
+#define mpi_recv_wrapper MPI_RECV
+#define mpi_send_wrapper MPI_SEND
+#endif
   use mpi
   use mod_variables, only: max_nw
 

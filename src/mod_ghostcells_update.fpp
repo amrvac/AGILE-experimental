@@ -1,6 +1,11 @@
 !> update ghost cells of all blocks including physical boundaries
 module mod_ghostcells_update
+#ifdef USE_MPIWRAPPERS
   use mod_mpi_wrapper
+#else
+#define mpi_irecv_wrapper MPI_IRECV
+#define mpi_isend_wrapper MPI_ISEND
+#endif
   implicit none
   ! Special buffer for pole copy
   type wbuffer
