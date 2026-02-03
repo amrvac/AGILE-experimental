@@ -1,5 +1,10 @@
 module mod_load_balance
+#ifdef USE_MPIWRAPPERS
   use mod_mpi_wrapper
+#else
+#define mpi_irecv_wrapper MPI_IRECV
+#define mpi_isend_wrapper MPI_ISEND
+#endif
   implicit none
 
   !> MPI buffers to send blocks

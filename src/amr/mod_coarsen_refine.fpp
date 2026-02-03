@@ -1,6 +1,11 @@
 !> Module to coarsen and refine grids for AMR
 module mod_coarsen_refine
+#ifdef USE_MPIWRAPPERS
   use mod_mpi_wrapper
+#else
+#define mpi_irecv_wrapper MPI_IRECV
+#define mpi_isend_wrapper MPI_ISEND
+#endif
   implicit none
   private
   !> MPI recv send variables for AMR
