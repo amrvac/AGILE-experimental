@@ -94,7 +94,7 @@ module mod_connectivity
       type(nbinfo_buffer_t), allocatable   :: c_rcv(:)             ! double precision receive data
       type(nbinfo_buffer_i_t), allocatable :: c_info_send(:)       ! info package send
       type(nbinfo_buffer_i_t), allocatable :: c_info_rcv(:)        ! info package receive
-      integer                              :: max_size = 9000000   ! maximum buffer size
+      integer                              :: max_size = -1        ! maximum buffer size (initialized in init)
       integer                              :: max_nbprocs = 64     ! maximum nr of neighbor procs
       integer                              :: max_igrids = 4096    ! maximum nr of igrids per neighbor proc
     contains
