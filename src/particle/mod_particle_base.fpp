@@ -1,6 +1,13 @@
 !> Module with shared functionality for all the particle movers
 module mod_particle_base
+#ifdef USE_MPIWRAPPERS
   use mod_mpi_wrapper
+#else
+#define mpi_irecv_wrapper MPI_IRECV
+#define mpi_isend_wrapper MPI_ISEND
+#define mpi_recv_wrapper MPI_RECV
+#define mpi_send_wrapper MPI_SEND
+#endif
   use mod_global_parameters, only: name_len, std_len
   use mod_physics
   use mod_random

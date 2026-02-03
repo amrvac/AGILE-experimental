@@ -1,6 +1,9 @@
 module mod_functions_forest
-
+#ifdef USE_MPIWRAPPERS
   use mod_mpi_wrapper
+#else
+#define mpi_file_read_wrapper MPI_FILE_READ
+#endif
   implicit none
   private
 
