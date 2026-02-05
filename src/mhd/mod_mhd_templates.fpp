@@ -322,8 +322,8 @@
     use mod_global_parameters
 !    use mod_particles, only: particles_init
 
-    call phys_units()
     call read_params(par_files)
+    call phys_units()
 
     phys_energy  = mhd_energy
     phys_total_energy  = mhd_energy

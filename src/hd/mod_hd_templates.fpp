@@ -179,8 +179,8 @@
     use mod_radiative_cooling, only: rc_fl, radiative_cooling_init_params, radiative_cooling_init
     #:endif
 
-    call phys_units()
     call read_params(par_files)
+    call phys_units()
 
     phys_energy  = hd_energy
     phys_total_energy  = hd_energy
