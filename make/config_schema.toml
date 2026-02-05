@@ -38,6 +38,14 @@ flags = ["fypp", "hash"]
 default = false
 implies = ["components.source_local"]
 
+[hd_list.hd_n_tracer]
+type = "value"
+name = "N_TRACER"
+dtype = "int"
+flags = ["fypp", "hash"]
+default = 0
+# behavior = ['dont pass if default']
+
 [ffhd_list]
 [ffhd_list.ffhd_pdivb]
 type = "flag"
