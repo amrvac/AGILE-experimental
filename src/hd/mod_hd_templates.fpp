@@ -3,8 +3,8 @@
 #:def phys_vars()
 
   integer, parameter :: dp = kind(0.0d0)
-  integer, parameter, public              :: nw_phys=2+ndim
-  integer, parameter, public              :: nw_flux=2+ndim
+  integer, parameter, public              :: nw_phys=2+ndim+${N_TRACER}$
+  integer, parameter, public              :: nw_flux=2+ndim+${N_TRACER}$
   
   !> Whether an energy equation is used
   logical, public                         :: hd_energy = .true.
@@ -17,6 +17,10 @@
   !> Indices of the momentum density
   integer, allocatable, public            :: mom(:)
   !$acc declare create(mom)
+
+  !> Indices of the tracers
+  integer, public                         :: tracer(${N_TRACER}$)
+  !$acc declare create(tracer)
 
   !> Index of the energy density (-1 if not present)
   integer, public                         :: e_
@@ -37,6 +41,10 @@
   !> The helium abundance
   double precision, public                :: He_abundance=0.1d0
   !$acc declare copyin(He_abundance)
+
+  !> Number of tracer species
+  integer, public                         :: hd_n_tracer = 0
+  !$acc declare copyin(hd_n_tracer)
 
   !> Whether plasma is partially ionized
   logical, public                         :: hd_partial_ionization = .false.
@@ -64,7 +72,7 @@
     integer                      :: n
 
     namelist /hd_list/ hd_energy, hd_gamma, hd_adiab, hd_partial_ionization,&
-        hd_force_diagonal, hd_particles, hd_gravity
+        hd_force_diagonal, hd_particles, hd_gravity, hd_n_tracer
 
     do n = 1, size(files)
        open(unitpar, file=trim(files(n)), status="old")
@@ -73,7 +81,7 @@
     end do
 
 #ifdef _OPENACC
- !$acc update device(hd_energy, hd_gamma, hd_adiab, hd_partial_ionization, hd_force_diagonal, hd_particles, hd_gravity)
+ !$acc update device(hd_energy, hd_gamma, hd_adiab, hd_partial_ionization, hd_force_diagonal, hd_particles, hd_gravity, hd_n_tracer)
 #endif
 
   end subroutine read_params
@@ -175,6 +183,7 @@
     #:if defined('COOLING')
     use mod_radiative_cooling, only: rc_fl, radiative_cooling_init_params, radiative_cooling_init
     #:endif
+    integer :: i
 
     call phys_units()
     call read_params(par_files)
@@ -214,6 +223,11 @@
        !  --> only for debug purposes
        phys_req_diagonal = .true.
     endif
+
+    do i = 1, hd_n_tracer
+       tracer(i) = var_set_fluxvar("trc", "trp", i, need_bc=.false.)
+    end do
+    !$acc update device(tracer)
 
     ! set number of variables which need update ghostcells
     nwgc=nwflux
@@ -307,18 +321,19 @@ pure subroutine to_primitive(u)
   !$acc routine seq
   real(dp), intent(inout) :: u(nw_phys)
 
-  
-       u(iw_mom(1)) = u(iw_mom(1))/u(iw_rho)
-  
-  
-       u(iw_mom(2)) = u(iw_mom(2))/u(iw_rho)
-  
-  
-       u(iw_mom(3)) = u(iw_mom(3))/u(iw_rho)
-  
+  ! Compute velocity from momentum
+      u(iw_mom(1)) = u(iw_mom(1))/u(iw_rho)
+      u(iw_mom(2)) = u(iw_mom(2))/u(iw_rho)
+      u(iw_mom(3)) = u(iw_mom(3))/u(iw_rho)
 
+  ! Compute pressure from energy
   u(iw_e) = (hd_gamma-1.0_dp) * (u(iw_e) - 0.5_dp * u(iw_rho) * &
      sum(u(iw_mom(1:ndim))**2) )
+
+  ! Compute tracer values. Actually, AMRVAC keeps tracers conservative.
+! #:for i in range(N_TRACER)
+!     u(tracer(${i}$)) = u(tracer(${i}$)) / u(iw_rho)
+! #:endfor
 
 end subroutine to_primitive
 #:enddef
@@ -336,15 +351,14 @@ pure subroutine to_conservative(u)
      sum(u(iw_mom(1:ndim))**2)
 
   ! Compute momentum from density and velocity components
+      u(iw_mom(1)) = u(iw_rho) * u(iw_mom(1))
+      u(iw_mom(2)) = u(iw_rho) * u(iw_mom(2))
+      u(iw_mom(3)) = u(iw_rho) * u(iw_mom(3))
   
-       u(iw_mom(1)) = u(iw_rho) * u(iw_mom(1))
-  
-  
-       u(iw_mom(2)) = u(iw_rho) * u(iw_mom(2))
-  
-  
-       u(iw_mom(3)) = u(iw_rho) * u(iw_mom(3))
-  
+  ! Compute tracer concentrations. Actually, AMRVAC keeps tracers conservative.
+! #:for i in range(N_TRACER)
+!     u(tracer(${i}$)) = u(tracer(${i}$)) * u(iw_rho)
+! #:endfor
 
 end subroutine to_conservative
 #:enddef
@@ -366,11 +380,7 @@ subroutine get_flux(u, xC, flux_dim, flux)
   ! Momentum flux with pressure term
   
        flux(iw_mom(1)) = u(iw_rho) * u(iw_mom(1)) * u(iw_mom(flux_dim))
-  
-  
        flux(iw_mom(2)) = u(iw_rho) * u(iw_mom(2)) * u(iw_mom(flux_dim))
-  
-  
        flux(iw_mom(3)) = u(iw_rho) * u(iw_mom(3)) * u(iw_mom(flux_dim))
   
   flux(iw_mom(flux_dim)) = flux(iw_mom(flux_dim)) + u(iw_e)
@@ -378,6 +388,11 @@ subroutine get_flux(u, xC, flux_dim, flux)
   ! Energy flux
   flux(iw_e) = u(iw_mom(flux_dim)) * (u(iw_e) * inv_gamma_m1 + 0.5_dp * &
      u(iw_rho) * sum(u(iw_mom(1:ndim))**2) + u(iw_e))
+
+  ! Tracer flux. Note that tracers stay conservative.
+#:for i in range(N_TRACER)
+  flux(tracer(${i}$)) = u(tracer(${i}$)) * u(iw_mom())
+#:endfor
 
 end subroutine get_flux
 #:enddef
