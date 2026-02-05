@@ -99,7 +99,7 @@
     integer                      :: n
 
     namelist /ffhd_list/ ffhd_energy, ffhd_gamma, ffhd_partial_ionization, ffhd_gravity, &
-          ffhd_radiative_cooling, ffhd_hyperbolic_thermal_conduction, ffhd_source_usr, ffhd_pdivb
+          ffhd_radiative_cooling, ffhd_hyperbolic_thermal_conduction, ffhd_source_usr, ffhd_pdivb, He_abundance
 
     do n = 1, size(files)
        open(unitpar, file=trim(files(n)), status="old")
@@ -208,8 +208,8 @@
     use mod_radiative_cooling, only: rc_fl, radiative_cooling_init_params, radiative_cooling_init
     #:endif
 
-    call phys_units()
     call read_params(par_files)
+    call phys_units()
 
     phys_energy  = ffhd_energy
     phys_total_energy  = ffhd_energy

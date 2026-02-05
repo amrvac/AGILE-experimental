@@ -89,7 +89,7 @@
     character(len=*), intent(in) :: files(:)
     integer                      :: n
 
-    namelist /mhd_list/ mhd_gamma, mhd_glm_alpha, mhd_gravity
+    namelist /mhd_list/ mhd_energy, mhd_gamma, mhd_glm_alpha, mhd_gravity, He_abundance
 
     do n = 1, size(files)
        open(unitpar, file=trim(files(n)), status="old")
@@ -322,8 +322,8 @@
     use mod_global_parameters
 !    use mod_particles, only: particles_init
 
-    call phys_units()
     call read_params(par_files)
+    call phys_units()
 
     phys_energy  = mhd_energy
     phys_total_energy  = mhd_energy
