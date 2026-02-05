@@ -16,6 +16,8 @@ module mod_finite_volume
 
   public :: finite_volume_local
 
+  integer, parameter :: METHOD_MUSCL_LLF = 1
+  integer, parameter :: METHOD_MUSCL_HLL = 2
 contains
 
 ! instantiate the templated functions here for inlining:
@@ -26,6 +28,9 @@ contains
 @:get_cmax()
 @:get_flux()
 
+  ! flux scheme list : (scheme_tag, method_enum, faceflux_proc)
+#:set schemes = [('muscl_llf', 'METHOD_MUSCL_LLF', 'muscl_flux_prim_llf')]
+
   subroutine finite_volume_local(method, qdt, dtfactor, ixImin1,ixImin2,&
      ixImin3,ixImax1,ixImax2,ixImax3, ixOmin1,ixOmin2,ixOmin3,ixOmax1,ixOmax2,&
      ixOmax3, idimsmin,idimsmax, qtC, bga, qt, bgb, fC, fE)
@@ -33,6 +38,53 @@ contains
 
     integer, intent(in)                                                :: &
        method
+    double precision, intent(in)                                       :: qdt,&
+        dtfactor, qtC, qt
+    integer, intent(in)                                                :: &
+       ixImin1,ixImin2,ixImin3,ixImax1,ixImax2,ixImax3, ixOmin1,ixOmin2,&
+       ixOmin3,ixOmax1,ixOmax2,ixOmax3, idimsmin,idimsmax
+    ! remember, old names map as: wCT => bga, wnew => bgb
+    type(block_grid_t)                                    :: bga
+    type(block_grid_t)                                    :: bgb
+    double precision, dimension(ixImin1:ixImax1,ixImin2:ixImax2,&
+       ixImin3:ixImax3, 1:nwflux, 1:ndim)  :: fC !not yet provided
+    double precision, dimension(ixImin1:ixImax1,ixImin2:ixImax2,&
+       ixImin3:ixImax3, sdim:3)            :: fE !not yet provided
+    ! .. local ..
+    integer                :: n, iigrid, ix1,ix2,ix3
+    double precision       :: uprim(nw_phys, ixImin1:ixImax1,ixImin2:ixImax2,&
+       ixImin3:ixImax3)
+    real(dp)               :: tmp(nw_phys,5)
+    real(dp)               :: f(nw_flux, 2)
+    real(dp)               :: inv_dr(ndim)
+    real(dp)               :: dr(ndim)
+    integer                :: typelim
+    real(dp)               :: xloc(ndim)
+    real(dp)               :: xlocC(ndim,2)
+    real(dp)               :: wprim(nw_phys), wCT(nw_phys), wnew(nw_phys)
+    !-----------------------------------------------------------------------------
+
+
+    select case (method)
+#:for scheme_tag, method_enum, faceflux_proc in schemes
+    case (${method_enum}$)
+      call finite_volume_local_${scheme_tag}$(qdt, dtfactor, ixImin1,ixImin2,&
+            ixImin3,ixImax1,ixImax2,ixImax3, ixOmin1,ixOmin2,ixOmin3,ixOmax1,ixOmax2,&
+            ixOmax3, idimsmin,idimsmax, qtC, bga, qt, bgb, fC, fE)
+#:endfor
+    case default
+      call finite_volume_local_muscl_llf(qdt, dtfactor, ixImin1,ixImin2,&
+            ixImin3,ixImax1,ixImax2,ixImax3, ixOmin1,ixOmin2,ixOmin3,ixOmax1,ixOmax2,&
+            ixOmax3, idimsmin,idimsmax, qtC, bga, qt, bgb, fC, fE)
+    end select
+end subroutine finite_volume_local
+
+#:def FV_KERNEL(scheme_tag, faceflux_proc)
+  subroutine finite_volume_local_${scheme_tag}$(qdt, dtfactor, ixImin1,ixImin2,&
+     ixImin3,ixImax1,ixImax2,ixImax3, ixOmin1,ixOmin2,ixOmin3,ixOmax1,ixOmax2,&
+     ixOmax3, idimsmin,idimsmax, qtC, bga, qt, bgb, fC, fE)
+    use mod_global_parameters
+
     double precision, intent(in)                                       :: qdt,&
         dtfactor, qtC, qt
     integer, intent(in)                                                :: &
@@ -89,7 +141,7 @@ contains
                 xlocC(1:ndim,2) = ps(n)%x(ix1, ix2, ix3, 1:ndim)
                 xlocC(1,1) = xlocC(1,1)-0.5_dp*dr(1)
                 xlocC(1,2) = xlocC(1,2)+0.5_dp*dr(1)
-                call muscl_flux_prim(tmp, xlocC, 1, f, typelim)
+                call ${faceflux_proc}$(tmp, xlocC, 1, f, typelim)
                 bgb%w(ix1, ix2, ix3, 1:nw_flux, n) = bgb%w(ix1, ix2, ix3, 1:nw_flux,&
                      n) + qdt * (f(:, 1) - f(:, 2)) * inv_dr(1)
 
@@ -98,7 +150,7 @@ contains
                 xlocC(1:ndim,2) = ps(n)%x(ix1, ix2, ix3, 1:ndim)
                 xlocC(2,1) = xlocC(2,1)-0.5_dp*dr(2)
                 xlocC(2,2) = xlocC(2,2)+0.5_dp*dr(2)
-                call muscl_flux_prim(tmp, xlocC, 2, f, typelim)
+                call ${faceflux_proc}$(tmp, xlocC, 2, f, typelim)
                 bgb%w(ix1, ix2, ix3, 1:nw_flux, n) = bgb%w(ix1, ix2, ix3, 1:nw_flux,&
                      n) + qdt * (f(:, 1) - f(:, 2)) * inv_dr(2)
 
@@ -107,7 +159,7 @@ contains
                 xlocC(1:ndim,2) = ps(n)%x(ix1, ix2, ix3, 1:ndim)
                 xlocC(3,1) = xlocC(3,1)-0.5_dp*dr(3)
                 xlocC(3,2) = xlocC(3,2)+0.5_dp*dr(3)
-                call muscl_flux_prim(tmp, xlocC, 3, f, typelim)
+                call ${faceflux_proc}$(tmp, xlocC, 3, f, typelim)
                 bgb%w(ix1, ix2, ix3, 1:nw_flux, n) = bgb%w(ix1, ix2, ix3, 1:nw_flux,&
                      n) + qdt * (f(:, 1) - f(:, 2)) * inv_dr(3)
 
@@ -150,9 +202,17 @@ contains
        end do
     end do
 
-  end subroutine finite_volume_local
+  end subroutine finite_volume_local_${scheme_tag}$
+  #:enddef
 
-  subroutine muscl_flux_prim(u, xlocC, flux_dim, flux, typelim)
+
+#:for scheme_tag, method_enum, faceflux_proc in schemes
+#:call FV_KERNEL(scheme_tag, faceflux_proc)
+#:endcall
+#:endfor
+
+
+  subroutine muscl_flux_prim_llf(u, xlocC, flux_dim, flux, typelim)
     !$acc routine seq
 
     use mod_limiter, only: limiter_minmod, limiter_vanleer
@@ -218,7 +278,7 @@ contains
     call to_conservative(uR)
     flux(:, 2) = 0.5_dp * ((flux_l + flux_r) - wmax * (uR(1:nw_flux) - uL(1:nw_flux)))
 
-  end subroutine muscl_flux_prim
+  end subroutine muscl_flux_prim_llf
 
   pure real(dp) function vanleer(a, b) result(phi)
     !$acc routine seq
