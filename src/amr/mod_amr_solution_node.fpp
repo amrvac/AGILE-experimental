@@ -1608,7 +1608,7 @@ contains
    call copy_or_update_pointer(ps2(igrid)%w)
    !   !$acc enter data copyin(ps(igrid)%w, ps1(igrid)%w, ps2(igrid)%w)  
    !   !$acc enter data attach(ps(igrid)%w, ps1(igrid)%w, ps2(igrid)%w)
-   call copy_or_update_alloc(ps(igrid)%x)
+   call copy_or_update_pointer(ps(igrid)%x)
    call copy_or_update_pointer(ps(igrid)%is_physical_boundary)
    !   !$acc enter data copyin(ps(igrid)%x, ps(igrid)%is_physical_boundary)
    call copy_or_update_pointer(ps1(igrid)%x)
