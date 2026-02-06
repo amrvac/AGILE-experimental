@@ -100,7 +100,7 @@ contains
   !------------------------------
   subroutine copy_or_update_${tname}$_nonpointer_r${rank}$(array)
     implicit none
-    double precision, intent(inout) :: array${shp}$
+    ${tdecl}$, intent(inout) :: array${shp}$
 
     if (.not. acc_is_present(array)) then
        !$acc enter data copyin(array)
@@ -115,7 +115,7 @@ contains
   !-------------
   subroutine copy_or_update_${tname}$_pointer_r${rank}$(array)
     implicit none
-    double precision, pointer, intent(inout) :: array${shp}$
+    ${tdecl}$, pointer, intent(inout) :: array${shp}$
 
     if (.not. associated(array)) then
        print *, 'copy_or_update: null-pointer encountered (rank ${rank}$)'
@@ -126,8 +126,7 @@ contains
        !$acc enter data copyin(array)
        !$acc enter data attach(array)
     else
-       ! Assume the TARGET has been updated, so skip update:
-!       !$acc update device(array)
+       !$acc update device(array)
     end if
     
   end subroutine copy_or_update_${tname}$_pointer_r${rank}$
@@ -137,7 +136,7 @@ contains
   !----------------
   subroutine copy_or_update_${tname}$_alloc_r${rank}$(array)
     implicit none
-    double precision, allocatable, intent(inout) :: array${shp}$
+    ${tdecl}$, allocatable, intent(inout) :: array${shp}$
 
     if (.not. allocated(array)) then
        print *, 'copy_or_update: unallocated allocatable (rank ${rank}$)'
