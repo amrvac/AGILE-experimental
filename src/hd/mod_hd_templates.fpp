@@ -394,6 +394,28 @@ pure real(dp) function get_cmax(u, x, flux_dim) result(wC)
 end function get_cmax
 #:enddef  
 
+
+#:def estimate_davis_speeds()
+!> Wave speed estimates for 1D Euler from Davis (1988)
+subroutine estimate_davis_speeds(uL, uR, xC, flux_dim, wL, wR)
+  !$acc routine seq
+  real(dp), intent(in)  :: uL(nw_phys), uR(nw_phys)
+  real(dp), intent(in)  :: xC(ndim)
+  integer, intent(in)   :: flux_dim
+  real(dp), intent(out) :: wL, wR
+
+  real(dp)              :: cL, cR
+
+  cL = sqrt(hd_gamma * uL(iw_e) / uL(iw_rho))
+  cR = sqrt(hd_gamma * uR(iw_e) / uR(iw_rho))
+
+  wL = min(uL(iw_mom(flux_dim)) - cL, uR(iw_mom(flux_dim)) - cR)
+  wR = max(uL(iw_mom(flux_dim)) + cL, uR(iw_mom(flux_dim)) + cR)
+
+end subroutine estimate_davis_speeds
+#:enddef
+
+
 #:def get_rho()
   pure real(dp) function get_rho(w, x) result(rho)
     !$acc routine seq

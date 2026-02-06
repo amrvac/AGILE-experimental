@@ -27,6 +27,7 @@ contains
 @:to_conservative()
 @:get_cmax()
 @:get_flux()
+@:estimate_davis_speeds()
 
   ! flux scheme list : (scheme_tag, method_enum, faceflux_proc)
 #:set schemes = [('muscl_llf', 'METHOD_MUSCL_LLF', 'muscl_flux_prim_llf')]
@@ -211,6 +212,96 @@ end subroutine finite_volume_local
 #:endcall
 #:endfor
 
+
+  subroutine muscl_flux_prim_hll(u, xlocC, flux_dim, flux, typelim)
+    !$acc routine seq
+
+    use mod_limiter, only: limiter_minmod, limiter_vanleer
+
+    real(dp), intent(in)  :: u(nw_phys, 5)
+    real(dp), intent(in)  :: xlocC(1:ndim, 2)
+    integer, intent(in)   :: flux_dim, typelim
+    real(dp), intent(out) :: flux(nw_flux, 2)
+    real(dp)              :: uL(nw_phys), uR(nw_phys), wL, wR, wmax, dw
+    real(dp)              :: flux_l(nw_flux), flux_r(nw_flux)
+    real(dp)              :: xC(ndim)
+    integer               :: iw
+    real(dp), parameter   :: eps = 1e-14_dp
+
+    ! Construct uL, uR for first cell face
+    select case (typelim)
+    case (limiter_minmod)
+       do iw = 1, nw_phys
+          uL(iw) = u(iw, 2) + 0.5_dp * minmod(u(iw, 2) - u(iw, 1), u(iw, 3) - u(iw, 2))
+          uR(iw) = u(iw, 3) - 0.5_dp * minmod(u(iw, 3) - u(iw, 2), u(iw, 4) - u(iw, 3))
+       end do
+    case (limiter_vanleer)
+       do iw = 1, nw_phys
+          uL(iw) = u(iw, 2) + 0.5_dp * vanleer(u(iw, 2) - u(iw, 1), u(iw, 3) - u(iw, 2))
+          uR(iw) = u(iw, 3) - 0.5_dp * vanleer(u(iw, 3) - u(iw, 2), u(iw, 4) - u(iw, 3))
+       end do
+    end select
+
+    xC=xlocC(:,1)
+    call get_flux(uL, xC, flux_dim, flux_l)
+    call get_flux(uR, xC, flux_dim, flux_r)
+
+    call estimate_davis_speeds(uL, uR, xC, flux_dim, wL, wR)
+    wmax = max(wL, wR)  ! for LLF fallback
+
+    call to_conservative(uL)
+    call to_conservative(uR)
+
+    if (wL .ge. 0._dp) then
+      flux(:, 1) = flux_l
+    elseif (wR .le. 0._dp) then
+      flux(:, 1) = flux_r
+    else
+      dw = wR - wL
+      if (dw > eps * (abs(wL) + abs(wR))) then
+        flux(:, 1) = (wR*flux_l - wL*flux_r + wL*wR*(uR(1:nw_flux) - uL(1:nw_flux))) / dw
+      else
+        flux(:, 1) = 0.5_dp * ((flux_l + flux_r) - wmax * (uR(1:nw_flux) - uL(1:nw_flux)))
+      end if
+    end if
+
+    ! Construct uL, uR for second cell face
+    select case (typelim)
+    case (limiter_minmod)
+       do iw = 1, nw_phys
+          uL(iw) = u(iw, 3) + 0.5_dp * minmod(u(iw, 3) - u(iw, 2), u(iw, 4) - u(iw, 3))
+          uR(iw) = u(iw, 4) - 0.5_dp * minmod(u(iw, 4) - u(iw, 3), u(iw, 5) - u(iw, 4))
+       end do
+    case (limiter_vanleer)
+       do iw = 1, nw_phys
+          uL(iw) = u(iw, 3) + 0.5_dp * vanleer(u(iw, 3) - u(iw, 2), u(iw, 4) - u(iw, 3))
+          uR(iw) = u(iw, 4) - 0.5_dp * vanleer(u(iw, 4) - u(iw, 3), u(iw, 5) - u(iw, 4))
+       end do
+    end select
+
+    xC=xlocC(:,2)
+    call get_flux(uL, xC, flux_dim, flux_l)
+    call get_flux(uR, xC, flux_dim, flux_r)
+
+    call estimate_davis_speeds(uL, uR, xC, flux_dim, wL, wR)
+    wmax = max(wL, wR)  ! for LLF fallback
+
+    call to_conservative(uL)
+    call to_conservative(uR)
+
+    if (wL .ge. 0._dp) then
+      flux(:, 2) = flux_l
+    elseif (wR .le. 0._dp) then
+      flux(:, 2) = flux_r
+    else
+      dw = wR - wL
+      if (dw > eps * (abs(wL) + abs(wR))) then
+        flux(:, 2) = (wR*flux_l - wL*flux_r + wL*wR*(uR(1:nw_flux) - uL(1:nw_flux))) / dw
+      else ! fall back to LLF
+        flux(:, 2) = 0.5_dp * ((flux_l + flux_r) - wmax * (uR(1:nw_flux) - uL(1:nw_flux)))
+      end if
+    end if
+  end subroutine muscl_flux_prim_hll
 
   subroutine muscl_flux_prim_llf(u, xlocC, flux_dim, flux, typelim)
     !$acc routine seq
