@@ -1618,8 +1618,8 @@ contains
    call copy_or_update_pointer(ps1(igrid)%is_physical_boundary)
    call copy_or_update_pointer(ps2(igrid)%is_physical_boundary)
    !   !$acc enter data copyin(ps1(igrid)%is_physical_boundary, ps2(igrid)%is_physical_boundary)
-   call copy_or_update_alloc(psc(igrid)%x)
-   call copy_or_update_alloc(psc(igrid)%w)
+   call copy_or_update_pointer(psc(igrid)%x)
+   call copy_or_update_pointer(psc(igrid)%w)
    !   !$acc enter data copyin(psc(igrid)%x, psc(igrid)%w)
 
   end subroutine alloc_node
