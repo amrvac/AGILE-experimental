@@ -1598,21 +1598,21 @@ contains
    !$acc update device( phyboundblock(igrid) )
    call copy_or_update(ps(igrid)%igrid) 
    call copy_or_update(ps1(igrid)%igrid) 
-   call copy_or_update(ps2(igrid)%igrid) 
-   call copy_or_update_pointer(ps(igrid)%w)
-   call copy_or_update_pointer(ps1(igrid)%w)
-   call copy_or_update_pointer(ps2(igrid)%w)
-   call copy_or_update_pointer(ps(igrid)%x)
-   call copy_or_update_pointer(ps(igrid)%is_physical_boundary)
-
-   ! updating on these two is wasteful (they point to ps(igrid)%x):
-   call copy_or_update_pointer(ps1(igrid)%x)
-   call copy_or_update_pointer(ps2(igrid)%x)
+   call copy_or_update(ps2(igrid)%igrid)
    
-   call copy_or_update_pointer(ps1(igrid)%is_physical_boundary)
-   call copy_or_update_pointer(ps2(igrid)%is_physical_boundary)
+   call copy_or_update_pointer(ps(igrid)%w, no_update=.true.)
+   call copy_or_update_pointer(ps1(igrid)%w, no_update=.true.)
+   call copy_or_update_pointer(ps2(igrid)%w, no_update=.true.)
+   
+   call copy_or_update_pointer(ps(igrid)%x)
+   call copy_or_update_pointer(ps1(igrid)%x, no_update=.true.)
+   call copy_or_update_pointer(ps2(igrid)%x, no_update=.true.)
+   
+   call copy_or_update_pointer(ps(igrid)%is_physical_boundary)
+   call copy_or_update_pointer(ps1(igrid)%is_physical_boundary, no_update=.true.)
+   call copy_or_update_pointer(ps2(igrid)%is_physical_boundary, no_update=.true.)
    call copy_or_update_pointer(psc(igrid)%x)
-   call copy_or_update_pointer(psc(igrid)%w)
+   call copy_or_update_pointer(psc(igrid)%w, no_update=.true.)
 
   end subroutine alloc_node
   
