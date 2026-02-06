@@ -61,7 +61,9 @@ contains
   
   !> allocate arrays on igrid node
   subroutine alloc_node(igrid)
+#ifdef _OPENACC
     use acc_utils
+#endif    
     use mod_forest
     use mod_global_parameters
     use mod_geometry
@@ -1596,6 +1598,7 @@ contains
    end if
 
    !$acc update device( phyboundblock(igrid) )
+#ifdef _OPENACC
    call copy_or_update(ps(igrid)%igrid) 
    call copy_or_update(ps1(igrid)%igrid) 
    call copy_or_update(ps2(igrid)%igrid)
@@ -1613,7 +1616,8 @@ contains
    call copy_or_update_pointer(ps2(igrid)%is_physical_boundary, no_update=.true.)
    call copy_or_update_pointer(psc(igrid)%x)
    call copy_or_update_pointer(psc(igrid)%w, no_update=.true.)
-
+#endif
+   
   end subroutine alloc_node
   
   !> allocate memory to physical state of igrid node

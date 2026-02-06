@@ -1,7 +1,7 @@
+#ifdef _OPENACC
 !=====================================================================
-! Fully safe wrapper for allocatable or pointer arrays
+! Transfer wrappers for copy or update if present
 !=====================================================================
-
 module acc_utils
   use openacc
   implicit none
@@ -207,5 +207,5 @@ contains
   #:endfor
   #:endfor
 
-
 end module acc_utils
+#endif
