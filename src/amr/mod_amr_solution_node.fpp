@@ -61,6 +61,7 @@ contains
   
   !> allocate arrays on igrid node
   subroutine alloc_node(igrid)
+    use acc_utils
     use mod_forest
     use mod_global_parameters
     use mod_geometry
@@ -1597,15 +1598,29 @@ contains
    !$acc update device( phyboundblock(igrid) )
 ! breaks it, compiler error???: !!!!
 !   !$acc update device(ps(igrid), ps1(igrid), ps2(igrid))
-! explicitly add all needed members instead:   
-   !$acc update device(ps(igrid)%igrid, ps1(igrid)%igrid, ps2(igrid)%igrid)
-   !$acc enter data copyin(ps(igrid)%w, ps1(igrid)%w, ps2(igrid)%w)
-   !$acc enter data attach(ps(igrid)%w, ps1(igrid)%w, ps2(igrid)%w)
-   !$acc enter data copyin(ps(igrid)%x, ps(igrid)%is_physical_boundary)
-   !$acc enter data copyin(ps1(igrid)%x, ps2(igrid)%x)
-   !$acc enter data attach(ps1(igrid)%x, ps2(igrid)%x)
-   !$acc enter data copyin(ps1(igrid)%is_physical_boundary, ps2(igrid)%is_physical_boundary)
-   !$acc enter data copyin(psc(igrid)%x, psc(igrid)%w)
+   ! explicitly add all needed members instead:
+   call copy_or_update(ps(igrid)%igrid) 
+   call copy_or_update(ps1(igrid)%igrid) 
+   call copy_or_update(ps2(igrid)%igrid) 
+   !   !$acc update device(ps(igrid)%igrid, ps1(igrid)%igrid, ps2(igrid)%igrid)
+   call copy_or_update_pointer(ps(igrid)%w)
+   call copy_or_update_pointer(ps1(igrid)%w)
+   call copy_or_update_pointer(ps2(igrid)%w)
+   !   !$acc enter data copyin(ps(igrid)%w, ps1(igrid)%w, ps2(igrid)%w)  
+   !   !$acc enter data attach(ps(igrid)%w, ps1(igrid)%w, ps2(igrid)%w)
+   call copy_or_update_alloc(ps(igrid)%x)
+   call copy_or_update_pointer(ps(igrid)%is_physical_boundary)
+   !   !$acc enter data copyin(ps(igrid)%x, ps(igrid)%is_physical_boundary)
+   call copy_or_update_pointer(ps1(igrid)%x)
+   call copy_or_update_pointer(ps2(igrid)%x)
+   !   !$acc enter data copyin(ps1(igrid)%x, ps2(igrid)%x)
+   !   !$acc enter data attach(ps1(igrid)%x, ps2(igrid)%x)
+   call copy_or_update_pointer(ps1(igrid)%is_physical_boundary)
+   call copy_or_update_pointer(ps2(igrid)%is_physical_boundary)
+   !   !$acc enter data copyin(ps1(igrid)%is_physical_boundary, ps2(igrid)%is_physical_boundary)
+   call copy_or_update_alloc(psc(igrid)%x)
+   call copy_or_update_alloc(psc(igrid)%w)
+   !   !$acc enter data copyin(psc(igrid)%x, psc(igrid)%w)
 
   end subroutine alloc_node
   
