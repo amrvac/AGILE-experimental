@@ -11,7 +11,9 @@ module acc_utils
   #:set MAXRANK = 6
   #:set TYPES = [("double", "double precision"), ("logical", "logical"), ("integer", "integer")]
                  
-  ! Generic interface for arrays
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  ! Generic interface for arrays (non-pointer, non-allocatable)
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   interface copy_or_update
   #:for tname, tdecl in TYPES
   #:for rank in range(1, MAXRANK+1)
@@ -19,15 +21,17 @@ module acc_utils
   #:endfor
   #:endfor
      
- ! Generic interface for various scalar types
+ ! Generic interface for various scalar types (non-pointer, non-allocatable)
   #:for tname, tdecl in TYPES
     module procedure copy_or_update_${tname}$_nonpointer
   #:endfor
   end interface copy_or_update
-
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
   
-  ! Generic interface for arrays
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  ! Generic interface for data with pointer attribute
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   interface copy_or_update_pointer
   #:for tname, tdecl in TYPES
   #:for rank in range(1, MAXRANK+1)
@@ -35,14 +39,17 @@ module acc_utils
   #:endfor
   #:endfor
      
- ! Generic interface for various scalar types
+ ! Generic interface for various scalar types with pointer attribute
   #:for tname, tdecl in TYPES
     module procedure copy_or_update_${tname}$_pointer
   #:endfor
- end interface copy_or_update_pointer
-
+  end interface copy_or_update_pointer
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
  
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  ! Generic interface for data with allocatable attribute
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   interface copy_or_update_alloc
   #:for tname, tdecl in TYPES
   #:for rank in range(1, MAXRANK+1)
@@ -51,10 +58,9 @@ module acc_utils
   #:endfor
   end interface copy_or_update_alloc
 
-     
 contains
 
-  ! Versions for scalars
+  ! Versions for scalars, pointers
   #:for tname, tdecl in TYPES
 
   subroutine copy_or_update_${tname}$_pointer(scalar)
@@ -68,12 +74,14 @@ contains
 
     if (.not. acc_is_present(scalar, sizeof(scalar))) then
        !$acc enter data copyin(scalar)
+       !$acc enter data attach(scalar)
     else
        !$acc update device(scalar)
     end if
     
   end subroutine copy_or_update_${tname}$_pointer
 
+  ! Versions for scalars, non-pointers
   subroutine copy_or_update_${tname}$_nonpointer(scalar)
     implicit none
     ${tdecl}$, intent(inout) :: scalar
