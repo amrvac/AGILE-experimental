@@ -24,6 +24,7 @@
 
   !> Whether an energy equation is used
   logical, public                         :: ffhd_energy = .true.
+  !$acc declare copyin(ffhd_energy)
 
   !> Index of the density (in the w array)
   integer, public                         :: rho_
@@ -53,9 +54,11 @@
 
   !> The adiabatic index
   double precision, public                :: ffhd_gamma = 5.d0/3.0d0
+  !$acc declare copyin(ffhd_gamma)
 
   !> The adiabatic constant
   double precision, public                :: ffhd_adiab = 1.0d0
+  !$acc declare copyin(ffhd_adiab)
 
   !> The helium abundance
   double precision, public                :: He_abundance=0.1d0
@@ -106,6 +109,14 @@
        read(unitpar, ffhd_list, end=111)
 111    close(unitpar)
     end do
+
+#ifdef _OPENACC
+    !$acc update device( &
+    !$acc&         ffhd_energy, ffhd_gamma, ffhd_partial_ionization, &
+    !$acc&         ffhd_gravity, ffhd_radiative_cooling, ffhd_hyperbolic_thermal_conduction, &
+    !$acc&         ffhd_source_usr, ffhd_pdivb, He_abundance )
+#endif
+
 
   end subroutine read_params
 #:enddef

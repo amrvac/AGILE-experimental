@@ -73,7 +73,9 @@
     end do
 
 #ifdef _OPENACC
- !$acc update device(hd_energy, hd_gamma, hd_adiab, hd_partial_ionization, hd_force_diagonal, hd_particles, hd_gravity, He_abundance)
+    !$acc update device(hd_energy, hd_gamma, hd_adiab, &
+    !$acc&     hd_partial_ionization, hd_force_diagonal, hd_particles, &
+    !$acc&     hd_gravity, He_abundance)
 #endif
 
   end subroutine read_params

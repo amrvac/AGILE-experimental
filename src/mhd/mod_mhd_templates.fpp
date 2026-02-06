@@ -97,6 +97,13 @@
 111    close(unitpar)
     end do
 
+#ifdef _OPENACC
+    !$acc update device(mhd_energy, &
+    !$acc&     mhd_gamma, mhd_glm_alpha, &
+    !$acc&     mhd_gravity, He_abundance)
+#endif
+
+    
   end subroutine read_params
 #:enddef
 
