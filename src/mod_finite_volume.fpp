@@ -212,183 +212,163 @@ end subroutine finite_volume_local
 #:endcall
 #:endfor
 
+
+  !> MUSCL reconstruction in primitive variables for two faces using a 5-point stencil.
+  !> Returns uL(:,iface), uR(:,iface) for iface=1 (between cells 2-3) and iface=2 (between 3-4).
+  pure subroutine muscl_reconstruct_prim(u, typelim, uL, uR)
+    !$acc routine seq
+    use mod_limiter, only: limiter_minmod, limiter_vanleer
+    real(dp), intent(in)  :: u(nw_phys,5)
+    integer,  intent(in)  :: typelim
+    real(dp), intent(out) :: uL(nw_phys,2), uR(nw_phys,2)
+
+    real(dp) :: sig(nw_phys,3)   ! slopes at cells 2,3,4
+    integer  :: iw
+
+    select case (typelim)
+    case (limiter_minmod)
+      do iw=1,nw_phys
+        sig(iw,1) = minmod (u(iw,2)-u(iw,1), u(iw,3)-u(iw,2))  ! cell 2
+        sig(iw,2) = minmod (u(iw,3)-u(iw,2), u(iw,4)-u(iw,3))  ! cell 3
+        sig(iw,3) = minmod (u(iw,4)-u(iw,3), u(iw,5)-u(iw,4))  ! cell 4
+      end do
+    case (limiter_vanleer)
+      do iw=1,nw_phys
+        sig(iw,1) = vanleer(u(iw,2)-u(iw,1), u(iw,3)-u(iw,2))
+        sig(iw,2) = vanleer(u(iw,3)-u(iw,2), u(iw,4)-u(iw,3))
+        sig(iw,3) = vanleer(u(iw,4)-u(iw,3), u(iw,5)-u(iw,4))
+      end do
+    case default  ! Fallback: Godunov (piecewise constant)
+      do iw=1,nw_phys
+        sig(iw,1)=0._dp
+        sig(iw,2)=0._dp
+        sig(iw,3)=0._dp
+      end do
+    end select
+
+    ! Face 1: between cells 2 and 3
+    uL(:,1) = u(:,2) + 0.5_dp*sig(:,1)
+    uR(:,1) = u(:,3) - 0.5_dp*sig(:,2)
+
+    ! Face 2: between cells 3 and 4
+    uL(:,2) = u(:,3) + 0.5_dp*sig(:,2)
+    uR(:,2) = u(:,4) - 0.5_dp*sig(:,3)
+  end subroutine muscl_reconstruct_prim
+
+
+  !> One-face LLF/Rusanov numerical flux from primitive L/R states.
+  subroutine riemann_llf_prim(uL, uR, xC, flux_dim, F)
+    !$acc routine seq
+    real(dp), intent(inout) :: uL(nw_phys), uR(nw_phys)
+    real(dp), intent(in)    :: xC(ndim)
+    integer,  intent(in)    :: flux_dim
+    real(dp), intent(out)   :: F(nw_flux)
+
+    real(dp) :: flux_l(nw_flux), flux_r(nw_flux)
+    real(dp) :: wL, wR, wmax
+
+    call get_flux(uL, xC, flux_dim, flux_l)
+    call get_flux(uR, xC, flux_dim, flux_r)
+
+    wL   = get_cmax(uL, xC, flux_dim)
+    wR   = get_cmax(uR, xC, flux_dim)
+    wmax = max(abs(wL), abs(wR))
+
+    call to_conservative(uL)
+    call to_conservative(uR)
+
+    F = 0.5_dp * ((flux_l + flux_r) - wmax * (uR(1:nw_flux) - uL(1:nw_flux)))
+  end subroutine riemann_llf_prim
+
+
+  !> One-face HLL numerical flux from primitive L/R states.
+  subroutine riemann_hll_prim(uL, uR, xC, flux_dim, F)
+    !$acc routine seq
+    real(dp), intent(inout) :: uL(nw_phys), uR(nw_phys)
+    real(dp), intent(in)    :: xC(ndim)
+    integer,  intent(in)    :: flux_dim
+    real(dp), intent(out)   :: F(nw_flux)
+
+    real(dp) :: flux_l(nw_flux), flux_r(nw_flux)
+    real(dp) :: sL, sR, ds, wmax
+    real(dp), parameter :: eps = 1e-14_dp
+
+    call get_flux(uL, xC, flux_dim, flux_l)
+    call get_flux(uR, xC, flux_dim, flux_r)
+
+    call estimate_davis_speeds(uL, uR, xC, flux_dim, sL, sR)
+    wmax = max(abs(sL), abs(sR))  ! for fallback
+
+    call to_conservative(uL)
+    call to_conservative(uR)
+
+    if (sL .ge. 0._dp) then
+      F = flux_l
+    elseif (sR .le. 0._dp) then
+      F = flux_r
+    else
+      ds = sR - sL
+      if (ds > eps * (abs(sL) + abs(sR))) then
+        F = (sR*flux_l - sL*flux_r + sL*sR*(uR(1:nw_flux) - uL(1:nw_flux))) / ds
+      else  ! Fall back to LLF
+        F = 0.5_dp * ((flux_l + flux_r) - wmax * (uR(1:nw_flux) - uL(1:nw_flux)))
+      end if
+    end if
+  end subroutine riemann_hll_prim
+
+
   !> MUSCL (primitive-variable) reconstruction with slope limiter; HLL two-wave approximate Riemann flux at faces.
   !> Uses estimated left/right signal speeds (Davis (1988)) for less diffusion than LLF, no contact resolution.
   subroutine reconflux_muscl_hll_prim(u, xlocC, flux_dim, flux, typelim)
     !$acc routine seq
-
-    use mod_limiter, only: limiter_minmod, limiter_vanleer
-
     real(dp), intent(in)  :: u(nw_phys, 5)
     real(dp), intent(in)  :: xlocC(1:ndim, 2)
     integer, intent(in)   :: flux_dim, typelim
     real(dp), intent(out) :: flux(nw_flux, 2)
-    real(dp)              :: uL(nw_phys), uR(nw_phys), wL, wR, wmax, dw
-    real(dp)              :: flux_l(nw_flux), flux_r(nw_flux)
-    real(dp)              :: xC(ndim)
-    integer               :: iw
-    real(dp), parameter   :: eps = 1e-14_dp
 
-    ! Construct uL, uR for first cell face
-    select case (typelim)
-    case (limiter_minmod)
-       do iw = 1, nw_phys
-          uL(iw) = u(iw, 2) + 0.5_dp * minmod(u(iw, 2) - u(iw, 1), u(iw, 3) - u(iw, 2))
-          uR(iw) = u(iw, 3) - 0.5_dp * minmod(u(iw, 3) - u(iw, 2), u(iw, 4) - u(iw, 3))
-       end do
-    case (limiter_vanleer)
-       do iw = 1, nw_phys
-          uL(iw) = u(iw, 2) + 0.5_dp * vanleer(u(iw, 2) - u(iw, 1), u(iw, 3) - u(iw, 2))
-          uR(iw) = u(iw, 3) - 0.5_dp * vanleer(u(iw, 3) - u(iw, 2), u(iw, 4) - u(iw, 3))
-       end do
-    end select
+    real(dp) :: uL(nw_phys,2), uR(nw_phys,2)
+    integer  :: iface
 
-    xC=xlocC(:,1)
-    call get_flux(uL, xC, flux_dim, flux_l)
-    call get_flux(uR, xC, flux_dim, flux_r)
+    call muscl_reconstruct_prim(u, typelim, uL, uR)
 
-    call estimate_davis_speeds(uL, uR, xC, flux_dim, wL, wR)
-    wmax = max(abs(wL), abs(wR))
-
-    call to_conservative(uL)
-    call to_conservative(uR)
-
-    if (wL .ge. 0._dp) then
-      flux(:, 1) = flux_l
-    elseif (wR .le. 0._dp) then
-      flux(:, 1) = flux_r
-    else
-      dw = wR - wL
-      if (dw > eps * (abs(wL) + abs(wR))) then
-        flux(:, 1) = (wR*flux_l - wL*flux_r + wL*wR*(uR(1:nw_flux) - uL(1:nw_flux))) / dw
-      else  ! fall back to LLF
-        flux(:, 1) = 0.5_dp * ((flux_l + flux_r) - wmax * (uR(1:nw_flux) - uL(1:nw_flux)))
-      end if
-    end if
-
-    ! Construct uL, uR for second cell face
-    select case (typelim)
-    case (limiter_minmod)
-       do iw = 1, nw_phys
-          uL(iw) = u(iw, 3) + 0.5_dp * minmod(u(iw, 3) - u(iw, 2), u(iw, 4) - u(iw, 3))
-          uR(iw) = u(iw, 4) - 0.5_dp * minmod(u(iw, 4) - u(iw, 3), u(iw, 5) - u(iw, 4))
-       end do
-    case (limiter_vanleer)
-       do iw = 1, nw_phys
-          uL(iw) = u(iw, 3) + 0.5_dp * vanleer(u(iw, 3) - u(iw, 2), u(iw, 4) - u(iw, 3))
-          uR(iw) = u(iw, 4) - 0.5_dp * vanleer(u(iw, 4) - u(iw, 3), u(iw, 5) - u(iw, 4))
-       end do
-    end select
-
-    xC=xlocC(:,2)
-    call get_flux(uL, xC, flux_dim, flux_l)
-    call get_flux(uR, xC, flux_dim, flux_r)
-
-    call estimate_davis_speeds(uL, uR, xC, flux_dim, wL, wR)
-    wmax = max(abs(wL), abs(wR))
-
-    call to_conservative(uL)
-    call to_conservative(uR)
-
-    if (wL .ge. 0._dp) then
-      flux(:, 2) = flux_l
-    elseif (wR .le. 0._dp) then
-      flux(:, 2) = flux_r
-    else
-      dw = wR - wL
-      if (dw > eps * (abs(wL) + abs(wR))) then
-        flux(:, 2) = (wR*flux_l - wL*flux_r + wL*wR*(uR(1:nw_flux) - uL(1:nw_flux))) / dw
-      else  ! fall back to LLF
-        flux(:, 2) = 0.5_dp * ((flux_l + flux_r) - wmax * (uR(1:nw_flux) - uL(1:nw_flux)))
-      end if
-    end if
+    do iface=1,2
+      call riemann_hll_prim(uL(:,iface), uR(:,iface), xlocC(:,iface), flux_dim, flux(:,iface))
+    end do
   end subroutine reconflux_muscl_hll_prim
+
 
   !> MUSCL (primitive-variable) reconstruction with slope limiter; LLF/Rusanov numerical flux at faces.
   !> Robust and diffusive; uses local max wavespeed for upwinding.
   subroutine reconflux_muscl_llf_prim(u, xlocC, flux_dim, flux, typelim)
     !$acc routine seq
-
-    use mod_limiter, only: limiter_minmod, limiter_vanleer
-
     real(dp), intent(in)  :: u(nw_phys, 5)
     real(dp), intent(in)  :: xlocC(1:ndim, 2)
     integer, intent(in)   :: flux_dim, typelim
     real(dp), intent(out) :: flux(nw_flux, 2)
-    real(dp)              :: uL(nw_phys), uR(nw_phys), wL, wR, wmax
-    real(dp)              :: flux_l(nw_flux), flux_r(nw_flux)
-    real(dp)              :: xC(ndim)
-    integer               :: iw
 
-    ! Construct uL, uR for first cell face
-    select case (typelim)
-    case (limiter_minmod)
-       do iw = 1, nw_phys
-          uL(iw) = u(iw, 2) + 0.5_dp * minmod(u(iw, 2) - u(iw, 1), u(iw, 3) - u(iw, 2))
-          uR(iw) = u(iw, 3) - 0.5_dp * minmod(u(iw, 3) - u(iw, 2), u(iw, 4) - u(iw, 3))
-       end do
-    case (limiter_vanleer)
-       do iw = 1, nw_phys
-          uL(iw) = u(iw, 2) + 0.5_dp * vanleer(u(iw, 2) - u(iw, 1), u(iw, 3) - u(iw, 2))
-          uR(iw) = u(iw, 3) - 0.5_dp * vanleer(u(iw, 3) - u(iw, 2), u(iw, 4) - u(iw, 3))
-       end do
-    end select
+    real(dp) :: uL(nw_phys,2), uR(nw_phys,2)
+    integer  :: iface
 
-    xC=xlocC(:,1)
-    call get_flux(uL, xC, flux_dim, flux_l)
-    call get_flux(uR, xC, flux_dim, flux_r)
+    call muscl_reconstruct_prim(u, typelim, uL, uR)
 
-    wL = get_cmax(uL,xC, flux_dim)
-    wR = get_cmax(uR,xC, flux_dim)
-    wmax = max(abs(wL), abs(wR))
-
-    call to_conservative(uL)
-    call to_conservative(uR)
-    flux(:, 1) = 0.5_dp * ((flux_l + flux_r) - wmax * (uR(1:nw_flux) - uL(1:nw_flux)))
-
-    ! Construct uL, uR for second cell face
-    select case (typelim)
-    case (limiter_minmod)
-       do iw = 1, nw_phys
-          uL(iw) = u(iw, 3) + 0.5_dp * minmod(u(iw, 3) - u(iw, 2), u(iw, 4) - u(iw, 3))
-          uR(iw) = u(iw, 4) - 0.5_dp * minmod(u(iw, 4) - u(iw, 3), u(iw, 5) - u(iw, 4))
-       end do
-    case (limiter_vanleer)
-       do iw = 1, nw_phys
-          uL(iw) = u(iw, 3) + 0.5_dp * vanleer(u(iw, 3) - u(iw, 2), u(iw, 4) - u(iw, 3))
-          uR(iw) = u(iw, 4) - 0.5_dp * vanleer(u(iw, 4) - u(iw, 3), u(iw, 5) - u(iw, 4))
-       end do
-    end select
-
-    xC=xlocC(:,2)
-    call get_flux(uL, xC, flux_dim, flux_l)
-    call get_flux(uR, xC, flux_dim, flux_r)
-
-    wL = get_cmax(uL,xC, flux_dim)
-    wR = get_cmax(uR,xC, flux_dim)
-    wmax = max(abs(wL), abs(wR))
-
-    call to_conservative(uL)
-    call to_conservative(uR)
-    flux(:, 2) = 0.5_dp * ((flux_l + flux_r) - wmax * (uR(1:nw_flux) - uL(1:nw_flux)))
+    do iface=1,2
+      call riemann_llf_prim(uL(:,iface), uR(:,iface), xlocC(:,iface), flux_dim, flux(:,iface))
+    end do
 
   end subroutine reconflux_muscl_llf_prim  
 
+  
   !> MUSCL (primitive-variable) reconstruction with slope limiter; HLLC approximate Riemann flux at faces.
   !> Restores the contact wave (and shear in Euler/HD), typically sharper than HLL for similar cost.
   subroutine reconflux_muscl_hllc_prim(u, xlocC, flux_dim, flux, typelim)
     !$acc routine seq
-
-    use mod_limiter, only: limiter_minmod, limiter_vanleer
-
     real(dp), intent(in)  :: u(nw_phys, 5)
     real(dp), intent(in)  :: xlocC(1:ndim, 2)
     integer, intent(in)   :: flux_dim, typelim
     real(dp), intent(out) :: flux(nw_flux, 2)
-    real(dp)              :: uL(nw_phys), uR(nw_phys), wL, wR, wmax
-    real(dp)              :: flux_l(nw_flux), flux_r(nw_flux)
-    real(dp)              :: xC(ndim)
-    integer               :: iw
+
+    real(dp) :: uL(nw_phys,2), uR(nw_phys,2)
+    integer  :: iface
 
     ! TODO: implement this ...
 
