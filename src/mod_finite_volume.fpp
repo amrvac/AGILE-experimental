@@ -28,7 +28,10 @@ contains
 @:estimate_davis_speeds()
 
   ! flux scheme list : (scheme_tag, method_enum, faceflux_proc)
-#:set schemes = [('muscl_llf', 'fs_tvdlf', 'muscl_flux_prim_llf'), ('muscl_hll', 'fs_hll', 'muscl_flux_prim_hll'), ('muscl_hllc', 'fs_hllc', 'muscl_flux_prim_hllc')]
+#:set schemes = [ &
+  ('muscl_llf',  'fs_tvdlf', 'reconflux_muscl_llf_prim'), &
+  ('muscl_hll',  'fs_hll',   'reconflux_muscl_hll_prim'), &
+  ('muscl_hllc', 'fs_hllc',  'reconflux_muscl_hllc_prim')]
 
   subroutine finite_volume_local(qdt, dtfactor, ixImin1,ixImin2,&
     ixImin3,ixImax1,ixImax2,ixImax3, ixOmin1,ixOmin2,ixOmin3,ixOmax1,ixOmax2,&
@@ -209,8 +212,9 @@ end subroutine finite_volume_local
 #:endcall
 #:endfor
 
-
-  subroutine muscl_flux_prim_hll(u, xlocC, flux_dim, flux, typelim)
+  !> MUSCL (primitive-variable) reconstruction with slope limiter; HLL two-wave approximate Riemann flux at faces.
+  !> Uses estimated left/right signal speeds (Davis (1988)) for less diffusion than LLF, no contact resolution.
+  subroutine reconflux_muscl_hll_prim(u, xlocC, flux_dim, flux, typelim)
     !$acc routine seq
 
     use mod_limiter, only: limiter_minmod, limiter_vanleer
@@ -298,9 +302,11 @@ end subroutine finite_volume_local
         flux(:, 2) = 0.5_dp * ((flux_l + flux_r) - wmax * (uR(1:nw_flux) - uL(1:nw_flux)))
       end if
     end if
-  end subroutine muscl_flux_prim_hll
+  end subroutine reconflux_muscl_hll_prim
 
-  subroutine muscl_flux_prim_llf(u, xlocC, flux_dim, flux, typelim)
+  !> MUSCL (primitive-variable) reconstruction with slope limiter; LLF/Rusanov numerical flux at faces.
+  !> Robust and diffusive; uses local max wavespeed for upwinding.
+  subroutine reconflux_muscl_llf_prim(u, xlocC, flux_dim, flux, typelim)
     !$acc routine seq
 
     use mod_limiter, only: limiter_minmod, limiter_vanleer
@@ -366,7 +372,27 @@ end subroutine finite_volume_local
     call to_conservative(uR)
     flux(:, 2) = 0.5_dp * ((flux_l + flux_r) - wmax * (uR(1:nw_flux) - uL(1:nw_flux)))
 
-  end subroutine muscl_flux_prim_llf
+  end subroutine reconflux_muscl_llf_prim  
+
+  !> MUSCL (primitive-variable) reconstruction with slope limiter; HLLC approximate Riemann flux at faces.
+  !> Restores the contact wave (and shear in Euler/HD), typically sharper than HLL for similar cost.
+  subroutine reconflux_muscl_hllc_prim(u, xlocC, flux_dim, flux, typelim)
+    !$acc routine seq
+
+    use mod_limiter, only: limiter_minmod, limiter_vanleer
+
+    real(dp), intent(in)  :: u(nw_phys, 5)
+    real(dp), intent(in)  :: xlocC(1:ndim, 2)
+    integer, intent(in)   :: flux_dim, typelim
+    real(dp), intent(out) :: flux(nw_flux, 2)
+    real(dp)              :: uL(nw_phys), uR(nw_phys), wL, wR, wmax
+    real(dp)              :: flux_l(nw_flux), flux_r(nw_flux)
+    real(dp)              :: xC(ndim)
+    integer               :: iw
+
+    ! TODO: implement this ...
+
+  end subroutine reconflux_muscl_hllc_prim
 
   pure real(dp) function vanleer(a, b) result(phi)
     !$acc routine seq
