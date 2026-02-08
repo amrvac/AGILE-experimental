@@ -16,8 +16,6 @@ module mod_finite_volume
 
   public :: finite_volume_local
 
-  integer, parameter :: METHOD_MUSCL_LLF = 1
-  integer, parameter :: METHOD_MUSCL_HLL = 2
 contains
 
 ! instantiate the templated functions here for inlining:
@@ -30,31 +28,29 @@ contains
 @:estimate_davis_speeds()
 
   ! flux scheme list : (scheme_tag, method_enum, faceflux_proc)
-#:set schemes = [('muscl_llf', 'METHOD_MUSCL_LLF', 'muscl_flux_prim_llf')]
+#:set schemes = [('muscl_llf', 'fs_tvdlf', 'muscl_flux_prim_llf'), ('muscl_hll', 'fs_hll', 'muscl_flux_prim_hll'), ('muscl_hllc', 'fs_hllc', 'muscl_flux_prim_hllc')]
 
-  subroutine finite_volume_local(method, qdt, dtfactor, ixImin1,ixImin2,&
-     ixImin3,ixImax1,ixImax2,ixImax3, ixOmin1,ixOmin2,ixOmin3,ixOmax1,ixOmax2,&
-     ixOmax3, idimsmin,idimsmax, qtC, bga, qt, bgb, fC, fE)
+  subroutine finite_volume_local(qdt, dtfactor, ixImin1,ixImin2,&
+    ixImin3,ixImax1,ixImax2,ixImax3, ixOmin1,ixOmin2,ixOmin3,ixOmax1,ixOmax2,&
+    ixOmax3, idimsmin,idimsmax, qtC, bga, qt, bgb, fC, fE)
     use mod_global_parameters
 
-    integer, intent(in)                                                :: &
-       method
     double precision, intent(in)                                       :: qdt,&
-        dtfactor, qtC, qt
+      dtfactor, qtC, qt
     integer, intent(in)                                                :: &
-       ixImin1,ixImin2,ixImin3,ixImax1,ixImax2,ixImax3, ixOmin1,ixOmin2,&
-       ixOmin3,ixOmax1,ixOmax2,ixOmax3, idimsmin,idimsmax
+      ixImin1,ixImin2,ixImin3,ixImax1,ixImax2,ixImax3, ixOmin1,ixOmin2,&
+      ixOmin3,ixOmax1,ixOmax2,ixOmax3, idimsmin,idimsmax
     ! remember, old names map as: wCT => bga, wnew => bgb
     type(block_grid_t)                                    :: bga
     type(block_grid_t)                                    :: bgb
     double precision, dimension(ixImin1:ixImax1,ixImin2:ixImax2,&
-       ixImin3:ixImax3, 1:nwflux, 1:ndim)  :: fC !not yet provided
+      ixImin3:ixImax3, 1:nwflux, 1:ndim)  :: fC !not yet provided
     double precision, dimension(ixImin1:ixImax1,ixImin2:ixImax2,&
-       ixImin3:ixImax3, sdim:3)            :: fE !not yet provided
+      ixImin3:ixImax3, sdim:3)            :: fE !not yet provided
     ! .. local ..
     integer                :: n, iigrid, ix1,ix2,ix3
     double precision       :: uprim(nw_phys, ixImin1:ixImax1,ixImin2:ixImax2,&
-       ixImin3:ixImax3)
+      ixImin3:ixImax3)
     real(dp)               :: tmp(nw_phys,5)
     real(dp)               :: f(nw_flux, 2)
     real(dp)               :: inv_dr(ndim)
@@ -63,9 +59,10 @@ contains
     real(dp)               :: xloc(ndim)
     real(dp)               :: xlocC(ndim,2)
     real(dp)               :: wprim(nw_phys), wCT(nw_phys), wnew(nw_phys)
+    integer :: method
     !-----------------------------------------------------------------------------
 
-
+    method = flux_method(1)  ! TODO: implement per grid level
     select case (method)
 #:for scheme_tag, method_enum, faceflux_proc in schemes
     case (${method_enum}$)
@@ -247,7 +244,7 @@ end subroutine finite_volume_local
     call get_flux(uR, xC, flux_dim, flux_r)
 
     call estimate_davis_speeds(uL, uR, xC, flux_dim, wL, wR)
-    wmax = max(wL, wR)  ! for LLF fallback
+    wmax = max(abs(wL), abs(wR))
 
     call to_conservative(uL)
     call to_conservative(uR)
@@ -260,7 +257,7 @@ end subroutine finite_volume_local
       dw = wR - wL
       if (dw > eps * (abs(wL) + abs(wR))) then
         flux(:, 1) = (wR*flux_l - wL*flux_r + wL*wR*(uR(1:nw_flux) - uL(1:nw_flux))) / dw
-      else
+      else  ! fall back to LLF
         flux(:, 1) = 0.5_dp * ((flux_l + flux_r) - wmax * (uR(1:nw_flux) - uL(1:nw_flux)))
       end if
     end if
@@ -284,7 +281,7 @@ end subroutine finite_volume_local
     call get_flux(uR, xC, flux_dim, flux_r)
 
     call estimate_davis_speeds(uL, uR, xC, flux_dim, wL, wR)
-    wmax = max(wL, wR)  ! for LLF fallback
+    wmax = max(abs(wL), abs(wR))
 
     call to_conservative(uL)
     call to_conservative(uR)
@@ -297,7 +294,7 @@ end subroutine finite_volume_local
       dw = wR - wL
       if (dw > eps * (abs(wL) + abs(wR))) then
         flux(:, 2) = (wR*flux_l - wL*flux_r + wL*wR*(uR(1:nw_flux) - uL(1:nw_flux))) / dw
-      else ! fall back to LLF
+      else  ! fall back to LLF
         flux(:, 2) = 0.5_dp * ((flux_l + flux_r) - wmax * (uR(1:nw_flux) - uL(1:nw_flux)))
       end if
     end if
@@ -337,7 +334,7 @@ end subroutine finite_volume_local
 
     wL = get_cmax(uL,xC, flux_dim)
     wR = get_cmax(uR,xC, flux_dim)
-    wmax = max(wL, wR)
+    wmax = max(abs(wL), abs(wR))
 
     call to_conservative(uL)
     call to_conservative(uR)
@@ -363,7 +360,7 @@ end subroutine finite_volume_local
 
     wL = get_cmax(uL,xC, flux_dim)
     wR = get_cmax(uR,xC, flux_dim)
-    wmax = max(wL, wR)
+    wmax = max(abs(wL), abs(wR))
 
     call to_conservative(uL)
     call to_conservative(uR)
