@@ -21,7 +21,8 @@ subroutine estimate_speeds_minmax(uL, uR, xC, flux_dim, wL, wR)
   integer, intent(in)   :: flux_dim
   real(dp), intent(out) :: wL, wR
 
-  wL = wR = -1._dp
+  wL = -1._dp
+  WR = -1._dp
 
 end subroutine estimate_speeds_minmax
 #:enddef
@@ -35,7 +36,8 @@ subroutine estimate_speeds_toro_pvrs(uL, uR, xC, flux_dim, sL, sR)
   integer,  intent(in)  :: flux_dim
   real(dp), intent(out) :: sL, sR
 
-  sL = sR = -1._dp
+  sL = -1._dp
+  sR = -1._dp
 
 end subroutine estimate_speeds_toro_pvrs
 #:enddef
