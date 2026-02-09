@@ -13,6 +13,33 @@ end function get_cs2
 #:enddef
 
 
+#:def estimate_speeds_minmax()
+subroutine estimate_speeds_minmax(uL, uR, xC, flux_dim, wL, wR)
+  !$acc routine seq
+  real(dp), intent(in)  :: uL(nw_phys), uR(nw_phys)
+  real(dp), intent(in)  :: xC(ndim)
+  integer, intent(in)   :: flux_dim
+  real(dp), intent(out) :: wL, wR
+
+  wL = wR = -1._dp
+
+end subroutine estimate_speeds_minmax
+#:enddef
+
+
+#:def estimate_speeds_toro_pvrs()
+subroutine estimate_speeds_toro_pvrs(uL, uR, xC, flux_dim, sL, sR)
+  !$acc routine seq
+  real(dp), intent(in)  :: uL(nw_phys), uR(nw_phys)
+  real(dp), intent(in)  :: xC(ndim)
+  integer,  intent(in)  :: flux_dim
+  real(dp), intent(out) :: sL, sR
+
+  sL = sR = -1._dp
+
+end subroutine estimate_speeds_toro_pvrs
+#:enddef
+
 
 #:def addsource_nonlocal()
 subroutine addsource_nonlocal(qdt, dtfactor, qtC, wCTprim, qt, wnew, x, dx, idir, &
