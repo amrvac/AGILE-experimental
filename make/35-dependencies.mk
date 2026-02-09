@@ -6,7 +6,10 @@ $(error "fortdepend not found. Check the readme, or pip install fortdepend.")
 endif
 
 ifdef USE_MPIWRAPPERS
-fortdepend_flags += -DUSE_MPIWRAPPERS
+  fortdepend_flags += -DUSE_MPIWRAPPERS
+endif
+ifdef OPENACC
+  fortdepend_flags += -D_OPENACC
 endif
 
 # make sure that config is read first
