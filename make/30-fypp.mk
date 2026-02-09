@@ -19,10 +19,14 @@ f90_files := $(patsubst %.fpp, $(build_dir)/f90/%.f90, \
 .PRECIOUS: $(f90_files)
 
 define fypp_rule
+-include $(patsubst %.fpp, $(build_dir)/f90/%.d, $(notdir $(1)))
+
 $(patsubst %.fpp, $(build_dir)/f90/%.f90, $(notdir $(1))): $(1)
 	@mkdir -p $$(@D)
 	@echo -e "Precompiling $(_magenta)$$(<:$(amrvac)/src/%=%)$(_reset)"
+	@python $(amrvac)/make/fypp-deps.py $$< $$@
 	@fypp $(fypp_flags) $$<  $$@
 endef
 
 $(foreach f, $(source_files), $(eval $(call fypp_rule, $(f))))
+
