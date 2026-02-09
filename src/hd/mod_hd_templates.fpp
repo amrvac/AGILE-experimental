@@ -1,11 +1,17 @@
 #:if PHYS == 'hd'
-  
+ 
+#:if defined('N_TRACER')
+#:set N_TRACER_ = N_TRACER
+#:else
+#:set N_TRACER_ = 0
+#:endif
+
 #:def phys_vars()
 
   integer, parameter :: dp = kind(0.0d0)
-  integer, parameter, public              :: nw_phys=2+ndim+${N_TRACER}$
-  integer, parameter, public              :: nw_flux=2+ndim+${N_TRACER}$
-  
+  integer, parameter, public              :: nw_phys=2+ndim+${N_TRACER_}$
+  integer, parameter, public              :: nw_flux=2+ndim+${N_TRACER_}$
+
   !> Whether an energy equation is used
   logical, public                         :: hd_energy = .true.
   !$acc declare copyin(hd_energy)
@@ -18,9 +24,11 @@
   integer, allocatable, public            :: mom(:)
   !$acc declare create(mom)
 
+#:if defined('N_TRACER')
   !> Indices of the tracers
-  integer, public                         :: tracer(${N_TRACER}$)
+  integer, public                         :: tracer(${N_TRACER_}$)
   !$acc declare create(tracer)
+#:endif
 
   !> Index of the energy density (-1 if not present)
   integer, public                         :: e_
@@ -183,7 +191,6 @@
     #:if defined('COOLING')
     use mod_radiative_cooling, only: rc_fl, radiative_cooling_init_params, radiative_cooling_init
     #:endif
-    integer :: i
 
     call phys_units()
     call read_params(par_files)
@@ -224,10 +231,12 @@
        phys_req_diagonal = .true.
     endif
 
-    do i = 1, hd_n_tracer
-       tracer(i) = var_set_fluxvar("trc", "trp", i, need_bc=.false.)
-    end do
+#:if defined('N_TRACER')
+    #:for i in range(1, N_TRACER_+1)
+        tracer(${i}$) = var_set_fluxvar("trc", "trp", ${i}$, need_bc=.false.)
+    #:endfor
     !$acc update device(tracer)
+#:endif
 
     ! set number of variables which need update ghostcells
     nwgc=nwflux
@@ -330,11 +339,6 @@ pure subroutine to_primitive(u)
   u(iw_e) = (hd_gamma-1.0_dp) * (u(iw_e) - 0.5_dp * u(iw_rho) * &
      sum(u(iw_mom(1:ndim))**2) )
 
-  ! Compute tracer values. Actually, AMRVAC keeps tracers conservative.
-! #:for i in range(N_TRACER)
-!     u(tracer(${i}$)) = u(tracer(${i}$)) / u(iw_rho)
-! #:endfor
-
 end subroutine to_primitive
 #:enddef
 
@@ -354,11 +358,6 @@ pure subroutine to_conservative(u)
       u(iw_mom(1)) = u(iw_rho) * u(iw_mom(1))
       u(iw_mom(2)) = u(iw_rho) * u(iw_mom(2))
       u(iw_mom(3)) = u(iw_rho) * u(iw_mom(3))
-  
-  ! Compute tracer concentrations. Actually, AMRVAC keeps tracers conservative.
-! #:for i in range(N_TRACER)
-!     u(tracer(${i}$)) = u(tracer(${i}$)) * u(iw_rho)
-! #:endfor
 
 end subroutine to_conservative
 #:enddef
@@ -390,8 +389,8 @@ subroutine get_flux(u, xC, flux_dim, flux)
      u(iw_rho) * sum(u(iw_mom(1:ndim))**2) + u(iw_e))
 
   ! Tracer flux. Note that tracers stay conservative.
-#:for i in range(N_TRACER)
-  flux(tracer(${i}$)) = u(tracer(${i}$)) * u(iw_mom())
+#:for i in range(1, N_TRACER_+1)
+  flux(tracer(${i}$)) = u(tracer(${i}$)) * u(iw_mom(flux_dim))
 #:endfor
 
 end subroutine get_flux
