@@ -93,6 +93,26 @@ contains
                 bgb%w(ix1, ix2, ix3, 1:nw_flux, n) = bgb%w(ix1, ix2, ix3, 1:nw_flux,&
                      n) + qdt * (f(:, 1) - f(:, 2)) * inv_dr(1)
 
+
+                !! Hector working here !!
+
+                select case (neighbor_type(-1,0,0,n))
+                case (neighbor_fine)
+                    if (ix1.eq.ixOmin1) pflux(1,1,n)%flux(1,ix2-nghostcells,ix3-nghostcells,1:nwfluxin) = -f(:,1)
+                case (neighbor_coarse)
+                    if (ix1.eq.ixOmin1) pflux(1,1,n)%flux(1,(ix2-nghostcells)/2,(ix3-nghostcells)/2,1:nwfluxin) = &
+                     pflux(1,1,n)%flux(1,(ix2-nghostcells)/2,(ix3-nghostcells)/2,1:nwfluxin) + f(:,1)
+                end select
+
+                select case (neighbor_type(1,0,0,n))
+                case (neighbor_fine)
+                    if (ix1.eq.ixOmax1) pflux(2,1,n)%flux(ix1,ix2,ix3,1:nwfluxin) =  f(:,2)
+                case (neighbor_coarse)
+                    if (ix1.eq.ixOmin1) pflux(2,1,n)%flux(1,(ix2-nghostcells)/2,(ix3-nghostcells)/2,1:nwfluxin) = &
+                     pflux(2,1,n)%flux(1,(ix2-nghostcells)/2,(ix3-nghostcells)/2,1:nwfluxin) - f(:,2)
+                end select
+
+
                 tmp = uprim(1:nw_phys, ix1, ix2-2:ix2+2, ix3)
                 xlocC(1:ndim,1) = ps(n)%x(ix1, ix2, ix3, 1:ndim)
                 xlocC(1:ndim,2) = ps(n)%x(ix1, ix2, ix3, 1:ndim)
