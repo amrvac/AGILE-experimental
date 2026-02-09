@@ -24,6 +24,7 @@
 
   !> Whether an energy equation is used
   logical, public                         :: ffhd_energy = .true.
+  !$acc declare copyin(ffhd_energy)
 
   !> Index of the density (in the w array)
   integer, public                         :: rho_
@@ -53,9 +54,11 @@
 
   !> The adiabatic index
   double precision, public                :: ffhd_gamma = 5.d0/3.0d0
+  !$acc declare copyin(ffhd_gamma)
 
   !> The adiabatic constant
   double precision, public                :: ffhd_adiab = 1.0d0
+  !$acc declare copyin(ffhd_adiab)
 
   !> The helium abundance
   double precision, public                :: He_abundance=0.1d0
@@ -99,13 +102,21 @@
     integer                      :: n
 
     namelist /ffhd_list/ ffhd_energy, ffhd_gamma, ffhd_partial_ionization, ffhd_gravity, &
-          ffhd_radiative_cooling, ffhd_hyperbolic_thermal_conduction, ffhd_source_usr, ffhd_pdivb
+          ffhd_radiative_cooling, ffhd_hyperbolic_thermal_conduction, ffhd_source_usr, ffhd_pdivb, He_abundance
 
     do n = 1, size(files)
        open(unitpar, file=trim(files(n)), status="old")
        read(unitpar, ffhd_list, end=111)
 111    close(unitpar)
     end do
+
+#ifdef _OPENACC
+    !$acc update device( &
+    !$acc&         ffhd_energy, ffhd_gamma, ffhd_partial_ionization, &
+    !$acc&         ffhd_gravity, ffhd_radiative_cooling, ffhd_hyperbolic_thermal_conduction, &
+    !$acc&         ffhd_source_usr, ffhd_pdivb, He_abundance )
+#endif
+
 
   end subroutine read_params
 #:enddef
@@ -208,8 +219,8 @@
     use mod_radiative_cooling, only: rc_fl, radiative_cooling_init_params, radiative_cooling_init
     #:endif
 
-    call phys_units()
     call read_params(par_files)
+    call phys_units()
 
     phys_energy  = ffhd_energy
     phys_total_energy  = ffhd_energy
