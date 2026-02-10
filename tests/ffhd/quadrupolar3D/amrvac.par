@@ -1,6 +1,5 @@
  &filelist
-    !base_filename='output/quad3d'
-    base_filename='/scratch-shared/hwu/ffhd/quad3d'
+    base_filename='output/quad3d'
     autoconvert = F
     saveprim=T
     convert_type='vtuBCCmpi'

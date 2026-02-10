@@ -1602,23 +1602,23 @@ contains
    call copy_or_update(ps(igrid)%igrid) 
    call copy_or_update(ps1(igrid)%igrid) 
    call copy_or_update(ps2(igrid)%igrid)
-   
+
    call copy_or_update_pointer(ps(igrid)%w, no_update=.true.)
    call copy_or_update_pointer(ps1(igrid)%w, no_update=.true.)
    call copy_or_update_pointer(ps2(igrid)%w, no_update=.true.)
-   
+
    call copy_or_update_pointer(ps(igrid)%x)
    call copy_or_update_pointer(ps1(igrid)%x, no_update=.true.)
    call copy_or_update_pointer(ps2(igrid)%x, no_update=.true.)
-   
+
    call copy_or_update_pointer(ps(igrid)%is_physical_boundary)
    call copy_or_update_pointer(ps1(igrid)%is_physical_boundary, no_update=.true.)
    call copy_or_update_pointer(ps2(igrid)%is_physical_boundary, no_update=.true.)
    call copy_or_update_pointer(psc(igrid)%x)
    call copy_or_update_pointer(psc(igrid)%w, no_update=.true.)
 #endif
-   
-  end subroutine alloc_node
+
+ end subroutine alloc_node
   
   !> allocate memory to physical state of igrid node
   subroutine alloc_state(igrid, s, ixGmin1,ixGmin2,ixGmin3,ixGmax1,ixGmax2,&
