@@ -15,6 +15,7 @@
 
  &stoplist
    time_max         = 1d1
+   it_max = 100
  /
 
  &methodlist
@@ -46,7 +47,7 @@
    block_nx3          = 32
    domain_nx1         = 256
    domain_nx2         = 256
-   domain_nx3         = 656
+   domain_nx3         = 256
    xprobmin1       = 0.0d0
    xprobmax1       = 1.0d0
    xprobmin2       = 0.0d0

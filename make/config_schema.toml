@@ -40,11 +40,10 @@ implies = ["components.source_local"]
 
 [hd_list.hd_n_tracer]
 type = "value"
-name = "N_TRACER"
+name = "HD_N_TRACER"
 dtype = "int"
 flags = ["fypp", "hash"]
 default = 0
-# behavior = ['dont pass if default']
 
 [ffhd_list]
 [ffhd_list.ffhd_pdivb]
@@ -89,6 +88,13 @@ name = "GRAVITY"
 flags = ["fypp", "hash"]
 default = false
 implies = ["components.source_local"]
+
+[mhd_list.mhd_n_tracer]
+type = "value"
+name = "MHD_N_TRACER"
+dtype = "int"
+flags = ["fypp", "hash"]
+default = 0
 
 [meshlist]
 [meshlist.refine_usr]
