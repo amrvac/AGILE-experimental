@@ -220,7 +220,7 @@ module mod_usr
         integer, intent(in)             :: ixImin1,ixImin2,ixImin3,ixImax1,ixImax2,&
         ixImax3, ixOmin1,ixOmin2,ixOmin3,ixOmax1,ixOmax2,ixOmax3, iB
         double precision, intent(in)    :: qt, x(ixImin1:ixImax1,ixImin2:ixImax2,&
-        ixImin3:ixImax3, 1:ndim)
+        ixImin3:ixImax3,1:ndim)
         double precision, intent(inout) :: w(ixImin1:ixImax1,ixImin2:ixImax2,&
         ixImin3:ixImax3, 1:nw)
 
