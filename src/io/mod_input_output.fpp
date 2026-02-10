@@ -792,75 +792,11 @@ contains
           flux_method(level)=fs_hll
        case ('hllc')
           flux_method(level)=fs_hllc
-       case ('hlld')
-          flux_method(level)=fs_hlld
-       case ('hllcd')
-          flux_method(level)=fs_hllcd
        case ('tvdlf')
           flux_method(level)=fs_tvdlf
-       case ('tvdmu')
-          flux_method(level)=fs_tvdmu
-       case ('tvd')
-          flux_method(level)=fs_tvd
-       case ('cd')
-          flux_method(level)=fs_cd
-       case ('cd4')
-          flux_method(level)=fs_cd4
-       case ('fd')
-          flux_method(level)=fs_fd
-       case ('source')
-          flux_method(level)=fs_source
-       case ('nul','null')
-          flux_method(level)=fs_nul
        case default
           call mpistop("unkown or bad flux scheme")
        end select
-       if(flux_scheme(level)=='tvd'.and.time_stepper/='onestep') call &
-          mpistop(" tvd is onestep method, reset time_stepper='onestep'")
-       if(flux_scheme(level)=='tvd')then
-          if(mype==0.and.(.not.dimsplit)) write(unitterm,&
-             *) 'Warning: setting dimsplit=T for tvd, as used for level=',&
-             level
-          dimsplit=.true.
-       endif
-       if(flux_scheme(level)=='hlld'.and.physics_type/='mhd' .and. &
-          physics_type/='twofl') call mpistop(&
-          "Cannot use hlld flux if not using MHD or 2FL only charges physics!")
-
-
-       if(flux_scheme(level)=='hllc'.and.physics_type=='mf') call &
-          mpistop("Cannot use hllc flux if using magnetofriction physics!")
-
-       if(flux_scheme(level)=='tvd'.and.physics_type=='mf') call &
-          mpistop("Cannot use tvd flux if using magnetofriction physics!")
-
-       if(flux_scheme(level)=='tvdmu'.and.physics_type=='mf') call &
-          mpistop("Cannot use tvdmu flux if using magnetofriction physics!")
-
-       if (typepred1(level)==0) then
-          select case (flux_scheme(level))
-          case ('cd')
-             typepred1(level)=fs_cd
-          case ('cd4')
-             typepred1(level)=fs_cd4
-          case ('fd')
-             typepred1(level)=fs_fd
-          case ('tvdlf','tvdmu')
-             typepred1(level)=fs_hancock
-          case ('hll')
-             typepred1(level)=fs_hll
-          case ('hllc')
-             typepred1(level)=fs_hllc
-          case ('hllcd')
-             typepred1(level)=fs_hllcd
-          case ('hlld')
-             typepred1(level)=fs_hlld
-          case ('nul','source','tvd')
-             typepred1(level)=fs_nul
-          case default
-             call mpistop("No default predictor for this full step")
-          end select
-       end if
     end do
 
     ! finite difference scheme fd need global maximal speed

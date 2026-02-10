@@ -410,6 +410,82 @@ pure real(dp) function get_cmax(u, x, flux_dim) result(wC)
 end function get_cmax
 #:enddef  
 
+
+#:def estimate_speeds_minmax()
+!> Wave speed estimates: min/max acoustic bounds (Davis 1988) 
+!> Reference: Toro 2010, Chapter 10.
+subroutine estimate_speeds_minmax(uL, uR, xC, flux_dim, wL, wR)
+  !$acc routine seq
+  real(dp), intent(in)  :: uL(nw_phys), uR(nw_phys)
+  real(dp), intent(in)  :: xC(ndim)
+  integer, intent(in)   :: flux_dim
+  real(dp), intent(out) :: wL, wR
+
+  real(dp)              :: cL, cR
+
+  cL = sqrt(hd_gamma * uL(iw_e) / uL(iw_rho))
+  cR = sqrt(hd_gamma * uR(iw_e) / uR(iw_rho))
+
+  wL = min(uL(iw_mom(flux_dim)) - cL, uR(iw_mom(flux_dim)) - cR)
+  wR = max(uL(iw_mom(flux_dim)) + cL, uR(iw_mom(flux_dim)) + cR)
+
+end subroutine estimate_speeds_minmax
+#:enddef
+
+
+#:def estimate_speeds_toro_pvrs()
+!> Wave speed estimates for HLL/HLLC using Toro (2010) PVRS pressure estimate
+!> Implements Eq. (10.67)-(10.69)
+subroutine estimate_speeds_toro_pvrs(uL, uR, xC, flux_dim, sL, sR)
+  !$acc routine seq
+  real(dp), intent(in)  :: uL(nw_phys), uR(nw_phys)
+  real(dp), intent(in)  :: xC(ndim)
+  integer,  intent(in)  :: flux_dim
+  real(dp), intent(out) :: sL, sR
+
+  real(dp) :: rhoL, rhoR, pL, pR, unL, unR
+  real(dp) :: aL, aR, abar, rhobar
+  real(dp) :: ppvrs, pstar
+  real(dp) :: qL, qR, pratio
+  real(dp), parameter :: tiny = 1e-30_dp
+
+  rhoL = uL(iw_rho);  rhoR = uR(iw_rho)
+  pL   = uL(iw_e);    pR   = uR(iw_e)
+  unL  = uL(iw_mom(flux_dim))
+  unR  = uR(iw_mom(flux_dim))
+
+  ! sound speeds
+  aL = sqrt(hd_gamma * pL / max(rhoL, tiny))
+  aR = sqrt(hd_gamma * pR / max(rhoR, tiny))
+
+  ! PVRS pressure estimate (Eq. 10.67)
+  rhobar = 0.5_dp*(rhoL + rhoR)
+  abar   = 0.5_dp*(aL + aR)
+  ppvrs  = 0.5_dp*(pL + pR) - 0.5_dp*(unR - unL)*rhobar*abar
+  pstar  = max(0._dp, ppvrs)
+
+  ! (Eq. 10.69)
+  if (pstar <= pL) then
+    qL = 1._dp
+  else
+    pratio = pstar / max(pL, tiny)
+    qL = sqrt(1._dp + 0.5_dp*(hd_gamma + 1._dp)/hd_gamma * (pratio - 1._dp))
+  end if
+
+  if (pstar <= pR) then
+    qR = 1._dp
+  else
+    pratio = pstar / max(pR, tiny)
+    qR = sqrt(1._dp + 0.5_dp*(hd_gamma + 1._dp)/hd_gamma * (pratio - 1._dp))
+  end if
+
+  sL = unL - aL*qL
+  sR = unR + aR*qR
+end subroutine estimate_speeds_toro_pvrs
+#:enddef
+
+
+
 #:def get_rho()
   pure real(dp) function get_rho(w, x) result(rho)
     !$acc routine seq
