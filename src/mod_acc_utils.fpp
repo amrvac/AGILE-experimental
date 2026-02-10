@@ -87,6 +87,8 @@ contains
     else if (.not. no_update_) then
        !$acc update device(scalar)
     end if
+    call acc_detach(scalar)
+    call acc_attach(scalar)
     
   end subroutine copy_or_update_${tname}$_pointer
 
@@ -172,6 +174,8 @@ contains
     else if (.not. no_update_) then
        !$acc update device(array)
     end if
+    call acc_detach(array)
+    call acc_attach(array)
     
   end subroutine copy_or_update_${tname}$_pointer_r${rank}$
 
