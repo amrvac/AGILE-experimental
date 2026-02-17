@@ -123,6 +123,24 @@ contains
                 bgb%w(ix1, ix2, ix3, 1:nw_flux, n) = bgb%w(ix1, ix2, ix3, 1:nw_flux,&
                      n) + qdt * (f(:, 1) - f(:, 2)) * inv_dr(2)
 
+
+                select case (neighbor_type(0,-1,0,n))
+                case (neighbor_fine)
+                    if (ix2.eq.ixOmin2) pflux(1,2,n)%flux(ix1-nghostcells,1,ix3-nghostcells,1:nw_flux) = -f(:,1)
+                case (neighbor_coarse)
+                    if (ix2.eq.ixOmin2) pflux(1,2,n)%flux((ix1-nghostcells)/2,1,(ix3-nghostcells)/2,1:nw_flux) = &
+                     pflux(1,2,n)%flux((ix1-nghostcells)/2,1,(ix3-nghostcells)/2,1:nw_flux) + f(:,1)
+                end select
+
+                select case (neighbor_type(0,1,0,n))
+                case (neighbor_fine)
+                    if (ix2.eq.ixOmax2) pflux(2,2,n)%flux(ix1,ix2,ix3,1:nw_flux) =  f(:,2)
+                case (neighbor_coarse)
+                    if (ix2.eq.ixOmin2) pflux(2,2,n)%flux((ix1-nghostcells)/2,1,(ix3-nghostcells)/2,1:nw_flux) = &
+                     pflux(2,2,n)%flux((ix1-nghostcells)/2,1,(ix3-nghostcells)/2,1:nw_flux) - f(:,2)
+                end select
+
+                
                 tmp = uprim(1:nw_phys, ix1, ix2, ix3-2:ix3+2)
                 xlocC(1:ndim,1) = ps(n)%x(ix1, ix2, ix3, 1:ndim)
                 xlocC(1:ndim,2) = ps(n)%x(ix1, ix2, ix3, 1:ndim)
@@ -132,6 +150,24 @@ contains
                 bgb%w(ix1, ix2, ix3, 1:nw_flux, n) = bgb%w(ix1, ix2, ix3, 1:nw_flux,&
                      n) + qdt * (f(:, 1) - f(:, 2)) * inv_dr(3)
 
+                
+                select case (neighbor_type(0,0,-1,n))
+                case (neighbor_fine)
+                    if (ix3.eq.ixOmin3) pflux(1,3,n)%flux(ix1-nghostcells,ix2-nghostcells,1,1:nw_flux) = -f(:,1)
+                case (neighbor_coarse)
+                    if (ix3.eq.ixOmin3) pflux(1,3,n)%flux((ix1-nghostcells)/2,(ix2-nghostcells)/2,1,1:nw_flux) = &
+                     pflux(1,3,n)%flux((ix1-nghostcells)/2,(ix2-nghostcells)/2,1,1:nw_flux) + f(:,1)
+                end select
+
+                select case (neighbor_type(0,0,1,n))
+                case (neighbor_fine)
+                    if (ix3.eq.ixOmax3) pflux(2,3,n)%flux(ix1,ix2,ix3,1:nw_flux) =  f(:,2)
+                case (neighbor_coarse)
+                    if (ix3.eq.ixOmin3) pflux(2,3,n)%flux((ix1-nghostcells)/2,(ix2-nghostcells)/2,1,1:nw_flux) = &
+                     pflux(2,3,n)%flux((ix1-nghostcells)/2,(ix2-nghostcells)/2,1,1:nw_flux) - f(:,2)
+                end select
+
+                
 #:if defined('SOURCE_LOCAL')
                 ! Add local source terms:
                 xloc(1:ndim) = ps(n)%x(ix1, ix2, ix3, 1:ndim)
