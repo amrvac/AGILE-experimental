@@ -15,7 +15,6 @@ module mod_fix_conserve
   !!!end type fluxalloc
   !> store flux to fix conservation
   type(fluxalloc), dimension(:,:,:), allocatable, public :: pflux
-
   !$acc declare create(pflux) !JESSE, try to retain pointer structure
 
   ! Hector, note to self: pflux is of type fluxalloc, not a pointer to an array 

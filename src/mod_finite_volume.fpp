@@ -30,6 +30,7 @@ contains
      ixImin3,ixImax1,ixImax2,ixImax3, ixOmin1,ixOmin2,ixOmin3,ixOmax1,ixOmax2,&
      ixOmax3, idimsmin,idimsmax, qtC, bga, qt, bgb, fC, fE)
     use mod_global_parameters
+    use mod_fix_conserve
 
     integer, intent(in)                                                :: &
        method
@@ -98,18 +99,18 @@ contains
 
                 select case (neighbor_type(-1,0,0,n))
                 case (neighbor_fine)
-                    if (ix1.eq.ixOmin1) pflux(1,1,n)%flux(1,ix2-nghostcells,ix3-nghostcells,1:nwfluxin) = -f(:,1)
+                    if (ix1.eq.ixOmin1) pflux(1,1,n)%flux(1,ix2-nghostcells,ix3-nghostcells,1:nw_flux) = -f(:,1)
                 case (neighbor_coarse)
-                    if (ix1.eq.ixOmin1) pflux(1,1,n)%flux(1,(ix2-nghostcells)/2,(ix3-nghostcells)/2,1:nwfluxin) = &
-                     pflux(1,1,n)%flux(1,(ix2-nghostcells)/2,(ix3-nghostcells)/2,1:nwfluxin) + f(:,1)
+                    if (ix1.eq.ixOmin1) pflux(1,1,n)%flux(1,(ix2-nghostcells)/2,(ix3-nghostcells)/2,1:nw_flux) = &
+                     pflux(1,1,n)%flux(1,(ix2-nghostcells)/2,(ix3-nghostcells)/2,1:nw_flux) + f(:,1)
                 end select
 
                 select case (neighbor_type(1,0,0,n))
                 case (neighbor_fine)
-                    if (ix1.eq.ixOmax1) pflux(2,1,n)%flux(ix1,ix2,ix3,1:nwfluxin) =  f(:,2)
+                    if (ix1.eq.ixOmax1) pflux(2,1,n)%flux(ix1,ix2,ix3,1:nw_flux) =  f(:,2)
                 case (neighbor_coarse)
-                    if (ix1.eq.ixOmin1) pflux(2,1,n)%flux(1,(ix2-nghostcells)/2,(ix3-nghostcells)/2,1:nwfluxin) = &
-                     pflux(2,1,n)%flux(1,(ix2-nghostcells)/2,(ix3-nghostcells)/2,1:nwfluxin) - f(:,2)
+                    if (ix1.eq.ixOmin1) pflux(2,1,n)%flux(1,(ix2-nghostcells)/2,(ix3-nghostcells)/2,1:nw_flux) = &
+                     pflux(2,1,n)%flux(1,(ix2-nghostcells)/2,(ix3-nghostcells)/2,1:nw_flux) - f(:,2)
                 end select
 
 
