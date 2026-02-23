@@ -978,9 +978,10 @@ module mod_fix_conserve
      ! for all grids: perform flux update at Coarse-Fine interfaces
      ! TODO: unclear to me at present if something should be private ...
      ! TODO: should i1-i3 and ix1-ix3 not be private? Also in
-     ! mod_finite_volume???
-     !$acc parallel loop gang private(i1,i2,i3,ix1,ix2,ix3) default(present)
-     do iigrid=1,igridstail; igrid=igrids(iigrid);
+     ! mod_finite_volume??? private(i1,i2,i3,ic1,ic2,ic3,ix1,ix2,ix3)
+     !$acc parallel loop gang default(present)
+     do iigrid=1,igridstail
+       igrid=igrids(iigrid)
 
        do idims=idimmin,idimmax
          select case (idims)
