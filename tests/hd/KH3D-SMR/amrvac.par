@@ -22,8 +22,8 @@
  /
 
  &stoplist
-   it_max           = 2
-   !time_max         = 2.0d0
+   !it_max           = 2
+   time_max         = 2.0d0
  /
 
  &methodlist

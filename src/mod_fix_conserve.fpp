@@ -1032,10 +1032,11 @@ module mod_fix_conserve
                   do ix2=ixMlo2,ixMhi2 
                     psb(igrid)%w(ix,ix2,ix3,nw0:nw1) = &
                       psb(igrid)%w(ix,ix2,ix3,nw0:nw1) - &
-                      pflux(iside,1,igrid)%flux(1,ix2,ix3,1:nwfluxin)
+                      pflux(iside,1,igrid)%flux(1,ix2-nghostcells,ix3-nghostcells,1:nwfluxin)
                       !TODO JESSE I suspect that the indexing
                       !of flux (ix1..ix3) is not correct
                       !yet...
+                      ! HO: Should be ok now
                   end do
                 end do
              !  psb(igrid)%w(ix,ixMlo2:ixMhi2,ixMlo3:ixMhi3,&
@@ -1068,22 +1069,22 @@ module mod_fix_conserve
                ixmax1=ix
                ixmax2=ixmin2-1+nxCo2
                ixmax3=ixmin3-1+nxCo3
+
                if (ipe_neighbor==mype) then
                  iotherside=3-iside
                  if (slab_uniform) then
-                     !$acc loop collapse(ndim) vector
-                     do ix3=ixmin3,ixmax3 
-                        do ix2=ixmin2,ixmax2 
-                           do ix1=ixmin1,ixmax1 
-                               psb(igrid)%w(ix1,ix2,ix3,nw0:nw1) = &
-                                psb(igrid)%w(ix1,ix2,ix3,nw0:nw1) + &
-                                pflux(iotherside,1,ineighbor&
-                                )%flux(ix1,ix2,ix3,1:nwfluxin)&
-                                * CoFiratio
-                                !TODO JESSE I suspect that the indexing
-                                !of flux (ix1..ix3) is not correct
-                                !yet...
-                           end do
+                     ! Direction 1, so loop runs over directions 2 and 3
+                     !$acc loop collapse(ndim-1) vector
+                     do ix3=1,nxCo3 
+                        do ix2=1,nxCo2 
+                           psb(igrid)%w(ix,ixmin2+ix2-1,ixmin3+ix3-1,nw0:nw1) = &
+                            psb(igrid)%w(ix,ixmin2+ix2-1,ixmin3+ix3-1,nw0:nw1) + &
+                            pflux(iotherside,1,ineighbor&
+                            )%flux(1,ix2,ix3,1:nwfluxin)&
+                            * CoFiratio
+                            !TODO JESSE I suspect that the indexing
+                            !of flux (ix1..ix3) is not correct
+                            !yet...
                         end do
                      end do
 
@@ -1190,7 +1191,7 @@ module mod_fix_conserve
                   do ix1=ixMlo1,ixMhi1 
                     psb(igrid)%w(ix1,ix,ix3,nw0:nw1) = &
                      psb(igrid)%w(ix1,ix,ix3,nw0:nw1) - &
-                     pflux(iside,2,igrid)%flux(ix1,1,ix3,1:nwfluxin)
+                     pflux(iside,2,igrid)%flux(ix1-nghostcells,1,ix3-nghostcells,1:nwfluxin)
                   end do
                 end do
              !TODO JESSE: only support slab uniform for now
@@ -1223,18 +1224,17 @@ module mod_fix_conserve
                ixmax1=ixmin1-1+nxCo1
                ixmax2=ix
                ixmax3=ixmin3-1+nxCo3
+
                if (ipe_neighbor==mype) then
                  iotherside=3-iside
                  if (slab_uniform) then
-                   !$acc loop collapse(ndim) vector
-                   do ix3=ixmin3,ixmax3 
-                     do ix2=ixmin2,ixmax2 
-                       do ix1=ixmin1,ixmax1 
-                         psb(igrid)%w(ix1,ix2,ix3,nw0:nw1) = &
-                           psb(igrid)%w(ix1,ix2,ix3,nw0:nw1) + &
-                           pflux(iotherside,2,ineighbor&
-                           )%flux(ix1,ix2,ix3,1:nwfluxin) * CoFiratio
-                       end do
+                   !$acc loop collapse(ndim-1) vector
+                   do ix3=1,nxCo3 
+                     do ix1=1,nxCo1 
+                       psb(igrid)%w(ixmin1+ix1-1,ix,ixmin3+ix3-1,nw0:nw1) = &
+                         psb(igrid)%w(ixmin1+ix1-1,ix,ixmin3+ix3-1,nw0:nw1) + &
+                         pflux(iotherside,2,ineighbor&
+                         )%flux(ix1,1,ix3,1:nwfluxin) * CoFiratio
                      end do
                    end do
 
@@ -1333,7 +1333,7 @@ module mod_fix_conserve
                  do ix1=ixMlo1,ixMhi1 
                    psb(igrid)%w(ix1,ix2,ix,nw0:nw1) = &
                      psb(igrid)%w(ix1,ix2,ix,nw0:nw1) - &
-                     pflux(iside,3,igrid)%flux(ix1,ix2,1,1:nwfluxin)
+                     pflux(iside,3,igrid)%flux(ix1-nghostcells,ix2-nghostcells,1,1:nwfluxin)
                  end do
                end do
              !  psb(igrid)%w(ixMlo1:ixMhi1,ixMlo2:ixMhi2,ix,&
@@ -1368,15 +1368,13 @@ module mod_fix_conserve
                if (ipe_neighbor==mype) then
                  iotherside=3-iside
                  if (slab_uniform) then
-                   !$acc loop collapse(ndim) vector
-                   do ix3=ixmin3,ixmax3 
-                     do ix2=ixmin2,ixmax2 
-                       do ix1=ixmin1,ixmax1 
-                         psb(igrid)%w(ix1,ix2,ix3,nw0:nw1) = &
-                           psb(igrid)%w(ix1,ix2,ix3,nw0:nw1) + &
-                           pflux(iotherside,3,ineighbor&
-                           )%flux(ix1,ix2,ix3,1:nwfluxin)* CoFiratio
-                       end do
+                   !$acc loop collapse(ndim-1) vector
+                   do ix2=1,nxCo2 
+                     do ix1=1,nxCo1 
+                       psb(igrid)%w(ixmin1+ix1-1,ixmin2+ix2-1,ix,nw0:nw1) = &
+                         psb(igrid)%w(ixmin1+ix1-1,ixmin2+ix2-1,ix,nw0:nw1) + &
+                         pflux(iotherside,3,ineighbor&
+                         )%flux(ix1,ix2,1,1:nwfluxin)* CoFiratio
                      end do
                    end do
                  !  psb(igrid)%w(ixmin1:ixmax1,ixmin2:ixmax2,ixmin3:ixmax3,&

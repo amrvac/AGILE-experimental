@@ -79,6 +79,46 @@ contains
           end do
        end do
 
+       ! Initialize pflux at zero for coarse neighbour case
+       !$acc loop vector collapse(ndim)
+       do ix3=ixOmin3,ixOmax3 
+          do ix2=ixOmin2,ixOmax2 
+             do ix1=ixOmin1,ixOmax1 
+                select case (neighbor_type(-1,0,0,n))
+                case (neighbor_coarse)
+                    pflux(1,1,n)%flux(1,(ix2-nghostcells)/2,(ix3-nghostcells)/2,1:nw_flux) = 0.d0
+                end select
+
+                select case (neighbor_type(1,0,0,n))
+                case (neighbor_coarse)
+                    pflux(2,1,n)%flux(1,(ix2-nghostcells)/2,(ix3-nghostcells)/2,1:nw_flux) = 0.d0
+                end select
+
+                 select case (neighbor_type(0,-1,0,n))
+                case (neighbor_coarse)
+                    pflux(1,2,n)%flux((ix1-nghostcells)/2,1,(ix3-nghostcells)/2,1:nw_flux) = 0.d0
+                end select
+
+                select case (neighbor_type(0,1,0,n))
+                case (neighbor_coarse)
+                    pflux(2,2,n)%flux((ix1-nghostcells)/2,1,(ix3-nghostcells)/2,1:nw_flux) = 0.d0
+                end select
+
+                select case (neighbor_type(0,0,-1,n))
+                case (neighbor_coarse)
+                    pflux(1,3,n)%flux((ix1-nghostcells)/2,(ix2-nghostcells)/2,1,1:nw_flux) = 0.0d0
+                end select
+
+                select case (neighbor_type(0,0,1,n))
+                case (neighbor_coarse)
+                    pflux(2,3,n)%flux((ix1-nghostcells)/2,(ix2-nghostcells)/2,1,1:nw_flux) = 0.0d0
+                end select
+              
+             end do
+          end do
+       end do
+
+
        !$acc loop vector collapse(ndim) private(f, wnew, tmp, xlocC, xloc#{if defined('SOURCE_LOCAL')}#, wCT, wprim #{endif}#)
        do ix3=ixOmin3,ixOmax3 
           do ix2=ixOmin2,ixOmax2 
@@ -94,8 +134,6 @@ contains
                 bgb%w(ix1, ix2, ix3, 1:nw_flux, n) = bgb%w(ix1, ix2, ix3, 1:nw_flux,&
                      n) + qdt * (f(:, 1) - f(:, 2)) * inv_dr(1)
 
-
-                !! Hector working here !!
 
                 select case (neighbor_type(-1,0,0,n))
                 case (neighbor_fine)
