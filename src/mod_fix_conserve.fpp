@@ -979,7 +979,7 @@ module mod_fix_conserve
      ! TODO: unclear to me at present if something should be private ...
      ! TODO: should i1-i3 and ix1-ix3 not be private? Also in
      ! mod_finite_volume??? private(i1,i2,i3,ic1,ic2,ic3,ix1,ix2,ix3)
-     !$acc parallel loop gang default(present)
+     !$acc parallel loop gang private(i1,i2,i3,ic1,ic2,ic3,ix1,ix2,ix3) default(present)
      do iigrid=1,igridstail
        igrid=igrids(iigrid)
 
@@ -997,24 +997,24 @@ module mod_fix_conserve
 
  !opedit: skip over active/passive interface since flux for passive ones is 
              ! not computed, keep the buffer counter up to date:
-             if (.not.neighbor_active(i1,i2,i3,&
-                igrid).or..not.neighbor_active(0,0,0,igrid) ) then
-               do ic3=1+int((1-i3)/2),2-int((1+i3)/2)
-               inc3=2*i3+ic3
-               do ic2=1+int((1-i2)/2),2-int((1+i2)/2)
-                   inc2=2*i2+ic2
-               do ic1=1+int((1-i1)/2),2-int((1+i1)/2)
-                   inc1=2*i1+ic1
-               ipe_neighbor=neighbor_child(2,inc1,inc2,inc3,igrid)
-               if (ipe_neighbor/=mype) then
-                 ibufnext=ibuf+isize(1)
-                 ibuf=ibufnext
-               end if
-               end do
-               end do
-               end do
-               cycle
-             end if
+            ! if (.not.neighbor_active(i1,i2,i3,&
+            !    igrid).or..not.neighbor_active(0,0,0,igrid) ) then
+            !   do ic3=1+int((1-i3)/2),2-int((1+i3)/2)
+            !   inc3=2*i3+ic3
+            !   do ic2=1+int((1-i2)/2),2-int((1+i2)/2)
+            !       inc2=2*i2+ic2
+            !   do ic1=1+int((1-i1)/2),2-int((1+i1)/2)
+            !       inc1=2*i1+ic1
+            !   ipe_neighbor=neighbor_child(2,inc1,inc2,inc3,igrid)
+            !   if (ipe_neighbor/=mype) then
+            !     ibufnext=ibuf+isize(1)
+            !     ibuf=ibufnext
+            !   end if
+            !   end do
+            !   end do
+            !   end do
+            !   cycle
+            ! end if
              !
 
              select case (iside)
@@ -1152,24 +1152,24 @@ module mod_fix_conserve
 
  !opedit: skip over active/passive interface since flux for passive ones is 
              ! not computed, keep the buffer counter up to date:
-             if (.not.neighbor_active(i1,i2,i3,&
-                igrid).or..not.neighbor_active(0,0,0,igrid) ) then
-               do ic3=1+int((1-i3)/2),2-int((1+i3)/2)
-               inc3=2*i3+ic3
-               do ic2=1+int((1-i2)/2),2-int((1+i2)/2)
-               inc2=2*i2+ic2
-               do ic1=1+int((1-i1)/2),2-int((1+i1)/2)
-               inc1=2*i1+ic1
-               ipe_neighbor=neighbor_child(2,inc1,inc2,inc3,igrid)
-               if (ipe_neighbor/=mype) then
-                 ibufnext=ibuf+isize(2)
-                 ibuf=ibufnext
-               end if
-               end do
-               end do
-               end do
-               cycle
-             end if
+            ! if (.not.neighbor_active(i1,i2,i3,&
+            !    igrid).or..not.neighbor_active(0,0,0,igrid) ) then
+            !   do ic3=1+int((1-i3)/2),2-int((1+i3)/2)
+            !   inc3=2*i3+ic3
+            !   do ic2=1+int((1-i2)/2),2-int((1+i2)/2)
+            !   inc2=2*i2+ic2
+            !   do ic1=1+int((1-i1)/2),2-int((1+i1)/2)
+            !   inc1=2*i1+ic1
+            !   ipe_neighbor=neighbor_child(2,inc1,inc2,inc3,igrid)
+            !   if (ipe_neighbor/=mype) then
+            !     ibufnext=ibuf+isize(2)
+            !     ibuf=ibufnext
+            !   end if
+            !   end do
+            !   end do
+            !   end do
+            !   cycle
+            ! end if
              !
 
              select case (iside)
@@ -1300,24 +1300,24 @@ module mod_fix_conserve
 
  !opedit: skip over active/passive interface since flux for passive ones is 
              ! not computed, keep the buffer counter up to date:
-             if (.not.neighbor_active(i1,i2,i3,&
-                igrid).or..not.neighbor_active(0,0,0,igrid) ) then
-               do ic3=1+int((1-i3)/2),2-int((1+i3)/2)
-               inc3=2*i3+ic3
-               do ic2=1+int((1-i2)/2),2-int((1+i2)/2)
-               inc2=2*i2+ic2
-               do ic1=1+int((1-i1)/2),2-int((1+i1)/2)
-               inc1=2*i1+ic1
-               ipe_neighbor=neighbor_child(2,inc1,inc2,inc3,igrid)
-               if (ipe_neighbor/=mype) then
-                 ibufnext=ibuf+isize(3)
-                 ibuf=ibufnext
-               end if
-               end do
-               end do
-               end do
-               cycle
-             end if
+            ! if (.not.neighbor_active(i1,i2,i3,&
+            !    igrid).or..not.neighbor_active(0,0,0,igrid) ) then
+            !   do ic3=1+int((1-i3)/2),2-int((1+i3)/2)
+            !   inc3=2*i3+ic3
+            !   do ic2=1+int((1-i2)/2),2-int((1+i2)/2)
+            !   inc2=2*i2+ic2
+            !   do ic1=1+int((1-i1)/2),2-int((1+i1)/2)
+            !   inc1=2*i1+ic1
+            !   ipe_neighbor=neighbor_child(2,inc1,inc2,inc3,igrid)
+            !   if (ipe_neighbor/=mype) then
+            !     ibufnext=ibuf+isize(3)
+            !     ibuf=ibufnext
+            !   end if
+            !   end do
+            !   end do
+            !   end do
+            !   cycle
+            ! end if
 
              select case (iside)
              case (1)
