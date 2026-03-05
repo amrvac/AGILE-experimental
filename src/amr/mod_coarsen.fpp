@@ -40,7 +40,7 @@ contains
 
     if(slab_uniform) then
        CoFiratio=one/dble(2**ndim)
-       !$acc parallel loop gang
+       !$acc parallel loop gang default(present)
        do iw=1,nw
           !$acc loop collapse(3) vector
           do ixCo3 = ixComin3,ixComax3
@@ -56,7 +56,7 @@ contains
           end do
       end do
     else
-       !$acc parallel loop gang
+       !$acc parallel loop gang default(present)
        do iw=1,nw
           !$acc loop collapse(3) vector
           do ixCo3 = ixComin3,ixComax3

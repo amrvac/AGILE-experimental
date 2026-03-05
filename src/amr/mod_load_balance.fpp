@@ -109,7 +109,7 @@ contains
    !$acc update device(rcv_buff(:,:,:,:,1:irecv))
 #endif
     !$acc update device(rcv_info(1:irecv))
-    !$acc parallel loop gang
+    !$acc parallel loop gang default(present)
     do ibuff = 1, irecv
        recv_igrid = rcv_info(ibuff)
        !$acc loop collapse(4) vector
@@ -184,7 +184,7 @@ contains
         if (isend > max_buff) then
            call mpistop('load_balance: max_buff too small in send')
         end if
-        !$acc parallel loop gang
+        !$acc parallel loop gang default(present)
         do iw = 1, nw
            !$acc loop collapse(3) vector
            do ix3 = 1, block_nx3

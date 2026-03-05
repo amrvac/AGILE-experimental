@@ -73,7 +73,7 @@ contains
     
     ! copy w instead of wold because of potential use of dimsplit or sourcesplit
     !$OMP PARALLEL DO PRIVATE(igrid)
-    !$acc parallel loop present(bg, bg(1), bg(2)) private(igrid)
+    !$acc parallel loop present(bg, bg(1), bg(2)) private(igrid) default(present)
     do iigrid=1,igridstail; igrid=igrids(iigrid);
        !$acc loop collapse(ndim+1)
        do iw = 1, nw
@@ -90,7 +90,7 @@ contains
     
     if(stagger_grid) then
        !$OMP PARALLEL DO PRIVATE(igrid)
-       !$acc parallel loop present(ps1, ps) private(igrid)
+       !$acc parallel loop present(ps1, ps) private(igrid) default(present)
        do iigrid=1,igridstail; igrid=igrids(iigrid);
           !$acc loop collapse(ndim+1)
           do iw = 1, nws
@@ -120,7 +120,7 @@ contains
                bg(1),global_time,ps1,bg(2))
 
           !$OMP PARALLEL DO PRIVATE(igrid)
-          !$acc parallel loop present(bg, ps2, ps1, ps) private(igrid)
+          !$acc parallel loop present(bg, ps2, ps1, ps) private(igrid) default(present)
           do iigrid=1,igridstail_active; igrid=igrids_active(iigrid);
              !$acc loop collapse(ndim+1)
              do iw = 1, nw
@@ -143,7 +143,7 @@ contains
                bg(3))
 
           !$OMP PARALLEL DO PRIVATE(igrid)
-          !$acc parallel loop present(bg, ps2, ps) private(igrid)
+          !$acc parallel loop present(bg, ps2, ps) private(igrid) default(present)
           do iigrid=1,igridstail_active; igrid=igrids_active(iigrid);
              !$acc loop collapse(ndim+1)
              do iw = 1, nw

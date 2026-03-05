@@ -143,7 +143,7 @@ contains
 #endif
     !$acc update device(rcv_info(:,1:irecv))
 
-    !$acc parallel loop gang
+    !$acc parallel loop gang default(present)
     do ibuff = 1, irecv
        igrid = rcv_info(1,ibuff)
        ic1   = rcv_info(2,ibuff)
@@ -501,7 +501,7 @@ contains
                    if (isend > max_buff) then
                       call mpistop('coarsen_grid_siblings: max_buff too small in send')
                    end if
-                   !$acc parallel loop gang
+                   !$acc parallel loop gang default(present)
                    do iw = 1, nw
                       !$acc loop collapse(3) vector
                       do ix3 = 1, block_nx3/2

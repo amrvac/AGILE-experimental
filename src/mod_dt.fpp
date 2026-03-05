@@ -34,7 +34,7 @@ contains
     if (dtpar<=zero) then
        dtmin_mype=bigdouble
        
-       !$acc parallel loop PRIVATE(igrid,dxinv) REDUCTION(min:dtmin_mype) gang
+       !$acc parallel loop PRIVATE(igrid,dxinv) REDUCTION(min:dtmin_mype) gang default(present)
        do iigrid=1,igridstail_active; igrid=igrids_active(iigrid)
 
           dx1=rnode(rpdx1_,igrid);dx2=rnode(rpdx2_,igrid)
@@ -80,7 +80,7 @@ contains
     if (need_global_cmax) then
        cmax_mype=-bigdouble
 
-       !$acc parallel loop PRIVATE(igrid) REDUCTION(max:cmax_mype) gang
+       !$acc parallel loop PRIVATE(igrid) REDUCTION(max:cmax_mype) gang default(present)
        do iigrid=1,igridstail_active; igrid=igrids_active(iigrid)
 
           !$acc loop vector collapse(ndim) REDUCTION(max:cmax_mype) private(u, xloc)
@@ -107,7 +107,7 @@ contains
     if (need_global_cs2max) then
       cs2max_mype=-bigdouble
       
-      !$acc parallel loop PRIVATE(igrid) REDUCTION(max:cs2max_mype) gang
+      !$acc parallel loop PRIVATE(igrid) REDUCTION(max:cs2max_mype) gang default(present)
       do iigrid=1,igridstail_active; igrid=igrids_active(iigrid)
 
          !$acc loop vector collapse(ndim) REDUCTION(max:cs2max_mype) private(u)

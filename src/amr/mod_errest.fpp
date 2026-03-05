@@ -21,7 +21,7 @@ contains
        ! all refinement solely based on user routine usr_refine_grid
     case (3)
        ! Error estimation is based on Lohner's scheme
-       !$acc parallel loop gang private(igrid)
+       !$acc parallel loop gang private(igrid) default(present)
        do iigrid=1,igridstail; igrid=igrids(iigrid);
           call lohner_grid(igrid)
        end do
@@ -30,7 +30,7 @@ contains
     end select
 
     if ( refine_usr ) then
-       !$acc parallel loop gang private(igrid)
+       !$acc parallel loop gang private(igrid) default(present)
        do iigrid=1,igridstail; igrid=igrids(iigrid);
           call forcedrefine_grid(igrid)
        end do
