@@ -3,13 +3,13 @@
 #SBATCH --cpus-per-task=1
 #SBATCH --ntasks=1
 #SBATCH --gpus=1
-#SBATCH --partition=gpu_a100
+#SBATCH --partition=gpu_h100
 #SBATCH --mem=0
 #SBATCH --job-name=NVHPC
 #SBATCH --mail-type=ALL
 #SBATCH --time=00-00:30:00
 #SBATCH -o slurms/single_out-%j # STDOUT 
-##SBATCH -e single_err-%j # STDERR
+#SBATCH -e slurms/single_err-%j # STDERR
 
 source $AMRVAC_DIR/.venv/bin/activate
 

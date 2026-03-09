@@ -245,6 +245,15 @@ contains
        end do
     end do
 
+
+    ! Here we are outside OpenACC loop. Try to print pflux.
+    ! Need to transfer the data to the CPU to print.
+
+    !$acc update self(pflux)
+
+
+
+
   end subroutine finite_volume_local
 
   subroutine muscl_flux_prim(u, xlocC, flux_dim, flux, typelim)

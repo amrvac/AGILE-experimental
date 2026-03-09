@@ -22,7 +22,7 @@
  /
 
  &stoplist
-   !it_max           = 2
+   it_max           = 2
    time_max         = 2.0d0
  /
 

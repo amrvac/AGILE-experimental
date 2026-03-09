@@ -226,6 +226,10 @@ contains
     use mod_finite_volume, only: finite_volume_local
     use mod_usr_methods
 
+    ! Debug
+    use mod_fix_conserve, only: pflux
+
+
     integer, intent(in)          :: idimmin,idimmax
     integer :: ixOmin1,ixOmin2,ixOmin3,ixOmax1,ixOmax2,ixOmax3
     type(state), target          :: psa(max_blocks) !< Compute fluxes based on this state
@@ -247,7 +251,13 @@ contains
     double precision             :: qdt
     integer                      :: iigrid, igrid
 
+    ! Debug
+    integer :: ix1,ix2,ix3,n
+
+
     istep = istep+1
+
+    !$acc update device(neighbor_type)
 
     ! AGILE doesn't happen in our test case
     ! if(associated(phys_special_advance)) then
@@ -274,6 +284,100 @@ contains
         bgb, &                          ! second block grid
         fC, fE &                        ! fluxes
         )
+
+
+   !$acc update device(neighbor_type)
+
+    do iigrid = 1, igridstail_active
+       n = igrids_active(iigrid)
+       print *, "n: ",n, " Left: ",neighbor_type(-1,0,0,n)," Right: ",neighbor_type(1,0,0,n),&
+               " Back: ", neighbor_type(0,-1,0,n), " Front: ", neighbor_type(0,1,0,n),&
+               " Bottom: ",neighbor_type(0,0,-1,n), " Top: ",neighbor_type(0,0,1,n)
+       select case (neighbor_type(-1,0,0,n))
+       case (neighbor_coarse)
+           print *, "Coarser left neighbor" 
+       end select
+
+       select case (neighbor_type(1,0,0,n))
+       case (neighbor_coarse)
+           print *, "Coarser right neighbor"
+       end select
+
+       select case (neighbor_type(0,-1,0,n))
+       case (neighbor_coarse)
+           print *, "Coarser back neighbor"
+           do ix3=ixOmin3,ixOmax3 
+              do ix2=ixOmin2,ixOmax2 
+                 do ix1=ixOmin1,ixOmax1 
+                     print *, ix1,ix2,ix3,pflux(1,2,n)%flux((ix1-nghostcells)/2,1,(ix3-nghostcells)/2,1:nw_flux)
+                 end do
+              end do
+           end do
+       end select
+
+       select case (neighbor_type(0,1,0,n))
+       case (neighbor_coarse)
+           print *, "Coarser front neighbor"
+           do ix3=ixOmin3,ixOmax3 
+              do ix2=ixOmin2,ixOmax2 
+                 do ix1=ixOmin1,ixOmax1 
+                     print *, ix1,ix2,ix3,pflux(2,2,n)%flux((ix1-nghostcells)/2,1,(ix3-nghostcells)/2,1:nw_flux)
+                 end do
+              end do
+           end do
+       end select
+
+       select case (neighbor_type(0,0,-1,n))
+       case (neighbor_coarse)
+           print *, "Coarser botton neighbor"
+       end select
+
+       select case (neighbor_type(0,0,1,n))
+       case (neighbor_coarse)
+           print *, "Coarser top neighbor"
+       end select
+ 
+      ! do ix3=ixOmin3,ixOmax3 
+      !    do ix2=ixOmin2,ixOmax2 
+      !       do ix1=ixOmin1,ixOmax1 
+      !          select case (neighbor_type(-1,0,0,n))
+      !          case (neighbor_coarse)
+      !              print *, ix1,ix2,ix3,pflux(1,1,n)%flux(1,(ix2-nghostcells)/2,(ix3-nghostcells)/2,1:nw_flux)
+      !          end select
+
+      !          select case (neighbor_type(1,0,0,n))
+      !          case (neighbor_coarse)
+      !              print *, ix1,ix2,ix3,pflux(2,1,n)%flux(1,(ix2-nghostcells)/2,(ix3-nghostcells)/2,1:nw_flux)
+      !          end select
+
+      !         ! select case (neighbor_type(0,-1,0,n))
+      !         ! case (neighbor_coarse)
+      !         !     pflux(1,2,n)%flux((ix1-nghostcells)/2,1,(ix3-nghostcells)/2,1:nw_flux) = 0.d0
+      !         ! end select
+
+      !         ! select case (neighbor_type(0,1,0,n))
+      !         ! case (neighbor_coarse)
+      !         !     pflux(2,2,n)%flux((ix1-nghostcells)/2,1,(ix3-nghostcells)/2,1:nw_flux) = 0.d0
+      !         ! end select
+
+      !         ! select case (neighbor_type(0,0,-1,n))
+      !         ! case (neighbor_coarse)
+      !         !     pflux(1,3,n)%flux((ix1-nghostcells)/2,(ix2-nghostcells)/2,1,1:nw_flux) = 0.0d0
+      !         ! end select
+
+      !         ! select case (neighbor_type(0,0,1,n))
+      !         ! case (neighbor_coarse)
+      !         !     pflux(2,3,n)%flux((ix1-nghostcells)/2,(ix2-nghostcells)/2,1,1:nw_flux) = 0.0d0
+      !         ! end select
+ 
+
+      !       end do
+      !    end do
+      ! end do
+    end do
+
+
+
 
 ! Step 4: this stuff      
     ! AGILE: todo
