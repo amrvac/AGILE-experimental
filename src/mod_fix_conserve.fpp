@@ -729,7 +729,7 @@ module mod_fix_conserve
 
            allocate(pflux(iside,1,igrid)%flux(1,1:nx2,1:nx3,1:nwflux))
            !$acc enter data create(pflux(iside,1,igrid)%flux) !JESSE
-           !$acc enter data attach(pflux(iside,1,igrid)%flux) !JESSE
+!!           !$acc enter data attach(pflux(iside,1,igrid)%flux) !JESSE
 
         !   if(stagger_grid) allocate(pflux(iside,1,igrid)%edge(1,0:nx2,0:nx3,&
         !      1:ndim-1))
@@ -739,7 +739,7 @@ module mod_fix_conserve
            allocate(pflux(iside,1,igrid)%flux(1,1:nxCo2,1:nxCo3,1:nwflux))
 !!           !$acc enter data create(pflux(iside,1,igrid)%flux(1,1:nxCo2,1:nxCo3,1:nwflux)) !JESSE
            !$acc enter data create(pflux(iside,1,igrid)%flux) !JESSE: no copyin because the data is not initialized yet
-           !$acc enter data attach(pflux(iside,1,igrid)%flux) !JESSE: may need this because it is a pointer (device-side) pointer
+!!           !$acc enter data attach(pflux(iside,1,igrid)%flux) !JESSE: may need this because it is a pointer (device-side) pointer
 
         !   if(stagger_grid) allocate(pflux(iside,1,igrid)%edge(1,0:nxCo2,&
         !      0:nxCo3,1:ndim-1))
@@ -776,13 +776,13 @@ module mod_fix_conserve
          case(neighbor_fine)
            allocate(pflux(iside,2,igrid)%flux(1:nx1,1,1:nx3,1:nwflux))
            !$acc enter data create(pflux(iside,2,igrid)%flux) !JESSE
-           !$acc enter data attach(pflux(iside,2,igrid)%flux) !JESSE
+!!           !$acc enter data attach(pflux(iside,2,igrid)%flux) !JESSE
         !   if(stagger_grid) allocate(pflux(iside,2,igrid)%edge(0:nx1,1,0:nx3,&
         !      1:ndim-1))
          case(neighbor_coarse)
            allocate(pflux(iside,2,igrid)%flux(1:nxCo1,1,1:nxCo3,1:nwflux))
            !$acc enter data create(pflux(iside,2,igrid)%flux) !JESSE
-           !$acc enter data attach(pflux(iside,2,igrid)%flux) !JESSE
+!!           !$acc enter data attach(pflux(iside,2,igrid)%flux) !JESSE
         !   if(stagger_grid) allocate(pflux(iside,2,igrid)%edge(0:nxCo1,1,&
         !      0:nxCo3,1:ndim-1))
 
@@ -817,13 +817,13 @@ module mod_fix_conserve
          case(neighbor_fine)
            allocate(pflux(iside,3,igrid)%flux(1:nx1,1:nx2,1,1:nwflux))
            !$acc enter data create(pflux(iside,3,igrid)%flux) !JESSE
-           !$acc enter data attach(pflux(iside,3,igrid)%flux) !JESSE
+!!           !$acc enter data attach(pflux(iside,3,igrid)%flux) !JESSE
         !   if(stagger_grid) allocate(pflux(iside,3,igrid)%edge(0:nx1,0:nx2,1,&
         !      1:ndim-1))
          case(neighbor_coarse)
            allocate(pflux(iside,3,igrid)%flux(1:nxCo1,1:nxCo2,1,1:nwflux))
            !$acc enter data create(pflux(iside,3,igrid)%flux) !JESSE
-           !$acc enter data attach(pflux(iside,3,igrid)%flux) !JESSE
+!!           !$acc enter data attach(pflux(iside,3,igrid)%flux) !JESSE
         ! 
         !   if(stagger_grid) allocate(pflux(iside,3,igrid)%edge(0:nxCo1,0:nxCo2,&
         !      1,1:ndim-1))
