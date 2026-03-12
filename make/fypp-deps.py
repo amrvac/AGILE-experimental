@@ -6,7 +6,7 @@ import re
 import argparse
 
 
-INCLUDE_EX = re.compile(r"\s*#:include\s+'([^']+)'")
+INCLUDE_EX = re.compile(r"\s*#:include\s+(?P<quote>['\"])([^']+)(?P=quote)")
 
 
 def parse_arguments():
@@ -19,11 +19,11 @@ def parse_arguments():
         The output (if any) is written to a file with the same basename as the
         target file, but the suffix changed to `.d`.
         """,
-        epilog="""        
+        epilog="""
         Conditional Includes: Fypp processes #:include statements in a first pass,
         resulting in a larger "virtual" code, in which other preprocessing statements
         are evaluated. There is no such thing as conditional inclusion.
-    
+
         Any #:include statement is unconditional, even if the evaluation of the
         resulting expanded code may be conditional, so an #:include always
         leads to a dependency even when the included content goes unused.
@@ -47,4 +47,3 @@ if __name__ == "__main__":
         target_path.parent.mkdir(parents=True, exist_ok=True)
         with target_path.with_suffix(".d").open("w") as fid:
             print(args.target + ":", " ".join(map(str, deps)), file=fid)
-                
