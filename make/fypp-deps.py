@@ -6,6 +6,7 @@ from textwrap import indent
 
 import re
 import argparse
+import sys
 
 
 INCLUDE_EX = re.compile(r"\s*#:include\s+(?P<quote>['\"])(?P<filename>[^'\"]+)(?P=quote)")
@@ -42,7 +43,7 @@ class CircularDependencyError(Exception):
     file: Path
 
     def __str__(self) -> str:
-        cycle = "\n".join(f"includes `$f`" for f in self.visited[1:] + [self.file])
+        cycle = "\n".join(f"includes `{f.relative_to(self.visited[0].parent, walk_up=True)}`" for f in self.visited[1:] + [self.file])
         return f"Circular dependency detected in `{self.file}`: starting from `{self.visited[0]}`:\n" + indent(cycle, "  - ")
 
 
@@ -69,7 +70,12 @@ def scan_deps(input_path: Path, visited: list[Path] | None = None) -> set[Path]:
 if __name__ == "__main__":
     args = parse_arguments()
     input_path = Path(args.input)
-    deps = scan_deps(input_path)
+
+    try:
+        deps = scan_deps(input_path)
+    except (CircularDependencyError, FileNotFoundError) as e:
+        print(f"Error scanning `{input_path}`:\n   ", e)
+        sys.exit(-1)
 
     if deps:
         target_path = Path(args.target)
