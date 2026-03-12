@@ -6,7 +6,7 @@ import re
 import argparse
 
 
-INCLUDE_EX = re.compile(r"\s*#:include\s+(?P<quote>['\"])([^']+)(?P=quote)")
+INCLUDE_EX = re.compile(r"\s*#:include\s+(?P<quote>['\"])(?P<filename>[^'\"]+)(?P=quote)")
 
 
 def parse_arguments():
@@ -41,7 +41,7 @@ if __name__ == "__main__":
     with input_path.open("r") as fid:
         for line in fid:
             if m := INCLUDE_EX.match(line):
-                deps.append(input_path.parent / m.group(1))
+                deps.append(input_path.parent / m["filename"])
     if deps:
         target_path = Path(args.target)
         target_path.parent.mkdir(parents=True, exist_ok=True)
