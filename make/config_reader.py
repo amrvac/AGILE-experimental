@@ -119,9 +119,12 @@ class Value:
     name: str
     flags: list[str]
     dtype: str
-    default: Any
+    default: Any = None
 
     def handle(self, schema, val, visited):
+        if val is None:
+            return
+        
         if (self.dtype == "int" and not isinstance(val, int)) or \
            (self.dtype == "string" and not isinstance(val, string)):
             raise(ConfigError(f"Value parameter {self.name} should be {self.dtype}, got {type(val)}"))
