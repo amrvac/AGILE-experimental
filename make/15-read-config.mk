@@ -14,6 +14,12 @@
 # Fortran code so that we can obtain git id and compile flags from
 # simulation logs.
 
+ifeq ($(MAKE_RESTARTS),)
+ifneq ("$(wildcard config.mk)","")
+$(shell rm -f config.mk)
+endif
+endif
+
 CONFIG ?= amrvac.par
 
 config.mk: $(CONFIG)
@@ -21,4 +27,3 @@ config.mk: $(CONFIG)
 	@python $(amrvac)/make/config_reader.py < $< > $@
 
 include config.mk
-
