@@ -1,6 +1,8 @@
 from collections.abc import Iterable
 from io import TextIOBase
 from pathlib import Path
+from dataclasses import dataclass
+from textwrap import indent
 
 import re
 import argparse
@@ -34,14 +36,41 @@ def parse_arguments():
     return parser.parse_args()
 
 
-if __name__ == "__main__":
-    args = parse_arguments()
-    deps = []
-    input_path = Path(args.input)
+@dataclass
+class CircularDependencyError(Exception):
+    visited: list[Path]
+    file: Path
+
+    def __str__(self) -> str:
+        cycle = "\n".join(f"includes `$f`" for f in self.visited[1:] + [self.file])
+        return f"Circular dependency detected in `{self.file}`: starting from `{self.visited[0]}`:\n" + indent(cycle, "  - ")
+
+
+def scan_deps(input_path: Path, visited: list[Path] | None = None) -> set[Path]:
+    visited = visited or list()
+    if input_path in visited:
+        raise CircularDependencyError(visited, input_path)
+
+    visited.append(input_path)
+    deps = set()
+
     with input_path.open("r") as fid:
         for line in fid:
             if m := INCLUDE_EX.match(line):
-                deps.append(input_path.parent / m["filename"])
+                d = (input_path.parent / m["filename"]).resolve()
+                deps.add(d)
+                deps.update(scan_deps(d, visited))
+
+    visited.pop()
+
+    return deps
+
+
+if __name__ == "__main__":
+    args = parse_arguments()
+    input_path = Path(args.input)
+    deps = scan_deps(input_path)
+
     if deps:
         target_path = Path(args.target)
         target_path.parent.mkdir(parents=True, exist_ok=True)
