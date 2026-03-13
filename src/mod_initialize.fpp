@@ -81,7 +81,7 @@ contains
     allocate(node(nodehi,max_blocks),node_sub(nodehi,max_blocks),&
        phyboundblock(max_blocks))
     allocate(pflux(2,3,max_blocks))
-    !$acc enter data create(pflux(2,3,max_blocks)) !JESSE
+    !$acc enter data create(pflux) !JESSE
 !    !$acc enter data copyin(pflux(2,3,max_blocks)) !JESSE
     ! Hector: I don't think we need to copy in here, because we always fill
     ! pflux with data that is already on the device. It is sufficient that

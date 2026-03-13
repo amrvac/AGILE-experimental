@@ -3,10 +3,15 @@ module mod_fix_conserve
   implicit none
   private
 
+  !!JESSE OLD, does not seem to work
+  !!type fluxalloc
+  !!   double precision, dimension(:,:,:,:), pointer :: flux => null()
+  !!! Need to bring the below back for staggered
+  !!!   double precision, dimension(:,:,:,:), pointer :: edge => null()
+  !!end type fluxalloc
+  !!JESSE NEW
   type fluxalloc
-     double precision, dimension(:,:,:,:), pointer :: flux => null()
-  ! Need to bring the below back for staggered
-  !   double precision, dimension(:,:,:,:), pointer :: edge => null()
+     double precision, dimension(:,:,:,:), allocatable :: flux
   end type fluxalloc
   !!!JESSE: this does not work actually
   !!!type fluxalloc
@@ -15,7 +20,8 @@ module mod_fix_conserve
   !!!end type fluxalloc
   !> store flux to fix conservation
   type(fluxalloc), dimension(:,:,:), allocatable, public :: pflux
-  !$acc declare create(pflux) !JESSE, try to retain pointer structure
+  !!$acc declare create(pflux) !JESSE, try to retain pointer structure
+  !!this is done in mod_initialize.ffp
 
   ! Hector, note to self: pflux is of type fluxalloc, not a pointer to an array 
 
@@ -715,6 +721,8 @@ module mod_fix_conserve
      nx1=ixMhi1-ixMlo1+1;nx2=ixMhi2-ixMlo2+1;nx3=ixMhi3-ixMlo3+1;
      nxCo1=nx1/2;nxCo2=nx2/2;nxCo3=nx3/2;
 
+     !print *, "nx1, nx2, nx3, nxCo1, nxCo2, nxCo3", nx1, nx2, nx3, nxCo1, nxCo2, nxCo3 
+
      do iigrid=1,igridstail; igrid=igrids(iigrid);
        ! For every grid,
        ! arrays for the fluxes are allocated for every face direction(^D)
@@ -729,6 +737,9 @@ module mod_fix_conserve
 
            allocate(pflux(iside,1,igrid)%flux(1,1:nx2,1:nx3,1:nwflux))
            !$acc enter data create(pflux(iside,1,igrid)%flux) !JESSE
+!!           !$acc enter data copyin(pflux(iside,1,igrid)%flux) !JESSE
+           !JESSE TODO CHECK IF THE COPYIN FUNC FIXES THINGS ...
+!!           !$acc enter data create(pflux(iside,1,igrid)%flux) !JESSE
 !!           !$acc enter data attach(pflux(iside,1,igrid)%flux) !JESSE
 
         !   if(stagger_grid) allocate(pflux(iside,1,igrid)%edge(1,0:nx2,0:nx3,&
@@ -866,7 +877,7 @@ module mod_fix_conserve
 
          if (acc_is_present(pflux(iside,1,igrid)%flux, &
                   size(pflux(iside,1,igrid)%flux))) then
-         !$acc exit data detach(pflux(iside,1,igrid)%flux) !JESSE
+!!         !$acc exit data detach(pflux(iside,1,igrid)%flux) !JESSE
          !$acc exit data delete(pflux(iside,1,igrid)%flux) !JESSE
          end if
 
@@ -882,10 +893,14 @@ module mod_fix_conserve
 !!         !$acc exit data detach(pflux(iside,1,igrid)%edge) if_present !JESSE
 !!         !$acc exit data delete(pflux(iside,1,igrid)%edge) if_present !JESSE
 
-         if (associated(pflux(iside,1,igrid)%flux)) then
+         if (allocated(pflux(iside,1,igrid)%flux)) then
            deallocate(pflux(iside,1,igrid)%flux)
-           nullify(pflux(iside,1,igrid)%flux)
          end if
+        !!!!JESSE: no longer a pointer
+        !!if (associated(pflux(iside,1,igrid)%flux)) then
+        !!  deallocate(pflux(iside,1,igrid)%flux)
+        !!  !!nullify(pflux(iside,1,igrid)%flux) !!JESSE: no longer a pointer
+        !!end if
         ! if (associated(pflux(iside,1,igrid)%edge)) then
         !   deallocate(pflux(iside,1,igrid)%edge)
         !   nullify(pflux(iside,1,igrid)%edge)
@@ -894,7 +909,7 @@ module mod_fix_conserve
        do iside=1,2
          if (acc_is_present(pflux(iside,2,igrid)%flux, &
                   size(pflux(iside,2,igrid)%flux))) then
-         !$acc exit data detach(pflux(iside,1,igrid)%flux) !JESSE
+!!         !$acc exit data detach(pflux(iside,1,igrid)%flux) !JESSE
          !$acc exit data delete(pflux(iside,1,igrid)%flux) !JESSE
          end if
         ! if (acc_is_present(pflux(iside,2,igrid)%edge, &
@@ -902,10 +917,14 @@ module mod_fix_conserve
         ! !$acc exit data detach(pflux(iside,1,igrid)%edge) !JESSE
         ! !$acc exit data delete(pflux(iside,1,igrid)%edge) !JESSE
         ! end if
-         if (associated(pflux(iside,2,igrid)%flux)) then
+         if (allocated(pflux(iside,2,igrid)%flux)) then
            deallocate(pflux(iside,2,igrid)%flux)
-           nullify(pflux(iside,2,igrid)%flux)
+           !!nullify(pflux(iside,2,igrid)%flux)
          end if
+        !! if (associated(pflux(iside,2,igrid)%flux)) then
+        !!   deallocate(pflux(iside,2,igrid)%flux)
+        !!   nullify(pflux(iside,2,igrid)%flux)
+        !! end if
         ! if (associated(pflux(iside,2,igrid)%edge)) then
         !   deallocate(pflux(iside,2,igrid)%edge)
         !   nullify(pflux(iside,2,igrid)%edge)
@@ -914,7 +933,7 @@ module mod_fix_conserve
        do iside=1,2
          if (acc_is_present(pflux(iside,3,igrid)%flux, &
                   size(pflux(iside,2,igrid)%flux))) then
-         !$acc exit data detach(pflux(iside,1,igrid)%flux) !JESSE
+!!         !$acc exit data detach(pflux(iside,1,igrid)%flux) !JESSE
          !$acc exit data delete(pflux(iside,1,igrid)%flux) !JESSE
          end if
         ! if (acc_is_present(pflux(iside,3,igrid)%edge, &
@@ -922,10 +941,14 @@ module mod_fix_conserve
         ! !$acc exit data detach(pflux(iside,1,igrid)%edge) !JESSE
         ! !$acc exit data delete(pflux(iside,1,igrid)%edge) !JESSE
         ! end if
-         if (associated(pflux(iside,3,igrid)%flux)) then
+         if (allocated(pflux(iside,3,igrid)%flux)) then
            deallocate(pflux(iside,3,igrid)%flux)
-           nullify(pflux(iside,3,igrid)%flux)
+           !!nullify(pflux(iside,3,igrid)%flux)
          end if
+        !! if (associated(pflux(iside,3,igrid)%flux)) then
+        !!   deallocate(pflux(iside,3,igrid)%flux)
+        !!   nullify(pflux(iside,3,igrid)%flux)
+        !! end if
         ! if (associated(pflux(iside,3,igrid)%edge)) then
         !   deallocate(pflux(iside,3,igrid)%edge)
         !   nullify(pflux(iside,3,igrid)%edge)

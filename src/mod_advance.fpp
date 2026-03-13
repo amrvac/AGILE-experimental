@@ -308,95 +308,101 @@ contains
        select case (neighbor_type(0,-1,0,n))
        case (neighbor_coarse)
            print *, "Coarser back neighbor"
-           do ix3=ixOmin3,ixOmax3 
-              do ix2=ixOmin2,ixOmax2 
-                 do ix1=ixOmin1,ixOmax1 
-                     !TODO acc_is_present(pflux, pflux%flux)
-                     if (.not. acc_is_present(pflux)) then
-                         print *, "pflux not present"
-                     end if
-                     !this does not compile ...
-                     !if (.not. acc_is_present(pflux(1,2,n))) then
-                     !    print *, "pflux(1,2,n) not present"
-                     !end if
-                     if (.not. acc_is_present(pflux(1,2,n)%flux)) then
-                         print *, "pflux(1,2,n)%flux not present"
-                     end if
-                     if (.not. acc_is_present(pflux(1,2,n)%flux(&
-                          (ix1-nghostcells)/2,1,&
-                          (ix3-nghostcells)/2,1:nw_flux))) then
-                         print *, "pflux(1,2,n)%flux(...) not present | ",(ix1-nghostcells)/2,1,(ix3-nghostcells)/2
-                     end if
+           !!do ix3=ixOmin3,ixOmax3 
+           !!   do ix2=ixOmin2,ixOmax2 
+           !!      do ix1=ixOmin1,ixOmax1 
+           !!          !TODO acc_is_present(pflux, pflux%flux)
+           !!          if (.not. acc_is_present(pflux)) then
+           !!              print *, "pflux not present"
+           !!          end if
+           !!          !this does not compile ...
+           !!          !if (.not. acc_is_present(pflux(1,2,n))) then
+           !!          !    print *, "pflux(1,2,n) not present"
+           !!          !end if
+           !!          if (.not. acc_is_present(pflux(1,2,n)%flux)) then
+           !!              !print *, "pflux(1,2,n)%flux not present &
+           !!              !         | ix1,ix2,ix3 =", ix1,ix2,ix3
+           !!              print *, "pflux(1,2,n)%flux not present &
+           !!                       | n =", n
+           !!          end if
+           !!          !!not correct usage below
+           !!          !!if (.not. acc_is_present(pflux(1,2,n)%flux(&
+           !!          !!     1+(ix1-nghostcells)/2,1,&
+           !!          !!     1+(ix3-nghostcells)/2,1:nw_flux))) then
+           !!          !!    print *, "pflux(1,2,n)%flux(...) not present | ",(ix1-nghostcells)/2,1,(ix3-nghostcells)/2
+           !!          !!end if
 
-                     print *, ix1,ix2,ix3,pflux(1,2,n)%flux((ix1-nghostcells)/2,1,(ix3-nghostcells)/2,1:nw_flux)
-                     
-                 end do
-              end do
-           end do
+           !!          !!print *, "Coarser back neighbor",ix1,ix2,ix3,(ix1-nghostcells)/2,1,(ix3-nghostcells)/2,&
+           !!          !! pflux(1,2,n)%flux((ix1-nghostcells)/2,1,(ix3-nghostcells)/2,1:nw_flux)
+           !!          
+           !!      end do
+           !!   end do
+           !!end do
        end select
 
-       select case (neighbor_type(0,1,0,n))
-       case (neighbor_coarse)
-           print *, "Coarser front neighbor"
-           do ix3=ixOmin3,ixOmax3 
-              do ix2=ixOmin2,ixOmax2 
-                 do ix1=ixOmin1,ixOmax1 
-                     print *, ix1,ix2,ix3,pflux(2,2,n)%flux((ix1-nghostcells)/2,1,(ix3-nghostcells)/2,1:nw_flux)
-                 end do
-              end do
-           end do
-       end select
-
-       select case (neighbor_type(0,0,-1,n))
-       case (neighbor_coarse)
-           print *, "Coarser botton neighbor"
-       end select
-
-       select case (neighbor_type(0,0,1,n))
-       case (neighbor_coarse)
-           print *, "Coarser top neighbor"
-       end select
- 
-      ! do ix3=ixOmin3,ixOmax3 
-      !    do ix2=ixOmin2,ixOmax2 
-      !       do ix1=ixOmin1,ixOmax1 
-      !          select case (neighbor_type(-1,0,0,n))
-      !          case (neighbor_coarse)
-      !              print *, ix1,ix2,ix3,pflux(1,1,n)%flux(1,(ix2-nghostcells)/2,(ix3-nghostcells)/2,1:nw_flux)
-      !          end select
-
-      !          select case (neighbor_type(1,0,0,n))
-      !          case (neighbor_coarse)
-      !              print *, ix1,ix2,ix3,pflux(2,1,n)%flux(1,(ix2-nghostcells)/2,(ix3-nghostcells)/2,1:nw_flux)
-      !          end select
-
-      !         ! select case (neighbor_type(0,-1,0,n))
-      !         ! case (neighbor_coarse)
-      !         !     pflux(1,2,n)%flux((ix1-nghostcells)/2,1,(ix3-nghostcells)/2,1:nw_flux) = 0.d0
-      !         ! end select
-
-      !         ! select case (neighbor_type(0,1,0,n))
-      !         ! case (neighbor_coarse)
-      !         !     pflux(2,2,n)%flux((ix1-nghostcells)/2,1,(ix3-nghostcells)/2,1:nw_flux) = 0.d0
-      !         ! end select
-
-      !         ! select case (neighbor_type(0,0,-1,n))
-      !         ! case (neighbor_coarse)
-      !         !     pflux(1,3,n)%flux((ix1-nghostcells)/2,(ix2-nghostcells)/2,1,1:nw_flux) = 0.0d0
-      !         ! end select
-
-      !         ! select case (neighbor_type(0,0,1,n))
-      !         ! case (neighbor_coarse)
-      !         !     pflux(2,3,n)%flux((ix1-nghostcells)/2,(ix2-nghostcells)/2,1,1:nw_flux) = 0.0d0
-      !         ! end select
- 
-
-      !       end do
-      !    end do
-      ! end do
+!!       select case (neighbor_type(0,1,0,n))
+!!       case (neighbor_coarse)
+!!           print *, "Coarser front neighbor"
+!!           !!do ix3=ixOmin3,ixOmax3 
+!!           !!   do ix2=ixOmin2,ixOmax2 
+!!           !!      do ix1=ixOmin1,ixOmax1 
+!!           !!          print *, ix1,ix2,ix3,pflux(2,2,n)%flux((ix1-nghostcells)/2,1,(ix3-nghostcells)/2,1:nw_flux)
+!!           !!      end do
+!!           !!   end do
+!!           !!end do
+!!       end select
+!!
+!!       select case (neighbor_type(0,0,-1,n))
+!!       case (neighbor_coarse)
+!!           print *, "Coarser botton neighbor"
+!!       end select
+!!
+!!       select case (neighbor_type(0,0,1,n))
+!!       case (neighbor_coarse)
+!!           print *, "Coarser top neighbor"
+!!       end select
+!! 
+!!      ! do ix3=ixOmin3,ixOmax3 
+!!      !    do ix2=ixOmin2,ixOmax2 
+!!      !       do ix1=ixOmin1,ixOmax1 
+!!      !          select case (neighbor_type(-1,0,0,n))
+!!      !          case (neighbor_coarse)
+!!      !              print *, ix1,ix2,ix3,pflux(1,1,n)%flux(1,(ix2-nghostcells)/2,(ix3-nghostcells)/2,1:nw_flux)
+!!      !          end select
+!!
+!!      !          select case (neighbor_type(1,0,0,n))
+!!      !          case (neighbor_coarse)
+!!      !              print *, ix1,ix2,ix3,pflux(2,1,n)%flux(1,(ix2-nghostcells)/2,(ix3-nghostcells)/2,1:nw_flux)
+!!      !          end select
+!!
+!!      !         ! select case (neighbor_type(0,-1,0,n))
+!!      !         ! case (neighbor_coarse)
+!!      !         !     pflux(1,2,n)%flux((ix1-nghostcells)/2,1,(ix3-nghostcells)/2,1:nw_flux) = 0.d0
+!!      !         ! end select
+!!
+!!      !         ! select case (neighbor_type(0,1,0,n))
+!!      !         ! case (neighbor_coarse)
+!!      !         !     pflux(2,2,n)%flux((ix1-nghostcells)/2,1,(ix3-nghostcells)/2,1:nw_flux) = 0.d0
+!!      !         ! end select
+!!
+!!      !         ! select case (neighbor_type(0,0,-1,n))
+!!      !         ! case (neighbor_coarse)
+!!      !         !     pflux(1,3,n)%flux((ix1-nghostcells)/2,(ix2-nghostcells)/2,1,1:nw_flux) = 0.0d0
+!!      !         ! end select
+!!
+!!      !         ! select case (neighbor_type(0,0,1,n))
+!!      !         ! case (neighbor_coarse)
+!!      !         !     pflux(2,3,n)%flux((ix1-nghostcells)/2,(ix2-nghostcells)/2,1,1:nw_flux) = 0.0d0
+!!      !         ! end select
+!! 
+!!
+!!      !       end do
+!!      !    end do
+!!      ! end do
     end do
 
 
+       print *, "STEP 4: Starting with fix_conserve"
 
 
 ! Step 4: this stuff      
