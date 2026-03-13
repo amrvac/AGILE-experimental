@@ -27,10 +27,6 @@ contains
     double precision :: B_energy_change(ixCoGmin1:ixCoGmax1,&
        ixCoGmin2:ixCoGmax2,ixCoGmin3:ixCoGmax3)
 
-    associate(wFi=>sFi%w(ixFiGmin1:ixFiGmax1,ixFiGmin2:ixFiGmax2,&
-       ixFiGmin3:ixFiGmax3,1:nw), wCo=>sCo%w(ixCoGmin1:ixCoGmax1,&
-       ixCoGmin2:ixCoGmax2,ixCoGmin3:ixCoGmax3,1:nw))
-    staggered: associate(wFis=>sFi%ws,wCos=>sCo%ws)
     ! coarsen by 2 in every direction - conservatively
 
 ! AGILE: tbd
@@ -46,10 +42,10 @@ contains
           do ixCo3 = ixComin3,ixComax3
              do ixCo2 = ixComin2,ixComax2
                 do ixCo1 = ixComin1,ixComax1
-                   ixFi3=2*(ixCo3-ixComin3)+ixFimin3
-                   ixFi2=2*(ixCo2-ixComin2)+ixFimin2
-                   ixFi1=2*(ixCo1-ixComin1)+ixFimin1
-                   wCo(ixCo1,ixCo2,ixCo3,iw)=sum(wFi(ixFi1:ixFi1+1,ixFi2:ixFi2+1,&
+                   ixFi3=2*(ixCo3-ixComin3)+ixFimin3+ixFiGmin3
+                   ixFi2=2*(ixCo2-ixComin2)+ixFimin2+ixFiGmin2
+                   ixFi1=2*(ixCo1-ixComin1)+ixFimin1+ixFiGmin1
+                   sCo%w(ixCo1+ixCoGmin1,ixCo2+ixCoGmin2,ixCo3+ixCoGmin3,iw)=sum(sFi%w(ixFi1:ixFi1+1,ixFi2:ixFi2+1,&
                         ixFi3:ixFi3+1,iw))*CoFiratio
                 end do
              end do
@@ -62,11 +58,11 @@ contains
           do ixCo3 = ixComin3,ixComax3
              do ixCo2 = ixComin2,ixComax2
                 do ixCo1 = ixComin1,ixComax1
-                   ixFi3=2*(ixCo3-ixComin3)+ixFimin3
-                   ixFi2=2*(ixCo2-ixComin2)+ixFimin2
-                   ixFi1=2*(ixCo1-ixComin1)+ixFimin1
-                   wCo(ixCo1,ixCo2,ixCo3,iw)= sum(sFi%dvolume(ixFi1:ixFi1+1,&
-                        ixFi2:ixFi2+1,ixFi3:ixFi3+1)*wFi(ixFi1:ixFi1+1,ixFi2:ixFi2+1,&
+                   ixFi3=2*(ixCo3-ixComin3)+ixFimin3+ixFiGmin3
+                   ixFi2=2*(ixCo2-ixComin2)+ixFimin2+ixFiGmin2
+                   ixFi1=2*(ixCo1-ixComin1)+ixFimin1+ixFiGmin1
+                   sCo%w(ixCo1+ixCoGmin1,ixCo2+ixCoGmin2,ixCo3+ixCoGmin3,iw)= sum(sFi%dvolume(ixFi1:ixFi1+1,&
+                        ixFi2:ixFi2+1,ixFi3:ixFi3+1)*sFi%w(ixFi1:ixFi1+1,ixFi2:ixFi2+1,&
                         ixFi3:ixFi3+1,iw)) /sCo%dvolume(ixCo1,ixCo2,ixCo3)
                 end do
              end do
@@ -87,13 +83,13 @@ contains
     !        ! This if statement catches the axis where surface is zero:
     !        if (sCo%surfaceC(ixCo1,ixCo2,ixCo3,iw)>1.0d-9*sCo%dvolume(ixCo1,&
     !           ixCo2,ixCo3)) then !Normal case
-    !          wCos(ixCo1,ixCo2,ixCo3,iw)=sum(sFi%surfaceC(ixFi1:ixFi1+1-kr(iw,&
+    !          sCo%w(ixCo1,ixCo2,ixCo3,iw)=sum(sFi%surfaceC(ixFi1:ixFi1+1-kr(iw,&
     !             1),ixFi2:ixFi2+1-kr(iw,2),ixFi3:ixFi3+1-kr(iw,3),&
-    !             iw)*wFis(ixFi1:ixFi1+1-kr(iw,1),ixFi2:ixFi2+1-kr(iw,2),&
+    !             iw)*sFi%ws(ixFi1:ixFi1+1-kr(iw,1),ixFi2:ixFi2+1-kr(iw,2),&
     !             ixFi3:ixFi3+1-kr(iw,3),iw)) /sCo%surfaceC(ixCo1,ixCo2,ixCo3,&
     !             iw)
     !        else ! On axis
-    !          wCos(ixCo1,ixCo2,ixCo3,iw)=zero
+    !          sCo%w(ixCo1,ixCo2,ixCo3,iw)=zero
     !        end if
     !     end do
     !     end do
@@ -125,8 +121,6 @@ contains
 !         ixCoGmax3,ixComin1,ixComin2,ixComin3,ixComax1,ixComax2,ixComax3,wCo,&
 !         sCo%x)
 !    end if
-    end associate staggered
-    end associate
   end subroutine coarsen_grid
 
 end module mod_coarsen
