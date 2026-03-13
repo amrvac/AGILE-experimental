@@ -275,21 +275,16 @@ contains
     ixOmin1=ixGlo1+nghostcells;ixOmin2=ixGlo2+nghostcells
     ixOmin3=ixGlo3+nghostcells;ixOmax1=ixGhi1-nghostcells
     ixOmax2=ixGhi2-nghostcells;ixOmax3=ixGhi3-nghostcells;
-    call finite_volume_local( fs_hll, &          ! fs_hll
-        qdt, dtfactor, & !some scalars related to time stepping
-        ixGlo1,ixGlo2,ixGlo3,ixGhi1,ixGhi2,ixGhi3,ixOmin1,ixOmin2,ixOmin3,&
-           ixOmax1,ixOmax2,ixOmax3, idimmin,idimmax, & !bounds for some arrays
-        qtC, &                          ! scalar related to time stepping
-        bga, &                          ! first block grid
-        qt,  &                          ! scalar related to time stepping
-        bgb, &                          ! second block grid
-        fC, fE &                        ! fluxes
-        )
-
 
 !   !$acc update device(neighbor_type)
    !!this should be done on the device ...
-!    !$acc parallel loop
+!   !$acc parallel loop
+    !TODO acc_is_present(pflux, pflux%flux)
+    if (.not. acc_is_present(pflux)) then
+        print *, "pflux not present"
+    else
+        print *, "pflux is present"
+    end if
     do iigrid = 1, igridstail_active
        n = igrids_active(iigrid)
        !print *, "n: ",n, " Left: ",neighbor_type(-1,0,0,n)," Right: ",neighbor_type(1,0,0,n),&
@@ -311,24 +306,23 @@ contains
            do ix3=ixOmin3,ixOmax3 
               do ix2=ixOmin2,ixOmax2 
                  do ix1=ixOmin1,ixOmax1 
-                     !TODO acc_is_present(pflux, pflux%flux)
-                     if (.not. acc_is_present(pflux)) then
-                         print *, "pflux not present"
-                     end if
+
                      !this does not compile ...
                      !if (.not. acc_is_present(pflux(1,2,n))) then
                      !    print *, "pflux(1,2,n) not present"
                      !end if
                      if (.not. acc_is_present(pflux(1,2,n)%flux)) then
                          print *, "pflux(1,2,n)%flux not present"
+                     else
+                         print *, "pflux(1,2,n)%flux is present"
                      end if
                      if (.not. acc_is_present(pflux(1,2,n)%flux(&
-                          (ix1-nghostcells)/2,1,&
-                          (ix3-nghostcells)/2,1:nw_flux))) then
-                         print *, "pflux(1,2,n)%flux(...) not present | ",(ix1-nghostcells)/2,1,(ix3-nghostcells)/2
+                          (ix1-nghostcells+1)/2,1,&
+                          (ix3-nghostcells+1)/2,1:nw_flux))) then
+                         print *, "pflux(1,2,n)%flux(...) not present | ",(ix1-nghostcells+1)/2,1,(ix3-nghostcells+1)/2
                      end if
 
-                     print *, ix1,ix2,ix3,pflux(1,2,n)%flux((ix1-nghostcells)/2,1,(ix3-nghostcells)/2,1:nw_flux)
+                     print *, ix1,ix2,ix3,pflux(1,2,n)%flux((ix1-nghostcells+1)/2,1,(ix3-nghostcells+1)/2,1:nw_flux)
                      
                  end do
               end do
@@ -341,7 +335,7 @@ contains
            do ix3=ixOmin3,ixOmax3 
               do ix2=ixOmin2,ixOmax2 
                  do ix1=ixOmin1,ixOmax1 
-                     print *, ix1,ix2,ix3,pflux(2,2,n)%flux((ix1-nghostcells)/2,1,(ix3-nghostcells)/2,1:nw_flux)
+                     print *, ix1,ix2,ix3,pflux(2,2,n)%flux((ix1-nghostcells+1)/2,1,(ix3-nghostcells+1)/2,1:nw_flux)
                  end do
               end do
            end do
@@ -395,6 +389,17 @@ contains
       !    end do
       ! end do
     end do
+
+    call finite_volume_local( fs_hll, &          ! fs_hll
+        qdt, dtfactor, & !some scalars related to time stepping
+        ixGlo1,ixGlo2,ixGlo3,ixGhi1,ixGhi2,ixGhi3,ixOmin1,ixOmin2,ixOmin3,&
+           ixOmax1,ixOmax2,ixOmax3, idimmin,idimmax, & !bounds for some arrays
+        qtC, &                          ! scalar related to time stepping
+        bga, &                          ! first block grid
+        qt,  &                          ! scalar related to time stepping
+        bgb, &                          ! second block grid
+        fC, fE &                        ! fluxes
+        )
 
 
 

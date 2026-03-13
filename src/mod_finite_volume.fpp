@@ -86,32 +86,32 @@ contains
              do ix1=ixOmin1,ixOmax1 
                 select case (neighbor_type(-1,0,0,n))
                 case (neighbor_coarse)
-                    pflux(1,1,n)%flux(1,(ix2-nghostcells)/2,(ix3-nghostcells)/2,1:nw_flux) = 0.d0
+                    pflux(1,1,n)%flux(1,(ix2-nghostcells+1)/2,(ix3-nghostcells+1)/2,1:nw_flux) = 0.d0
                 end select
 
                 select case (neighbor_type(1,0,0,n))
                 case (neighbor_coarse)
-                    pflux(2,1,n)%flux(1,(ix2-nghostcells)/2,(ix3-nghostcells)/2,1:nw_flux) = 0.d0
+                    pflux(2,1,n)%flux(1,(ix2-nghostcells+1)/2,(ix3-nghostcells+1)/2,1:nw_flux) = 0.d0
                 end select
 
                  select case (neighbor_type(0,-1,0,n))
                 case (neighbor_coarse)
-                    pflux(1,2,n)%flux((ix1-nghostcells)/2,1,(ix3-nghostcells)/2,1:nw_flux) = 0.d0
+                    pflux(1,2,n)%flux((ix1-nghostcells+1)/2,1,(ix3-nghostcells+1)/2,1:nw_flux) = 0.d0
                 end select
 
                 select case (neighbor_type(0,1,0,n))
                 case (neighbor_coarse)
-                    pflux(2,2,n)%flux((ix1-nghostcells)/2,1,(ix3-nghostcells)/2,1:nw_flux) = 0.d0
+                    pflux(2,2,n)%flux((ix1-nghostcells+1)/2,1,(ix3-nghostcells+1)/2,1:nw_flux) = 0.d0
                 end select
 
                 select case (neighbor_type(0,0,-1,n))
                 case (neighbor_coarse)
-                    pflux(1,3,n)%flux((ix1-nghostcells)/2,(ix2-nghostcells)/2,1,1:nw_flux) = 0.0d0
+                    pflux(1,3,n)%flux((ix1-nghostcells+1)/2,(ix2-nghostcells+1)/2,1,1:nw_flux) = 0.0d0
                 end select
 
                 select case (neighbor_type(0,0,1,n))
                 case (neighbor_coarse)
-                    pflux(2,3,n)%flux((ix1-nghostcells)/2,(ix2-nghostcells)/2,1,1:nw_flux) = 0.0d0
+                    pflux(2,3,n)%flux((ix1-nghostcells+1)/2,(ix2-nghostcells+1)/2,1,1:nw_flux) = 0.0d0
                 end select
               
              end do
@@ -147,8 +147,8 @@ contains
                 case (neighbor_fine)
                     if (ix1.eq.ixOmax1) pflux(2,1,n)%flux(ix1,ix2,ix3,1:nw_flux) =  f(:,2)
                 case (neighbor_coarse)
-                    if (ix1.eq.ixOmin1) pflux(2,1,n)%flux(1,(ix2-nghostcells)/2,(ix3-nghostcells)/2,1:nw_flux) = &
-                     pflux(2,1,n)%flux(1,(ix2-nghostcells)/2,(ix3-nghostcells)/2,1:nw_flux) - f(:,2)
+                    if (ix1.eq.ixOmin1) pflux(2,1,n)%flux(1,(ix2-nghostcells+1)/2,(ix3-nghostcells+1)/2,1:nw_flux) = &
+                     pflux(2,1,n)%flux(1,(ix2-nghostcells+1)/2,(ix3-nghostcells+1)/2,1:nw_flux) - f(:,2)
                 end select
 
 
@@ -166,16 +166,16 @@ contains
                 case (neighbor_fine)
                     if (ix2.eq.ixOmin2) pflux(1,2,n)%flux(ix1-nghostcells,1,ix3-nghostcells,1:nw_flux) = -f(:,1)
                 case (neighbor_coarse)
-                    if (ix2.eq.ixOmin2) pflux(1,2,n)%flux((ix1-nghostcells)/2,1,(ix3-nghostcells)/2,1:nw_flux) = &
-                     pflux(1,2,n)%flux((ix1-nghostcells)/2,1,(ix3-nghostcells)/2,1:nw_flux) + f(:,1)
+                    if (ix2.eq.ixOmin2) pflux(1,2,n)%flux((ix1-nghostcells+1)/2,1,(ix3-nghostcells+1)/2,1:nw_flux) = &
+                     pflux(1,2,n)%flux((ix1-nghostcells+1)/2,1,(ix3-nghostcells+1)/2,1:nw_flux) + f(:,1)
                 end select
 
                 select case (neighbor_type(0,1,0,n))
                 case (neighbor_fine)
                     if (ix2.eq.ixOmax2) pflux(2,2,n)%flux(ix1,ix2,ix3,1:nw_flux) =  f(:,2)
                 case (neighbor_coarse)
-                    if (ix2.eq.ixOmin2) pflux(2,2,n)%flux((ix1-nghostcells)/2,1,(ix3-nghostcells)/2,1:nw_flux) = &
-                     pflux(2,2,n)%flux((ix1-nghostcells)/2,1,(ix3-nghostcells)/2,1:nw_flux) - f(:,2)
+                    if (ix2.eq.ixOmin2) pflux(2,2,n)%flux((ix1-nghostcells+1)/2,1,(ix3-nghostcells+1)/2,1:nw_flux) = &
+                     pflux(2,2,n)%flux((ix1-nghostcells+1)/2,1,(ix3-nghostcells+1)/2,1:nw_flux) - f(:,2)
                 end select
 
                 
@@ -193,16 +193,16 @@ contains
                 case (neighbor_fine)
                     if (ix3.eq.ixOmin3) pflux(1,3,n)%flux(ix1-nghostcells,ix2-nghostcells,1,1:nw_flux) = -f(:,1)
                 case (neighbor_coarse)
-                    if (ix3.eq.ixOmin3) pflux(1,3,n)%flux((ix1-nghostcells)/2,(ix2-nghostcells)/2,1,1:nw_flux) = &
-                     pflux(1,3,n)%flux((ix1-nghostcells)/2,(ix2-nghostcells)/2,1,1:nw_flux) + f(:,1)
+                    if (ix3.eq.ixOmin3) pflux(1,3,n)%flux((ix1-nghostcells+1)/2,(ix2-nghostcells+1)/2,1,1:nw_flux) = &
+                     pflux(1,3,n)%flux((ix1-nghostcells+1)/2,(ix2-nghostcells+1)/2,1,1:nw_flux) + f(:,1)
                 end select
 
                 select case (neighbor_type(0,0,1,n))
                 case (neighbor_fine)
                     if (ix3.eq.ixOmax3) pflux(2,3,n)%flux(ix1,ix2,ix3,1:nw_flux) =  f(:,2)
                 case (neighbor_coarse)
-                    if (ix3.eq.ixOmin3) pflux(2,3,n)%flux((ix1-nghostcells)/2,(ix2-nghostcells)/2,1,1:nw_flux) = &
-                     pflux(2,3,n)%flux((ix1-nghostcells)/2,(ix2-nghostcells)/2,1,1:nw_flux) - f(:,2)
+                    if (ix3.eq.ixOmin3) pflux(2,3,n)%flux((ix1-nghostcells+1)/2,(ix2-nghostcells+1)/2,1,1:nw_flux) = &
+                     pflux(2,3,n)%flux((ix1-nghostcells+1)/2,(ix2-nghostcells+1)/2,1,1:nw_flux) - f(:,2)
                 end select
 
                 
@@ -244,14 +244,6 @@ contains
           end do
        end do
     end do
-
-
-    ! Here we are outside OpenACC loop. Try to print pflux.
-    ! Need to transfer the data to the CPU to print.
-
-    !$acc update self(pflux)
-
-
 
 
   end subroutine finite_volume_local
