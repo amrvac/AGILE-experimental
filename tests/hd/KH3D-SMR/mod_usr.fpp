@@ -138,13 +138,16 @@ contains
          ixGmin2:ixGmax2,ixGmin3:ixGmax3,1:nw)
     integer, intent(inout) :: refine, coarsen
 
+!    if ( any(x(ixGmin1:ixGmax1,ixGmin2:ixGmax2,ixGmin3:ixGmax3,2) & 
+!         <0.75d0) .and. any(x(ixGmin1:ixGmax1,ixGmin2:ixGmax2,ixGmin3:ixGmax3,2) & 
+!         >0.75d0) &
+!         .or. &
+!         any(x(ixGmin1:ixGmax1,ixGmin2:ixGmax2,ixGmin3:ixGmax3,2) & 
+!         <0.25d0) .and. any(x(ixGmin1:ixGmax1,ixGmin2:ixGmax2,ixGmin3:ixGmax3,2) & 
+!         >0.25d0)) then
     if ( any(x(ixGmin1:ixGmax1,ixGmin2:ixGmax2,ixGmin3:ixGmax3,2) & 
          <0.75d0) .and. any(x(ixGmin1:ixGmax1,ixGmin2:ixGmax2,ixGmin3:ixGmax3,2) & 
-         >0.75d0) &
-         .or. &
-         any(x(ixGmin1:ixGmax1,ixGmin2:ixGmax2,ixGmin3:ixGmax3,2) & 
-         <0.25d0) .and. any(x(ixGmin1:ixGmax1,ixGmin2:ixGmax2,ixGmin3:ixGmax3,2) & 
-         >0.25d0)) then
+         >0.60d0)) then
        coarsen = -1
        refine  = 1
     else
