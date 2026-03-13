@@ -1,16 +1,16 @@
 #:if PHYS == 'hd'
  
-#:if defined('HD_N_TRACER')
-#:set HD_N_TRACER_ = HD_N_TRACER
+#:if defined('N_TRACER')
+#:set N_TRACER_ = N_TRACER
 #:else
-#:set HD_N_TRACER_ = 0
+#:set N_TRACER_ = 0
 #:endif
 
 #:def phys_vars()
 
   integer, parameter :: dp = kind(0.0d0)
-  integer, parameter, public              :: nw_phys=2+ndim+${HD_N_TRACER_}$
-  integer, parameter, public              :: nw_flux=2+ndim+${HD_N_TRACER_}$
+  integer, parameter, public              :: nw_phys=2+ndim+${N_TRACER_}$
+  integer, parameter, public              :: nw_flux=2+ndim+${N_TRACER_}$
 
   !> Whether an energy equation is used
   logical, public                         :: hd_energy = .true.
@@ -24,9 +24,9 @@
   integer, allocatable, public            :: mom(:)
   !$acc declare create(mom)
 
-#:if defined('HD_N_TRACER')
+#:if defined('N_TRACER')
   !> Indices of the tracers
-  integer, public                         :: tracer(${HD_N_TRACER_}$)
+  integer, public                         :: tracer(${N_TRACER_}$)
   !$acc declare create(tracer)
 #:endif
 
@@ -233,8 +233,8 @@
        phys_req_diagonal = .true.
     endif
 
-#:if defined('HD_N_TRACER')
-    #:for i in range(1, HD_N_TRACER_+1)
+#:if defined('N_TRACER')
+    #:for i in range(1, N_TRACER_+1)
         tracer(${i}$) = var_set_fluxvar("trc", "trp", ${i}$, need_bc=.false.)
     #:endfor
     !$acc update device(tracer)
@@ -391,8 +391,8 @@ subroutine get_flux(u, xC, flux_dim, flux)
      u(iw_rho) * sum(u(iw_mom(1:ndim))**2) + u(iw_e))
 
   ! Tracer flux. Note that tracers stay conservative.
-#:if defined('HD_N_TRACER')
-  #:for i in range(1, HD_N_TRACER_+1)
+#:if defined('N_TRACER')
+  #:for i in range(1, N_TRACER_+1)
       flux(tracer(${i}$)) = u(tracer(${i}$)) * u(iw_mom(flux_dim))
   #:endfor
 #:endif

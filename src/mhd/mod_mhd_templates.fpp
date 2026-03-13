@@ -1,16 +1,16 @@
 #:if PHYS == 'mhd'
 
-#:if defined('MHD_N_TRACER')
-#:set MHD_N_TRACER_ = MHD_N_TRACER
+#:if defined('N_TRACER')
+#:set N_TRACER_ = N_TRACER
 #:else
-#:set MHD_N_TRACER_ = 0
+#:set N_TRACER_ = 0
 #:endif
 
 #:def phys_vars()
 
   integer, parameter :: dp = kind(0.0d0)
-  integer, parameter, public              :: nw_phys=2+2*ndim+1+${MHD_N_TRACER_}$
-  integer, parameter, public              :: nw_flux=2+2*ndim+1+${MHD_N_TRACER_}$
+  integer, parameter, public              :: nw_phys=2+2*ndim+1+${N_TRACER_}$
+  integer, parameter, public              :: nw_flux=2+2*ndim+1+${N_TRACER_}$
   
   !> Whether an energy equation is used
   logical, public                         :: mhd_energy = .true.
@@ -24,9 +24,9 @@
   integer, allocatable, public            :: mom(:)
   !$acc declare create(mom)
 
-#:if defined('MHD_N_TRACER')
+#:if defined('N_TRACER')
   !> Indices of the tracers
-  integer, public                         :: tracer(${MHD_N_TRACER_}$)
+  integer, public                         :: tracer(${N_TRACER_}$)
   !$acc declare create(tracer)
 #:endif
 
@@ -388,8 +388,8 @@
     phys_req_diagonal = .true.
 
     ! Register tracer fields
-#:if defined('MHD_N_TRACER')
-    #:for i in range(1, MHD_N_TRACER_+1)
+#:if defined('N_TRACER')
+    #:for i in range(1, N_TRACER_+1)
         tracer(${i}$) = var_set_fluxvar("trc", "trp", ${i}$, need_bc=.false.)
     #:endfor
     !$acc update device(tracer)
@@ -553,8 +553,8 @@ end subroutine addsource_nonlocal
     flux(psi_)=cmax_global**2*u(iw_mag(flux_dim))
 
     ! Tracer flux. Note that tracers stay conservative.
-#:if defined('MHD_N_TRACER')
-  #:for i in range(1, MHD_N_TRACER_+1)
+#:if defined('N_TRACER')
+  #:for i in range(1, N_TRACER_+1)
       flux(tracer(${i}$)) = u(tracer(${i}$)) * u(iw_mom(flux_dim))
   #:endfor
 #:endif
