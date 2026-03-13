@@ -8,12 +8,12 @@ module mod_load_balance
   implicit none
 
   !> MPI buffers to send blocks
-  double precision, allocatable, dimension(:,:,:,:,:)  :: snd_buff, rcv_buff
-  integer, allocatable, dimension(:)  :: rcv_info
-  !$acc declare create(snd_buff,rcv_buff,rcv_info)
+  double precision, allocatable, dimension(:,:,:,:,:)  :: snd_buff_lb, rcv_buff_lb
+  integer, allocatable, dimension(:)  :: rcv_info_lb
+  !$acc declare create(snd_buff_lb,rcv_buff_lb,rcv_info_lb)
   !> maximum number of blocks to send
   integer, parameter :: max_buff=1024
-  private :: snd_buff, rcv_buff, max_buff,rcv_info
+  private :: snd_buff_lb, rcv_buff_lb, max_buff,rcv_info_lb
 
 contains
   !> reallocate blocks into processors for load balance
@@ -61,11 +61,11 @@ contains
     end if
 
     ! Allocate the send and receive buffers
-    if ( .not. allocated(snd_buff) ) then
-       allocate( snd_buff(block_nx1, block_nx2, block_nx3, nw, max_buff), &
-            rcv_buff(block_nx1, block_nx2, block_nx3, nw, max_buff), &
-            rcv_info(max_buff) )
-       !$acc update device(snd_buff, rcv_buff, rcv_info)
+    if ( .not. allocated(snd_buff_lb) ) then
+       allocate( snd_buff_lb(block_nx1, block_nx2, block_nx3, nw, max_buff), &
+            rcv_buff_lb(block_nx1, block_nx2, block_nx3, nw, max_buff), &
+            rcv_info_lb(max_buff) )
+       !$acc update device(snd_buff_lb, rcv_buff_lb, rcv_info_lb)
     end if
 
     do ipe=0,npe-1; do Morton_no=Morton_start(ipe),Morton_stop(ipe)
@@ -106,19 +106,19 @@ contains
 
     ! unpack the receive buffers on GPU
 #ifdef NOGPUDIRECT
-   !$acc update device(rcv_buff(:,:,:,:,1:irecv))
+   !$acc update device(rcv_buff_lb(:,:,:,:,1:irecv))
 #endif
-    !$acc update device(rcv_info(1:irecv))
+    !$acc update device(rcv_info_lb(1:irecv))
     !$acc parallel loop gang
     do ibuff = 1, irecv
-       recv_igrid = rcv_info(ibuff)
+       recv_igrid = rcv_info_lb(ibuff)
        !$acc loop collapse(4) vector
        do iw = 1, nw
           do ix3 = 1, block_nx3
              do ix2 = 1, block_nx2
                 do ix1 = 1, block_nx1
                    bg(1)%w(ixMlo1-1 + ix1, ixMlo2-1 + ix2, ixMlo3-1 + ix3, iw, recv_igrid) &
-                        = rcv_buff(ix1, ix2, ix3, iw, ibuff)
+                        = rcv_buff_lb(ix1, ix2, ix3, iw, ibuff)
                 end do
              end do
           end do
@@ -159,16 +159,16 @@ contains
            call mpistop('load_balance: max_buff too small in receive')
         end if
 #ifndef NOGPUDIRECT
-        !$acc host_data use_device(rcv_buff)
+        !$acc host_data use_device(rcv_buff_lb)
 #endif
-        call mpi_irecv_wrapper(rcv_buff(:,:,:,:,irecv), &
+        call mpi_irecv_wrapper(rcv_buff_lb(:,:,:,:,irecv), &
                         block_nx1*block_nx2*block_nx3*nw, MPI_DOUBLE_PRECISION, &
              send_ipe,itag, icomm, &
              recvrequest(irecv),ierrmpi)
 #ifndef NOGPUDIRECT
         !$acc end host_data
 #endif
-        rcv_info(irecv) = recv_igrid
+        rcv_info_lb(irecv) = recv_igrid
         if(stagger_grid) then
            itag=recv_igrid+max_blocks
            call mpi_irecv_wrapper(ps(recv_igrid)%ws,1,type_block_io_stg,send_ipe,itag,&
@@ -190,7 +190,7 @@ contains
            do ix3 = 1, block_nx3
               do ix2 = 1, block_nx2
                  do ix1 = 1, block_nx1
-                    snd_buff(ix1, ix2, ix3, iw, isend) = &
+                    snd_buff_lb(ix1, ix2, ix3, iw, isend) = &
                          bg(1)%w(ixMlo1-1+ix1, ixMlo2-1+ix2, ixMlo3-1+ix3, iw, send_igrid)
                  end do
               end do
@@ -198,11 +198,11 @@ contains
         end do
 
 #ifndef NOGPUDIRECT
-        !$acc host_data use_device(snd_buff)
+        !$acc host_data use_device(snd_buff_lb)
 #else
-        !$acc update host(snd_buff(:,:,:,:,isend))
+        !$acc update host(snd_buff_lb(:,:,:,:,isend))
 #endif
-        call mpi_isend_wrapper(snd_buff(:,:,:,:,isend), &
+        call mpi_isend_wrapper(snd_buff_lb(:,:,:,:,isend), &
                         block_nx1*block_nx2*block_nx3*nw, MPI_DOUBLE_PRECISION, &
              recv_ipe,itag, icomm, &
              sendrequest(isend),ierrmpi)
