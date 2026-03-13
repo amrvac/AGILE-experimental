@@ -1,11 +1,17 @@
 #:if PHYS == 'hd'
-  
+ 
+#:if defined('N_TRACER')
+#:set N_TRACER_ = N_TRACER
+#:else
+#:set N_TRACER_ = 0
+#:endif
+
 #:def phys_vars()
 
   integer, parameter :: dp = kind(0.0d0)
-  integer, parameter, public              :: nw_phys=2+ndim
-  integer, parameter, public              :: nw_flux=2+ndim
-  
+  integer, parameter, public              :: nw_phys=2+ndim+${N_TRACER_}$
+  integer, parameter, public              :: nw_flux=2+ndim+${N_TRACER_}$
+
   !> Whether an energy equation is used
   logical, public                         :: hd_energy = .true.
   !$acc declare copyin(hd_energy)
@@ -17,6 +23,12 @@
   !> Indices of the momentum density
   integer, allocatable, public            :: mom(:)
   !$acc declare create(mom)
+
+#:if defined('N_TRACER')
+  !> Indices of the tracers
+  integer, public                         :: tracer(${N_TRACER_}$)
+  !$acc declare create(tracer)
+#:endif
 
   !> Index of the energy density (-1 if not present)
   integer, public                         :: e_
@@ -37,6 +49,10 @@
   !> The helium abundance
   double precision, public                :: He_abundance=0.1d0
   !$acc declare copyin(He_abundance)
+
+  !> Number of tracer species
+  integer, public                         :: hd_n_tracer = 0
+  !$acc declare copyin(hd_n_tracer)
 
   !> Whether plasma is partially ionized
   logical, public                         :: hd_partial_ionization = .false.
@@ -64,7 +80,7 @@
     integer                      :: n
 
     namelist /hd_list/ hd_energy, hd_gamma, hd_adiab, hd_partial_ionization,&
-        hd_force_diagonal, hd_particles, hd_gravity, He_abundance
+        hd_force_diagonal, hd_particles, hd_gravity, hd_n_tracer, He_abundance
 
     do n = 1, size(files)
        open(unitpar, file=trim(files(n)), status="old")
@@ -75,7 +91,7 @@
 #ifdef _OPENACC
     !$acc update device(hd_energy, hd_gamma, hd_adiab, &
     !$acc&     hd_partial_ionization, hd_force_diagonal, hd_particles, &
-    !$acc&     hd_gravity, He_abundance)
+    !$acc&     hd_gravity, hd_n_tracer, He_abundance)
 #endif
 
   end subroutine read_params
@@ -217,6 +233,13 @@
        phys_req_diagonal = .true.
     endif
 
+#:if defined('N_TRACER')
+    #:for i in range(1, N_TRACER_+1)
+        tracer(${i}$) = var_set_fluxvar("trc", "trp", ${i}$, need_bc=.false.)
+    #:endfor
+    !$acc update device(tracer)
+#:endif
+
     ! set number of variables which need update ghostcells
     nwgc=nwflux
     !$acc update device(nwgc)
@@ -309,16 +332,12 @@ pure subroutine to_primitive(u)
   !$acc routine seq
   real(dp), intent(inout) :: u(nw_phys)
 
-  
-       u(iw_mom(1)) = u(iw_mom(1))/u(iw_rho)
-  
-  
-       u(iw_mom(2)) = u(iw_mom(2))/u(iw_rho)
-  
-  
-       u(iw_mom(3)) = u(iw_mom(3))/u(iw_rho)
-  
+  ! Compute velocity from momentum
+      u(iw_mom(1)) = u(iw_mom(1))/u(iw_rho)
+      u(iw_mom(2)) = u(iw_mom(2))/u(iw_rho)
+      u(iw_mom(3)) = u(iw_mom(3))/u(iw_rho)
 
+  ! Compute pressure from energy
   u(iw_e) = (hd_gamma-1.0_dp) * (u(iw_e) - 0.5_dp * u(iw_rho) * &
      sum(u(iw_mom(1:ndim))**2) )
 
@@ -338,15 +357,9 @@ pure subroutine to_conservative(u)
      sum(u(iw_mom(1:ndim))**2)
 
   ! Compute momentum from density and velocity components
-  
-       u(iw_mom(1)) = u(iw_rho) * u(iw_mom(1))
-  
-  
-       u(iw_mom(2)) = u(iw_rho) * u(iw_mom(2))
-  
-  
-       u(iw_mom(3)) = u(iw_rho) * u(iw_mom(3))
-  
+      u(iw_mom(1)) = u(iw_rho) * u(iw_mom(1))
+      u(iw_mom(2)) = u(iw_rho) * u(iw_mom(2))
+      u(iw_mom(3)) = u(iw_rho) * u(iw_mom(3))
 
 end subroutine to_conservative
 #:enddef
@@ -368,11 +381,7 @@ subroutine get_flux(u, xC, flux_dim, flux)
   ! Momentum flux with pressure term
   
        flux(iw_mom(1)) = u(iw_rho) * u(iw_mom(1)) * u(iw_mom(flux_dim))
-  
-  
        flux(iw_mom(2)) = u(iw_rho) * u(iw_mom(2)) * u(iw_mom(flux_dim))
-  
-  
        flux(iw_mom(3)) = u(iw_rho) * u(iw_mom(3)) * u(iw_mom(flux_dim))
   
   flux(iw_mom(flux_dim)) = flux(iw_mom(flux_dim)) + u(iw_e)
@@ -380,6 +389,13 @@ subroutine get_flux(u, xC, flux_dim, flux)
   ! Energy flux
   flux(iw_e) = u(iw_mom(flux_dim)) * (u(iw_e) * inv_gamma_m1 + 0.5_dp * &
      u(iw_rho) * sum(u(iw_mom(1:ndim))**2) + u(iw_e))
+
+  ! Tracer flux. Note that tracers stay conservative.
+#:if defined('N_TRACER')
+  #:for i in range(1, N_TRACER_+1)
+      flux(tracer(${i}$)) = u(tracer(${i}$)) * u(iw_mom(flux_dim))
+  #:endfor
+#:endif
 
 end subroutine get_flux
 #:enddef
