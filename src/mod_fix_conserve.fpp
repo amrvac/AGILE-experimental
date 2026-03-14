@@ -875,11 +875,13 @@ module mod_fix_conserve
      do iigrid=1,igridstail; igrid=igrids(iigrid);
        do iside=1,2
 
+#ifdef OPENACC_
          if (acc_is_present(pflux(iside,1,igrid)%flux, &
                   size(pflux(iside,1,igrid)%flux))) then
 !!         !$acc exit data detach(pflux(iside,1,igrid)%flux) !JESSE
          !$acc exit data delete(pflux(iside,1,igrid)%flux) !JESSE
          end if
+#endif
 
         ! if (acc_is_present(pflux(iside,1,igrid)%edge, &
         !          size(pflux(iside,1,igrid)%edge))) then
@@ -907,11 +909,13 @@ module mod_fix_conserve
         ! end if
        end do
        do iside=1,2
+#ifdef OPENACC_
          if (acc_is_present(pflux(iside,2,igrid)%flux, &
                   size(pflux(iside,2,igrid)%flux))) then
 !!         !$acc exit data detach(pflux(iside,1,igrid)%flux) !JESSE
          !$acc exit data delete(pflux(iside,1,igrid)%flux) !JESSE
          end if
+#endif
         ! if (acc_is_present(pflux(iside,2,igrid)%edge, &
         !          size(pflux(iside,2,igrid)%edge))) then
         ! !$acc exit data detach(pflux(iside,1,igrid)%edge) !JESSE
@@ -931,11 +935,13 @@ module mod_fix_conserve
         ! end if
        end do
        do iside=1,2
+#ifdef OPENACC_
          if (acc_is_present(pflux(iside,3,igrid)%flux, &
                   size(pflux(iside,2,igrid)%flux))) then
 !!         !$acc exit data detach(pflux(iside,1,igrid)%flux) !JESSE
          !$acc exit data delete(pflux(iside,1,igrid)%flux) !JESSE
          end if
+#endif
         ! if (acc_is_present(pflux(iside,3,igrid)%edge, &
         !          size(pflux(iside,2,igrid)%edge))) then
         ! !$acc exit data detach(pflux(iside,1,igrid)%edge) !JESSE

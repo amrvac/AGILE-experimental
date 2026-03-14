@@ -287,58 +287,58 @@ contains
         )
 
 
-!   !$acc update device(neighbor_type)
-   !!this should be done on the device ...
-!    !$acc parallel loop
-    do iigrid = 1, igridstail_active
-       n = igrids_active(iigrid)
-       !print *, "n: ",n, " Left: ",neighbor_type(-1,0,0,n)," Right: ",neighbor_type(1,0,0,n),&
-       !        " Back: ", neighbor_type(0,-1,0,n), " Front: ", neighbor_type(0,1,0,n),&
-       !        " Bottom: ",neighbor_type(0,0,-1,n), " Top: ",neighbor_type(0,0,1,n)
-       select case (neighbor_type(-1,0,0,n))
-       case (neighbor_coarse)
-           print *, "Coarser left neighbor" 
-       end select
-
-       select case (neighbor_type(1,0,0,n))
-       case (neighbor_coarse)
-           print *, "Coarser right neighbor"
-       end select
-
-       select case (neighbor_type(0,-1,0,n))
-       case (neighbor_coarse)
-           print *, "Coarser back neighbor"
-           !!do ix3=ixOmin3,ixOmax3 
-           !!   do ix2=ixOmin2,ixOmax2 
-           !!      do ix1=ixOmin1,ixOmax1 
-           !!          !TODO acc_is_present(pflux, pflux%flux)
-           !!          if (.not. acc_is_present(pflux)) then
-           !!              print *, "pflux not present"
-           !!          end if
-           !!          !this does not compile ...
-           !!          !if (.not. acc_is_present(pflux(1,2,n))) then
-           !!          !    print *, "pflux(1,2,n) not present"
-           !!          !end if
-           !!          if (.not. acc_is_present(pflux(1,2,n)%flux)) then
-           !!              !print *, "pflux(1,2,n)%flux not present &
-           !!              !         | ix1,ix2,ix3 =", ix1,ix2,ix3
-           !!              print *, "pflux(1,2,n)%flux not present &
-           !!                       | n =", n
-           !!          end if
-           !!          !!not correct usage below
-           !!          !!if (.not. acc_is_present(pflux(1,2,n)%flux(&
-           !!          !!     1+(ix1-nghostcells)/2,1,&
-           !!          !!     1+(ix3-nghostcells)/2,1:nw_flux))) then
-           !!          !!    print *, "pflux(1,2,n)%flux(...) not present | ",(ix1-nghostcells)/2,1,(ix3-nghostcells)/2
-           !!          !!end if
-
-           !!          !!print *, "Coarser back neighbor",ix1,ix2,ix3,(ix1-nghostcells)/2,1,(ix3-nghostcells)/2,&
-           !!          !! pflux(1,2,n)%flux((ix1-nghostcells)/2,1,(ix3-nghostcells)/2,1:nw_flux)
-           !!          
-           !!      end do
-           !!   end do
-           !!end do
-       end select
+!!   !$acc update device(neighbor_type)
+!   !!this should be done on the device ...
+!!    !$acc parallel loop
+!    do iigrid = 1, igridstail_active
+!       n = igrids_active(iigrid)
+!       !print *, "n: ",n, " Left: ",neighbor_type(-1,0,0,n)," Right: ",neighbor_type(1,0,0,n),&
+!       !        " Back: ", neighbor_type(0,-1,0,n), " Front: ", neighbor_type(0,1,0,n),&
+!       !        " Bottom: ",neighbor_type(0,0,-1,n), " Top: ",neighbor_type(0,0,1,n)
+!       select case (neighbor_type(-1,0,0,n))
+!       case (neighbor_coarse)
+!           print *, "Coarser left neighbor" 
+!       end select
+!
+!       select case (neighbor_type(1,0,0,n))
+!       case (neighbor_coarse)
+!           print *, "Coarser right neighbor"
+!       end select
+!
+!       select case (neighbor_type(0,-1,0,n))
+!       case (neighbor_coarse)
+!           print *, "Coarser back neighbor"
+!           !!do ix3=ixOmin3,ixOmax3 
+!           !!   do ix2=ixOmin2,ixOmax2 
+!           !!      do ix1=ixOmin1,ixOmax1 
+!           !!          !TODO acc_is_present(pflux, pflux%flux)
+!           !!          if (.not. acc_is_present(pflux)) then
+!           !!              print *, "pflux not present"
+!           !!          end if
+!           !!          !this does not compile ...
+!           !!          !if (.not. acc_is_present(pflux(1,2,n))) then
+!           !!          !    print *, "pflux(1,2,n) not present"
+!           !!          !end if
+!           !!          if (.not. acc_is_present(pflux(1,2,n)%flux)) then
+!           !!              !print *, "pflux(1,2,n)%flux not present &
+!           !!              !         | ix1,ix2,ix3 =", ix1,ix2,ix3
+!           !!              print *, "pflux(1,2,n)%flux not present &
+!           !!                       | n =", n
+!           !!          end if
+!           !!          !!not correct usage below
+!           !!          !!if (.not. acc_is_present(pflux(1,2,n)%flux(&
+!           !!          !!     1+(ix1-nghostcells)/2,1,&
+!           !!          !!     1+(ix3-nghostcells)/2,1:nw_flux))) then
+!           !!          !!    print *, "pflux(1,2,n)%flux(...) not present | ",(ix1-nghostcells)/2,1,(ix3-nghostcells)/2
+!           !!          !!end if
+!
+!           !!          !!print *, "Coarser back neighbor",ix1,ix2,ix3,(ix1-nghostcells)/2,1,(ix3-nghostcells)/2,&
+!           !!          !! pflux(1,2,n)%flux((ix1-nghostcells)/2,1,(ix3-nghostcells)/2,1:nw_flux)
+!           !!          
+!           !!      end do
+!           !!   end do
+!           !!end do
+!       end select
 
 !!       select case (neighbor_type(0,1,0,n))
 !!       case (neighbor_coarse)
@@ -399,10 +399,10 @@ contains
 !!      !       end do
 !!      !    end do
 !!      ! end do
-    end do
+!    end do
 
 
-       print *, "STEP 4: Starting with fix_conserve"
+!       print *, "STEP 4: Starting with fix_conserve"
 
 
 ! Step 4: this stuff      
