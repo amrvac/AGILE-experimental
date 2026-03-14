@@ -143,19 +143,24 @@ contains
 
                 select case (neighbor_type(-1,0,0,n))
                 case (neighbor_fine)
-                    if (ix1.eq.ixOmin1) pflux(1,1,n)%flux(1,ix2-nghostcells,ix3-nghostcells,1:nw_flux) = -f(:,1)
+                    if (ix1.eq.ixOmin1) pflux(1,1,n)%flux(1,ix2-nghostcells,ix3-nghostcells,1:nw_flux) &
+                            = - qdt * inv_dr(1) * f(:,1)
                 case (neighbor_coarse)
-                    if (ix1.eq.ixOmin1) pflux(1,1,n)%flux(1,(ix2-nghostcells+1)/2,(ix3-nghostcells+1)/2,1:nw_flux) = &
-                     pflux(1,1,n)%flux(1,(ix2-nghostcells+1)/2,(ix3-nghostcells+1)/2,1:nw_flux) + f(:,1)
+                    if (ix1.eq.ixOmin1) &
+                            pflux(1,1,n)%flux(1,(ix2-nghostcells+1)/2,(ix3-nghostcells+1)/2,1:nw_flux) = &
+                              pflux(1,1,n)%flux(1,(ix2-nghostcells+1)/2,(ix3-nghostcells+1)/2,1:nw_flux) &
+                              + qdt * inv_dr(1) * f(:,1)
                 end select
 
                 select case (neighbor_type(1,0,0,n))
                 case (neighbor_fine)
-                    !!if (ix1.eq.ixOmax1) pflux(2,1,n)%flux(ix1,ix2,ix3,1:nw_flux) =  f(:,2)
-                    if (ix1.eq.ixOmax1) pflux(2,1,n)%flux(1,ix2,ix3,1:nw_flux) =  f(:,2)
+                    if (ix1.eq.ixOmax1) pflux(2,1,n)%flux(1,ix2,ix3,1:nw_flux) =  &
+                            qdt * inv_dr(1) * f(:,2)
                 case (neighbor_coarse)
-                    if (ix1.eq.ixOmax1) pflux(2,1,n)%flux(1,(ix2-nghostcells+1)/2,(ix3-nghostcells+1)/2,1:nw_flux) = &
-                     pflux(2,1,n)%flux(1,(ix2-nghostcells+1)/2,(ix3-nghostcells+1)/2,1:nw_flux) - f(:,2)
+                    if (ix1.eq.ixOmax1) &
+                            pflux(2,1,n)%flux(1,(ix2-nghostcells+1)/2,(ix3-nghostcells+1)/2,1:nw_flux) = &
+                              pflux(2,1,n)%flux(1,(ix2-nghostcells+1)/2,(ix3-nghostcells+1)/2,1:nw_flux) &
+                              - qdt * inv_dr(1) * f(:,2)
                 end select
 
 
@@ -171,10 +176,13 @@ contains
                 !test
                 select case (neighbor_type(0,-1,0,n))
                 case (neighbor_fine)
-                    if (ix2.eq.ixOmin2) pflux(1,2,n)%flux(ix1-nghostcells,1,ix3-nghostcells,1:nw_flux) = -f(:,1)
+                    if (ix2.eq.ixOmin2) pflux(1,2,n)%flux(ix1-nghostcells,1,ix3-nghostcells,1:nw_flux) = &
+                            - qdt * inv_dr(2) * f(:,1)
                 case (neighbor_coarse)
-                    if (ix2.eq.ixOmin2) pflux(1,2,n)%flux((ix1-nghostcells+1)/2,1,(ix3-nghostcells+1)/2,1:nw_flux) = &
-                     pflux(1,2,n)%flux((ix1-nghostcells+1)/2,1,(ix3-nghostcells+1)/2,1:nw_flux) + f(:,1)
+                    if (ix2.eq.ixOmin2) &
+                            pflux(1,2,n)%flux((ix1-nghostcells+1)/2,1,(ix3-nghostcells+1)/2,1:nw_flux) = &
+                              pflux(1,2,n)%flux((ix1-nghostcells+1)/2,1,(ix3-nghostcells+1)/2,1:nw_flux) &
+                              + qdt * inv_dr(2) * f(:,1)
                 end select
 
                 !original
@@ -198,12 +206,14 @@ contains
                     !if (ix2.eq.ixOmax2) pflux(2,2,n)%flux(ix1,1,ix3,1:nw_flux) = f(:,2)
                     if (ix2.eq.ixOmax2 .and. ix1.ge.1 .and. ix1.le.nx1 &
                         .and. ix3.ge.1 .and. ix3.le.nx3) then
-                    pflux(2,2,n)%flux(ix1,1,ix3,1:nw_flux) = f(:,2)
+                    pflux(2,2,n)%flux(ix1,1,ix3,1:nw_flux) = qdt * inv_dr(2) * f(:,2)
                        !pflux(2,2,n)%flux(ix1,ix2,ix3,1:nw_flux) = f(:,2)
                     end if
                 case (neighbor_coarse)
-                    if (ix2.eq.ixOmax2) pflux(2,2,n)%flux((ix1-nghostcells+1)/2,1,(ix3-nghostcells+1)/2,1:nw_flux) = &
-                     pflux(2,2,n)%flux((ix1-nghostcells+1)/2,1,(ix3-nghostcells+1)/2,1:nw_flux) - f(:,2)
+                    if (ix2.eq.ixOmax2) &
+                            pflux(2,2,n)%flux((ix1-nghostcells+1)/2,1,(ix3-nghostcells+1)/2,1:nw_flux) = &
+                              pflux(2,2,n)%flux((ix1-nghostcells+1)/2,1,(ix3-nghostcells+1)/2,1:nw_flux) &
+                              - qdt * inv_dr(2) * f(:,2)
                 end select
 
                 
@@ -219,19 +229,24 @@ contains
                 
                 select case (neighbor_type(0,0,-1,n))
                 case (neighbor_fine)
-                    if (ix3.eq.ixOmin3) pflux(1,3,n)%flux(ix1-nghostcells,ix2-nghostcells,1,1:nw_flux) = -f(:,1)
+                    if (ix3.eq.ixOmin3) pflux(1,3,n)%flux(ix1-nghostcells,ix2-nghostcells,1,1:nw_flux) =&
+                            - qdt * inv_dr(3) * f(:,1)
                 case (neighbor_coarse)
-                    if (ix3.eq.ixOmin3) pflux(1,3,n)%flux((ix1-nghostcells+1)/2,(ix2-nghostcells+1)/2,1,1:nw_flux) = &
-                     pflux(1,3,n)%flux((ix1-nghostcells+1)/2,(ix2-nghostcells+1)/2,1,1:nw_flux) + f(:,1)
+                    if (ix3.eq.ixOmin3) &
+                            pflux(1,3,n)%flux((ix1-nghostcells+1)/2,(ix2-nghostcells+1)/2,1,1:nw_flux) = &
+                              pflux(1,3,n)%flux((ix1-nghostcells+1)/2,(ix2-nghostcells+1)/2,1,1:nw_flux) &
+                              + qdt * inv_dr(3) * f(:,1)
                 end select
 
                 select case (neighbor_type(0,0,1,n))
                 case (neighbor_fine)
-                    if (ix3.eq.ixOmax3) pflux(2,3,n)%flux(ix1,ix2,ix3,1:nw_flux) =  f(:,2)
-                    !!if (ix3.eq.ixOmax3) pflux(2,3,n)%flux(ix1,ix2,1,1:nw_flux) =  f(:,2)
+                    if (ix3.eq.ixOmax3) pflux(2,3,n)%flux(ix1,ix2,1,1:nw_flux) =&
+                            qdt * inv_dr(3) * f(:,2)
                 case (neighbor_coarse)
-                    if (ix3.eq.ixOmax3) pflux(2,3,n)%flux((ix1-nghostcells+1)/2,(ix2-nghostcells+1)/2,1,1:nw_flux) = &
-                     pflux(2,3,n)%flux((ix1-nghostcells+1)/2,(ix2-nghostcells+1)/2,1,1:nw_flux) - f(:,2)
+                    if (ix3.eq.ixOmax3) &
+                            pflux(2,3,n)%flux((ix1-nghostcells+1)/2,(ix2-nghostcells+1)/2,1,1:nw_flux) = &
+                              pflux(2,3,n)%flux((ix1-nghostcells+1)/2,(ix2-nghostcells+1)/2,1,1:nw_flux) &
+                              - qdt * inv_dr(3) * f(:,2)
                 end select
 
                 
