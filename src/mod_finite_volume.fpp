@@ -47,7 +47,7 @@ contains
     double precision, dimension(ixImin1:ixImax1,ixImin2:ixImax2,&
        ixImin3:ixImax3, sdim:3)            :: fE !not yet provided
     ! .. local ..
-    integer                :: n, iigrid, ix1,ix2,ix3, nx1,nx2,nx3
+    integer                :: n, iigrid, ix1,ix2,ix3, nx1,nx2,nx3, nxCo1,nxCo2,nxCo3
     double precision       :: uprim(nw_phys, ixImin1:ixImax1,ixImin2:ixImax2,&
        ixImin3:ixImax3)
     real(dp)               :: tmp(nw_phys,5)
@@ -58,15 +58,24 @@ contains
     real(dp)               :: xloc(ndim)
     real(dp)               :: xlocC(ndim,2)
     real(dp)               :: wprim(nw_phys), wCT(nw_phys), wnew(nw_phys)
+    real(dp)       :: fC1(2,ixImin2:ixOmax2,ixImin3:ixOmax3,1:nwflux)
+    real(dp)       :: fC2(2,ixImin1:ixOmax1,ixImin3:ixOmax3,1:nwflux)
+    real(dp)       :: fC3(2,ixImin1:ixOmax1,ixImin2:ixOmax2,1:nwflux)
     !-----------------------------------------------------------------------------
     
      
     nx1=ixMhi1-ixMlo1+1
     nx2=ixMhi2-ixMlo2+1
     nx3=ixMhi3-ixMlo3+1
-    !$acc ender data copyin(nx1,nx2,nx3)
 
-    !$acc parallel loop gang private(uprim, inv_dr, dr, n, ix1, ix2, ix3) default(present)
+    nxCo1=nx1/2
+    nxCo2=nx2/2
+    nxCo3=nx3/2
+
+
+    !$acc enter data copyin(nx1,nx2,nx3,nxCo1,nxCo2,nxCo3)
+
+    !$acc parallel loop gang private(uprim, inv_dr, dr, n, ix1, ix2, ix3, fC1, fC2, fC3) default(present)
     do iigrid = 1, igridstail_active
        n = igrids_active(iigrid)
 
@@ -85,44 +94,45 @@ contains
           end do
        end do
 
-       ! Initialize pflux at zero for coarse neighbour case
-       !$acc loop vector collapse(ndim)
-       do ix3=ixOmin3,ixOmax3 
-          do ix2=ixOmin2,ixOmax2 
-             do ix1=ixOmin1,ixOmax1 
-                select case (neighbor_type(-1,0,0,n))
-                case (neighbor_coarse)
-                    pflux(1,1,n)%flux(1,(ix2-nghostcells+1)/2,(ix3-nghostcells+1)/2,1:nw_flux) = 0.d0
-                end select
+      ! This is no longer necessary
+      ! ! Initialize pflux at zero for coarse neighbour case
+      ! !$acc loop vector collapse(ndim)
+      ! do ix3=ixOmin3,ixOmax3 
+      !    do ix2=ixOmin2,ixOmax2 
+      !       do ix1=ixOmin1,ixOmax1 
+      !          select case (neighbor_type(-1,0,0,n))
+      !          case (neighbor_coarse)
+      !              pflux(1,1,n)%flux(1,(ix2-nghostcells+1)/2,(ix3-nghostcells+1)/2,1:nw_flux) = 0.d0
+      !          end select
 
-                select case (neighbor_type(1,0,0,n))
-                case (neighbor_coarse)
-                    pflux(2,1,n)%flux(1,(ix2-nghostcells+1)/2,(ix3-nghostcells+1)/2,1:nw_flux) = 0.d0
-                end select
+      !          select case (neighbor_type(1,0,0,n))
+      !          case (neighbor_coarse)
+      !              pflux(2,1,n)%flux(1,(ix2-nghostcells+1)/2,(ix3-nghostcells+1)/2,1:nw_flux) = 0.d0
+      !          end select
 
-                 select case (neighbor_type(0,-1,0,n))
-                case (neighbor_coarse)
-                    pflux(1,2,n)%flux((ix1-nghostcells+1)/2,1,(ix3-nghostcells+1)/2,1:nw_flux) = 0.d0
-                end select
+      !           select case (neighbor_type(0,-1,0,n))
+      !          case (neighbor_coarse)
+      !              pflux(1,2,n)%flux((ix1-nghostcells+1)/2,1,(ix3-nghostcells+1)/2,1:nw_flux) = 0.d0
+      !          end select
 
-                select case (neighbor_type(0,1,0,n))
-                case (neighbor_coarse)
-                    pflux(2,2,n)%flux((ix1-nghostcells+1)/2,1,(ix3-nghostcells+1)/2,1:nw_flux) = 0.d0
-                end select
+      !          select case (neighbor_type(0,1,0,n))
+      !          case (neighbor_coarse)
+      !              pflux(2,2,n)%flux((ix1-nghostcells+1)/2,1,(ix3-nghostcells+1)/2,1:nw_flux) = 0.d0
+      !          end select
 
-                select case (neighbor_type(0,0,-1,n))
-                case (neighbor_coarse)
-                    pflux(1,3,n)%flux((ix1-nghostcells+1)/2,(ix2-nghostcells+1)/2,1,1:nw_flux) = 0.0d0
-                end select
+      !          select case (neighbor_type(0,0,-1,n))
+      !          case (neighbor_coarse)
+      !              pflux(1,3,n)%flux((ix1-nghostcells+1)/2,(ix2-nghostcells+1)/2,1,1:nw_flux) = 0.0d0
+      !          end select
 
-                select case (neighbor_type(0,0,1,n))
-                case (neighbor_coarse)
-                    pflux(2,3,n)%flux((ix1-nghostcells+1)/2,(ix2-nghostcells+1)/2,1,1:nw_flux) = 0.0d0
-                end select
-              
-             end do
-          end do
-       end do
+      !          select case (neighbor_type(0,0,1,n))
+      !          case (neighbor_coarse)
+      !              pflux(2,3,n)%flux((ix1-nghostcells+1)/2,(ix2-nghostcells+1)/2,1,1:nw_flux) = 0.0d0
+      !          end select
+      !        
+      !       end do
+      !    end do
+      ! end do
 
 
        !$acc loop vector collapse(ndim) private(f, wnew, tmp,xlocC,xloc#{if defined('SOURCE_LOCAL')}#, wCT, wprim #{endif}#)
@@ -147,9 +157,10 @@ contains
                             = - qdt * inv_dr(1) * f(:,1)
                 case (neighbor_coarse)
                     if (ix1.eq.ixOmin1) &
-                            pflux(1,1,n)%flux(1,(ix2-nghostcells+1)/2,(ix3-nghostcells+1)/2,1:nw_flux) = &
-                              pflux(1,1,n)%flux(1,(ix2-nghostcells+1)/2,(ix3-nghostcells+1)/2,1:nw_flux) &
-                              + qdt * inv_dr(1) * f(:,1)
+                            fC1(1,ix2,ix3,1:nw_flux) = qdt * inv_dr(1) * f(:,1)
+                           ! pflux(1,1,n)%flux(1,(ix2-nghostcells+1)/2,(ix3-nghostcells+1)/2,1:nw_flux) = &
+                           !   pflux(1,1,n)%flux(1,(ix2-nghostcells+1)/2,(ix3-nghostcells+1)/2,1:nw_flux) &
+                           !   + qdt * inv_dr(1) * f(:,1)
                 end select
 
                 select case (neighbor_type(1,0,0,n))
@@ -158,9 +169,10 @@ contains
                             qdt * inv_dr(1) * f(:,2)
                 case (neighbor_coarse)
                     if (ix1.eq.ixOmax1) &
-                            pflux(2,1,n)%flux(1,(ix2-nghostcells+1)/2,(ix3-nghostcells+1)/2,1:nw_flux) = &
-                              pflux(2,1,n)%flux(1,(ix2-nghostcells+1)/2,(ix3-nghostcells+1)/2,1:nw_flux) &
-                              - qdt * inv_dr(1) * f(:,2)
+                            fC1(2,ix2,ix3,1:nw_flux) = - qdt * inv_dr(1) * f(:,2)
+                           ! pflux(2,1,n)%flux(1,(ix2-nghostcells+1)/2,(ix3-nghostcells+1)/2,1:nw_flux) = &
+                           !   pflux(2,1,n)%flux(1,(ix2-nghostcells+1)/2,(ix3-nghostcells+1)/2,1:nw_flux) &
+                           !   - qdt * inv_dr(1) * f(:,2)
                 end select
 
 
@@ -180,9 +192,10 @@ contains
                             - qdt * inv_dr(2) * f(:,1)
                 case (neighbor_coarse)
                     if (ix2.eq.ixOmin2) &
-                            pflux(1,2,n)%flux((ix1-nghostcells+1)/2,1,(ix3-nghostcells+1)/2,1:nw_flux) = &
-                              pflux(1,2,n)%flux((ix1-nghostcells+1)/2,1,(ix3-nghostcells+1)/2,1:nw_flux) &
-                              + qdt * inv_dr(2) * f(:,1)
+                            fC2(1,ix1,ix3,1:nw_flux) = qdt * inv_dr(2) * f(:,1)
+                    !        pflux(1,2,n)%flux((ix1-nghostcells+1)/2,1,(ix3-nghostcells+1)/2,1:nw_flux) = &
+                    !          pflux(1,2,n)%flux((ix1-nghostcells+1)/2,1,(ix3-nghostcells+1)/2,1:nw_flux) &
+                    !          + qdt * inv_dr(2) * f(:,1)
                 end select
 
                 !original
@@ -216,9 +229,10 @@ contains
                    ! end if
                 case (neighbor_coarse)
                     if (ix2.eq.ixOmax2) &
-                            pflux(2,2,n)%flux((ix1-nghostcells+1)/2,1,(ix3-nghostcells+1)/2,1:nw_flux) = &
-                              pflux(2,2,n)%flux((ix1-nghostcells+1)/2,1,(ix3-nghostcells+1)/2,1:nw_flux) &
-                              - qdt * inv_dr(2) * f(:,2)
+                            fC2(2,ix1,ix3,1:nw_flux) = - qdt * inv_dr(2) * f(:,2)
+                    !        pflux(2,2,n)%flux((ix1-nghostcells+1)/2,1,(ix3-nghostcells+1)/2,1:nw_flux) = &
+                    !          pflux(2,2,n)%flux((ix1-nghostcells+1)/2,1,(ix3-nghostcells+1)/2,1:nw_flux) &
+                    !          - qdt * inv_dr(2) * f(:,2)
                 end select
 
                 
@@ -238,9 +252,10 @@ contains
                             - qdt * inv_dr(3) * f(:,1)
                 case (neighbor_coarse)
                     if (ix3.eq.ixOmin3) &
-                            pflux(1,3,n)%flux((ix1-nghostcells+1)/2,(ix2-nghostcells+1)/2,1,1:nw_flux) = &
-                              pflux(1,3,n)%flux((ix1-nghostcells+1)/2,(ix2-nghostcells+1)/2,1,1:nw_flux) &
-                              + qdt * inv_dr(3) * f(:,1)
+                            fC3(1,ix1,ix2,1:nw_flux) = qdt * inv_dr(3) * f(:,1)
+                           ! pflux(1,3,n)%flux((ix1-nghostcells+1)/2,(ix2-nghostcells+1)/2,1,1:nw_flux) = &
+                           !   pflux(1,3,n)%flux((ix1-nghostcells+1)/2,(ix2-nghostcells+1)/2,1,1:nw_flux) &
+                           !   + qdt * inv_dr(3) * f(:,1)
                 end select
 
                 select case (neighbor_type(0,0,1,n))
@@ -249,9 +264,10 @@ contains
                             qdt * inv_dr(3) * f(:,2)
                 case (neighbor_coarse)
                     if (ix3.eq.ixOmax3) &
-                            pflux(2,3,n)%flux((ix1-nghostcells+1)/2,(ix2-nghostcells+1)/2,1,1:nw_flux) = &
-                              pflux(2,3,n)%flux((ix1-nghostcells+1)/2,(ix2-nghostcells+1)/2,1,1:nw_flux) &
-                              - qdt * inv_dr(3) * f(:,2)
+                            fC3(2,ix1,ix2,1:nw_flux) = - qdt * inv_dr(3) * f(:,2)
+                           ! pflux(2,3,n)%flux((ix1-nghostcells+1)/2,(ix2-nghostcells+1)/2,1,1:nw_flux) = &
+                           !   pflux(2,3,n)%flux((ix1-nghostcells+1)/2,(ix2-nghostcells+1)/2,1,1:nw_flux) &
+                           !   - qdt * inv_dr(3) * f(:,2)
                 end select
 
                 
@@ -292,14 +308,100 @@ contains
              end do
           end do
        end do
+
+       ! Reduce fluxes for the coarse neighbor case
+       ! Direction 1
+       select case (neighbor_type(-1,0,0,n))
+           case (neighbor_coarse)
+               !$acc loop vector collapse(ndim-1) 
+               do ix3=1,nxCo3 
+                 do ix2=1,nxCo2 
+                   pflux(1,1,n)%flux(1,ix2,ix3,1:nw_flux) = &
+                     fC1(1,1+2*(ix2-1)+nghostcells,1+2*(ix3-1)+nghostcells,1:nw_flux) &
+                    +fC1(1,2+2*(ix2-1)+nghostcells,1+2*(ix3-1)+nghostcells,1:nw_flux) &
+                    +fC1(1,1+2*(ix2-1)+nghostcells,2+2*(ix3-1)+nghostcells,1:nw_flux) &
+                    +fC1(1,2+2*(ix2-1)+nghostcells,2+2*(ix3-1)+nghostcells,1:nw_flux) 
+                 end do
+               end do
+       end select
+
+       select case (neighbor_type(1,0,0,n))
+           case (neighbor_coarse)
+               !$acc loop vector collapse(ndim-1)
+               do ix3=1,nxCo3 
+                  do ix2=1,nxCo2 
+                   pflux(2,1,n)%flux(1,ix2,ix3,1:nw_flux) = &
+                     fC1(2,1+2*(ix2-1)+nghostcells,1+2*(ix3-1)+nghostcells,1:nw_flux) &
+                    +fC1(2,2+2*(ix2-1)+nghostcells,1+2*(ix3-1)+nghostcells,1:nw_flux) &
+                    +fC1(2,1+2*(ix2-1)+nghostcells,2+2*(ix3-1)+nghostcells,1:nw_flux) &
+                    +fC1(2,2+2*(ix2-1)+nghostcells,2+2*(ix3-1)+nghostcells,1:nw_flux) 
+                  end do
+               end do
+       end select
+
+       ! Direction 2
+       select case (neighbor_type(0,-1,0,n))
+           case (neighbor_coarse)
+               !$acc loop vector collapse(ndim-1) 
+               do ix3=1,nxCo3 
+                 do ix1=1,nxCo1 
+                   pflux(1,2,n)%flux(ix1,1,ix3,1:nw_flux) = &
+                     fC2(1,1+2*(ix1-1)+nghostcells,1+2*(ix3-1)+nghostcells,1:nw_flux) &
+                    +fC2(1,2+2*(ix1-1)+nghostcells,1+2*(ix3-1)+nghostcells,1:nw_flux) &
+                    +fC2(1,1+2*(ix1-1)+nghostcells,2+2*(ix3-1)+nghostcells,1:nw_flux) &
+                    +fC2(1,2+2*(ix1-1)+nghostcells,2+2*(ix3-1)+nghostcells,1:nw_flux) 
+                 end do
+               end do
+       end select
+
+       select case (neighbor_type(0,1,0,n))
+           case (neighbor_coarse)
+               !$acc loop vector collapse(ndim-1)
+               do ix3=1,nxCo3 
+                  do ix1=1,nxCo1 
+                   pflux(2,2,n)%flux(ix1,1,ix3,1:nw_flux) = &
+                     fC2(2,1+2*(ix1-1)+nghostcells,1+2*(ix3-1)+nghostcells,1:nw_flux) &
+                    +fC2(2,2+2*(ix1-1)+nghostcells,1+2*(ix3-1)+nghostcells,1:nw_flux) &
+                    +fC2(2,1+2*(ix1-1)+nghostcells,2+2*(ix3-1)+nghostcells,1:nw_flux) &
+                    +fC2(2,2+2*(ix1-1)+nghostcells,2+2*(ix3-1)+nghostcells,1:nw_flux) 
+                  end do
+               end do
+       end select
+       
+       ! Direction 3
+       select case (neighbor_type(0,0,-1,n))
+           case (neighbor_coarse)
+               !$acc loop vector collapse(ndim-1) 
+               do ix2=1,nxCo2 
+                 do ix1=1,nxCo1 
+                   pflux(1,3,n)%flux(ix1,ix2,1,1:nw_flux) = &
+                     fC3(1,1+2*(ix1-1)+nghostcells,1+2*(ix2-1)+nghostcells,1:nw_flux) &
+                    +fC3(1,2+2*(ix1-1)+nghostcells,1+2*(ix2-1)+nghostcells,1:nw_flux) &
+                    +fC3(1,1+2*(ix1-1)+nghostcells,2+2*(ix2-1)+nghostcells,1:nw_flux) &
+                    +fC3(1,2+2*(ix1-1)+nghostcells,2+2*(ix2-1)+nghostcells,1:nw_flux) 
+                 end do
+               end do
+       end select
+
+       select case (neighbor_type(0,0,1,n))
+           case (neighbor_coarse)
+               !$acc loop vector collapse(ndim-1)
+               do ix2=1,nxCo2 
+                  do ix1=1,nxCo1 
+                   pflux(2,3,n)%flux(ix1,ix2,1,1:nw_flux) = &
+                     fC3(2,1+2*(ix1-1)+nghostcells,1+2*(ix2-1)+nghostcells,1:nw_flux) &
+                    +fC3(2,2+2*(ix1-1)+nghostcells,1+2*(ix2-1)+nghostcells,1:nw_flux) &
+                    +fC3(2,1+2*(ix1-1)+nghostcells,2+2*(ix2-1)+nghostcells,1:nw_flux) &
+                    +fC3(2,2+2*(ix1-1)+nghostcells,2+2*(ix2-1)+nghostcells,1:nw_flux) 
+                  end do
+               end do
+       end select
+
     end do
     !$acc end parallel loop
     !$acc wait
 
-    ! Here we are outside OpenACC loop. Try to print pflux.
-    ! Need to transfer the data to the CPU to print.
-
-    !$acc update self(pflux)
+    !!$acc update self(pflux)
 
   end subroutine finite_volume_local
 
