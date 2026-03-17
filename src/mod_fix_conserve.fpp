@@ -1256,14 +1256,14 @@ module mod_fix_conserve
 
                if (ipe_neighbor==mype) then
                  iotherside=3-iside
+
                  if (slab_uniform) then
                    !$acc loop collapse(ndim-1) vector
                    do ix3=1,nxCo3 
                      do ix1=1,nxCo1 
                        psb(igrid)%w(ixmin1+ix1-1,ix,ixmin3+ix3-1,nw0:nw1) = &
                          psb(igrid)%w(ixmin1+ix1-1,ix,ixmin3+ix3-1,nw0:nw1) + &
-                         pflux(iotherside,2,ineighbor&
-                         )%flux(ix1,1,ix3,1:nwfluxin) * CoFiratio
+                         pflux(iotherside,2,ineighbor)%flux(ix1,1,ix3,1:nwfluxin) * CoFiratio
                      end do
                    end do
 

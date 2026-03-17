@@ -10,8 +10,8 @@
 !  itsave(1,2)      = 0
 !  itsave(1,3)      = 0
   ditsave_log      = 1
-  ditsave_dat      = 1
-!  dtsave_dat       = 1.0d0
+!  ditsave_dat      = 1
+  dtsave_dat       = 1.0d0
   dtsave_slice     = 0.1d0
   nslices          = 3
   slicedir(1)      = 3
@@ -23,7 +23,7 @@
  /
 
  &stoplist
-   it_max           = 2
+   ! it_max           = 2
    time_max         = 2.0d0
  /
 
