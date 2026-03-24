@@ -376,6 +376,7 @@ module mod_radiative_cooling
         fl%ncool=ncool
         fl%coolcurve=coolcurve
         fl%coolmethod=coolmethod
+        if (coolmethod /= 'exact') call mpistop("Unknown cooling method: "//trim(coolmethod))
         fl%tlow=tlow
         fl%Tfix=Tfix
         fl%cfrac=cfrac
@@ -395,12 +396,7 @@ module mod_radiative_cooling
       double precision, intent(inout) :: wnew(nw_phys)
       double precision, intent(in) :: x(1:ndim)
 
-      select case(rc_fl%coolmethod)
-      case ('exact')   
-        call cool_exact(qdt,wCT,wCTprim,wnew,x,rc_fl)
-      case default
-        call mpistop("This cooling method is unknown")
-      end select
+      call cool_exact(qdt,wCT,wCTprim,wnew,x,rc_fl)
       if( rc_fl%Tfix ) call floortemperature(qdt,wCT,wnew,x,rc_fl)
 
     end subroutine radiative_cooling_add_source
