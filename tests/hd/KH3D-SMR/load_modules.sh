@@ -11,5 +11,5 @@ module purge
 #module load nvhpc-mpi5/25.9
 #make arch=nvidia OPENACC=1
 
-#benchmark version
+##benchmark version
 module load 2023 OpenMPI/4.1.5-NVHPC-24.5-CUDA-12.1.1
