@@ -38,7 +38,7 @@ make -j16 arch=nvidia OPENACC=1 NOGPUDIRECT=1
 
 #export PGI_ACC_NOTIFY=16
 
-srun ./amrvac
+srun ./amrvac -i amrvac_smr.par
 
 #cuda-memcheck ./amrvac
 
