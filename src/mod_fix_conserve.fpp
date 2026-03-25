@@ -1,5 +1,11 @@
 !> Module for flux conservation near refinement boundaries
 module mod_fix_conserve
+#ifdef USE_MPIWRAPPERS
+  use mod_mpi_wrapper
+#else
+#define mpi_irecv_wrapper MPI_IRECV
+#define mpi_isend_wrapper MPI_ISEND
+#endif
   implicit none
   private
 
@@ -95,7 +101,7 @@ module mod_fix_conserve
            nxCo1=1;nxCo2=ixGhi2/2-nghostcells+1;nxCo3=ixGhi3/2-nghostcells+1;
            isize_stg(1)=nxCo1*nxCo2*nxCo3*(3-1)
            ! the whole size is used (cell centered and staggered)
-           isize(1)=isize(1)+isize_stg(1)      
+           isize(1)=isize(1)+isize_stg(1)
            recvsize=recvsize+nrecv_fc(1)*isize_stg(1)
            sendsize=sendsize+nsend_fc(1)*isize_stg(1)
            ! Coarse corner case
@@ -104,7 +110,7 @@ module mod_fix_conserve
            recvsize_cc=recvsize_cc+nrecv_cc(1)*isize_stg(1)
            sendsize_cc=sendsize_cc+nsend_cc(1)*isize_stg(1)
          end if
-         
+
          case (2)
          nrecv=nrecv+nrecv_fc(2)
          nsend=nsend+nsend_fc(2)
@@ -117,7 +123,7 @@ module mod_fix_conserve
            nxCo1=ixGhi1/2-nghostcells+1;nxCo2=1;nxCo3=ixGhi3/2-nghostcells+1;
            isize_stg(2)=nxCo1*nxCo2*nxCo3*(3-1)
            ! the whole size is used (cell centered and staggered)
-           isize(2)=isize(2)+isize_stg(2)      
+           isize(2)=isize(2)+isize_stg(2)
            recvsize=recvsize+nrecv_fc(2)*isize_stg(2)
            sendsize=sendsize+nsend_fc(2)*isize_stg(2)
            ! Coarse corner case
@@ -126,7 +132,7 @@ module mod_fix_conserve
            recvsize_cc=recvsize_cc+nrecv_cc(2)*isize_stg(2)
            sendsize_cc=sendsize_cc+nsend_cc(2)*isize_stg(2)
          end if
-         
+
          case (3)
          nrecv=nrecv+nrecv_fc(3)
          nsend=nsend+nsend_fc(3)
@@ -139,7 +145,7 @@ module mod_fix_conserve
            nxCo1=ixGhi1/2-nghostcells+1;nxCo2=ixGhi2/2-nghostcells+1;nxCo3=1;
            isize_stg(3)=nxCo1*nxCo2*nxCo3*(3-1)
            ! the whole size is used (cell centered and staggered)
-           isize(3)=isize(3)+isize_stg(3)      
+           isize(3)=isize(3)+isize_stg(3)
            recvsize=recvsize+nrecv_fc(3)*isize_stg(3)
            sendsize=sendsize+nsend_fc(3)*isize_stg(3)
            ! Coarse corner case
@@ -148,7 +154,7 @@ module mod_fix_conserve
            recvsize_cc=recvsize_cc+nrecv_cc(3)*isize_stg(3)
            sendsize_cc=sendsize_cc+nsend_cc(3)*isize_stg(3)
          end if
-         
+
        end select
      end do
 
@@ -265,7 +271,7 @@ module mod_fix_conserve
                if (ipe_neighbor/=mype) then
                  irecv=irecv+1
                  itag=4**3*(igrid-1)+inc1*4**(1-1)+inc2*4**(2-1)+inc3*4**(3-1)
-                 call MPI_IRECV(recvbuffer(ibuf),isize(idims),&
+                 call mpi_irecv_wrapper(recvbuffer(ibuf),isize(idims),&
                      MPI_DOUBLE_PRECISION,ipe_neighbor,itag, icomm,&
                     fc_recvreq(irecv),ierrmpi)
                  ibuf=ibuf+isize(idims)
@@ -322,7 +328,7 @@ module mod_fix_conserve
                          irecv_cc=irecv_cc+1
                          itag_cc=4**3*(igrid-1)+inc1*4**(1-1)+inc2*4**(2-1)+&
                             inc3*4**(3-1)
-                         call MPI_IRECV(recvbuffer_cc(ibuf_cc),&
+                         call mpi_irecv_wrapper(recvbuffer_cc(ibuf_cc),&
                             isize_stg(idims),MPI_DOUBLE_PRECISION,ipe_neighbor,&
                             itag_cc,icomm,cc_recvreq(irecv_cc),ierrmpi)
                          ibuf_cc=ibuf_cc+isize_stg(idims)
@@ -347,7 +353,7 @@ module mod_fix_conserve
                          irecv_cc=irecv_cc+1
                          itag_cc=4**3*(igrid-1)+inc1*4**(1-1)+inc2*4**(2-1)+&
                             inc3*4**(3-1)
-                         call MPI_IRECV(recvbuffer_cc(ibuf_cc),&
+                         call mpi_irecv_wrapper(recvbuffer_cc(ibuf_cc),&
                             isize_stg(idims),MPI_DOUBLE_PRECISION,ipe_neighbor,&
                             itag_cc,icomm,cc_recvreq(irecv_cc),ierrmpi)
                          ibuf_cc=ibuf_cc+isize_stg(idims)
@@ -1024,7 +1030,7 @@ module mod_fix_conserve
 
              if (neighbor_type(i1,i2,i3,igrid)/=4) cycle
 
- !opedit: skip over active/passive interface since flux for passive ones is 
+ !opedit: skip over active/passive interface since flux for passive ones is
              ! not computed, keep the buffer counter up to date:
             ! if (.not.neighbor_active(i1,i2,i3,&
             !    igrid).or..not.neighbor_active(0,0,0,igrid) ) then
@@ -1179,7 +1185,7 @@ module mod_fix_conserve
 
              if (neighbor_type(i1,i2,i3,igrid)/=4) cycle
 
- !opedit: skip over active/passive interface since flux for passive ones is 
+ !opedit: skip over active/passive interface since flux for passive ones is
              ! not computed, keep the buffer counter up to date:
             ! if (.not.neighbor_active(i1,i2,i3,&
             !    igrid).or..not.neighbor_active(0,0,0,igrid) ) then
@@ -1327,7 +1333,7 @@ module mod_fix_conserve
 
              if (neighbor_type(i1,i2,i3,igrid)/=4) cycle
 
- !opedit: skip over active/passive interface since flux for passive ones is 
+ !opedit: skip over active/passive interface since flux for passive ones is
              ! not computed, keep the buffer counter up to date:
             ! if (.not.neighbor_active(i1,i2,i3,&
             !    igrid).or..not.neighbor_active(0,0,0,igrid) ) then
@@ -1633,12 +1639,12 @@ module mod_fix_conserve
    subroutine store_edge(igrid,ixImin1,ixImin2,ixImin3,ixImax1,ixImax2,ixImax3,&
       fE,idimmin,idimmax)
      use mod_global_parameters
-     
+
      integer, intent(in)          :: igrid, ixImin1,ixImin2,ixImin3,ixImax1,&
         ixImax2,ixImax3, idimmin,idimmax
      double precision, intent(in) :: fE(ixImin1:ixImax1,ixImin2:ixImax2,&
         ixImin3:ixImax3,sdim:3)
-     
+
      integer :: idims, idir, iside, i1,i2,i3
      integer :: pi1,pi2,pi3, mi1,mi2,mi3, ph1,ph2,ph3, mh1,mh2,mh3 !To detect corners
      integer :: ixMcmin1,ixMcmin2,ixMcmin3,ixMcmax1,ixMcmax2,ixMcmax3
@@ -2099,7 +2105,7 @@ module mod_fix_conserve
       ixfEmax2,ixfEmax3,igrid,idims,iside,add,CoCorner,inc1,inc2,inc3,pcorner,&
       mcorner)
      use mod_global_parameters
-     
+
      integer,intent(in)    :: igrid,idims,iside,inc1,inc2,inc3
      logical,intent(in)    :: add,CoCorner
      logical,intent(inout) :: pcorner(1:ndim),mcorner(1:ndim)

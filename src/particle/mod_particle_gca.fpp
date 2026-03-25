@@ -999,9 +999,9 @@ contains
   function gca_get_particle_dt(partp, end_time) result(dt_p)
     use mod_odeint
     use mod_global_parameters
-    type(particle_ptr), intent(in) :: partp
-    double precision, intent(in)   :: end_time
-    double precision               :: dt_p
+    type(particle_ptr), intent(inout) :: partp
+    double precision, intent(in)      :: end_time
+    double precision                  :: dt_p
 
     double precision            :: tout, dt_particles_mype, dt_cfl0, dt_cfl1,&
         dt_a

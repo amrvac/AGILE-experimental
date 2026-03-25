@@ -21,6 +21,12 @@
 
 module m_octree_mg_2d
   use mpi
+#ifdef USE_MPIWRAPPERS
+  use mod_mpi_wrapper
+#else
+#define mpi_irecv_wrapper MPI_IRECV
+#define mpi_isend_wrapper MPI_ISEND
+#endif
   implicit none
   private
 
@@ -2023,12 +2029,12 @@ contains
        if (mg%buf(i)%i_send > 0) then
           n_send = n_send + 1
           call sort_sendbuf(mg%buf(i), dsize)
-          call mpi_isend(mg%buf(i)%send, mg%buf(i)%i_send, MPI_DOUBLE, i, 0,&
+          call mpi_isend_wrapper(mg%buf(i)%send, mg%buf(i)%i_send, MPI_DOUBLE, i, 0,&
               mg%comm, send_req(n_send), ierr)
        end if
        if (mg%buf(i)%i_recv > 0) then
           n_recv = n_recv + 1
-          call mpi_irecv(mg%buf(i)%recv, mg%buf(i)%i_recv, MPI_DOUBLE, i, 0,&
+          call mpi_irecv_wrapper(mg%buf(i)%recv, mg%buf(i)%i_recv, MPI_DOUBLE, i, 0,&
               mg%comm, recv_req(n_recv), ierr)
        end if
     end do

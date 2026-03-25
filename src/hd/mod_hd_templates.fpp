@@ -1,11 +1,17 @@
 #:if PHYS == 'hd'
-  
+ 
+#:if defined('N_TRACER')
+#:set N_TRACER_ = N_TRACER
+#:else
+#:set N_TRACER_ = 0
+#:endif
+
 #:def phys_vars()
 
   integer, parameter :: dp = kind(0.0d0)
-  integer, parameter, public              :: nw_phys=2+ndim
-  integer, parameter, public              :: nw_flux=2+ndim
-  
+  integer, parameter, public              :: nw_phys=2+ndim+${N_TRACER_}$
+  integer, parameter, public              :: nw_flux=2+ndim+${N_TRACER_}$
+
   !> Whether an energy equation is used
   logical, public                         :: hd_energy = .true.
   !$acc declare copyin(hd_energy)
@@ -17,6 +23,12 @@
   !> Indices of the momentum density
   integer, allocatable, public            :: mom(:)
   !$acc declare create(mom)
+
+#:if defined('N_TRACER')
+  !> Indices of the tracers
+  integer, public                         :: tracer(${N_TRACER_}$)
+  !$acc declare create(tracer)
+#:endif
 
   !> Index of the energy density (-1 if not present)
   integer, public                         :: e_
@@ -37,6 +49,10 @@
   !> The helium abundance
   double precision, public                :: He_abundance=0.1d0
   !$acc declare copyin(He_abundance)
+
+  !> Number of tracer species
+  integer, public                         :: hd_n_tracer = 0
+  !$acc declare copyin(hd_n_tracer)
 
   !> Whether plasma is partially ionized
   logical, public                         :: hd_partial_ionization = .false.
@@ -64,7 +80,7 @@
     integer                      :: n
 
     namelist /hd_list/ hd_energy, hd_gamma, hd_adiab, hd_partial_ionization,&
-        hd_force_diagonal, hd_particles, hd_gravity
+        hd_force_diagonal, hd_particles, hd_gravity, hd_n_tracer, He_abundance
 
     do n = 1, size(files)
        open(unitpar, file=trim(files(n)), status="old")
@@ -73,7 +89,9 @@
     end do
 
 #ifdef _OPENACC
- !$acc update device(hd_energy, hd_gamma, hd_adiab, hd_partial_ionization, hd_force_diagonal, hd_particles, hd_gravity)
+    !$acc update device(hd_energy, hd_gamma, hd_adiab, &
+    !$acc&     hd_partial_ionization, hd_force_diagonal, hd_particles, &
+    !$acc&     hd_gravity, hd_n_tracer, He_abundance)
 #endif
 
   end subroutine read_params
@@ -176,8 +194,8 @@
     use mod_radiative_cooling, only: rc_fl, radiative_cooling_init_params, radiative_cooling_init
     #:endif
 
-    call phys_units()
     call read_params(par_files)
+    call phys_units()
 
     phys_energy  = hd_energy
     phys_total_energy  = hd_energy
@@ -214,6 +232,13 @@
        !  --> only for debug purposes
        phys_req_diagonal = .true.
     endif
+
+#:if defined('N_TRACER')
+    #:for i in range(1, N_TRACER_+1)
+        tracer(${i}$) = var_set_fluxvar("trc", "trp", ${i}$, need_bc=.false.)
+    #:endfor
+    !$acc update device(tracer)
+#:endif
 
     ! set number of variables which need update ghostcells
     nwgc=nwflux
@@ -307,16 +332,12 @@ pure subroutine to_primitive(u)
   !$acc routine seq
   real(dp), intent(inout) :: u(nw_phys)
 
-  
-       u(iw_mom(1)) = u(iw_mom(1))/u(iw_rho)
-  
-  
-       u(iw_mom(2)) = u(iw_mom(2))/u(iw_rho)
-  
-  
-       u(iw_mom(3)) = u(iw_mom(3))/u(iw_rho)
-  
+  ! Compute velocity from momentum
+      u(iw_mom(1)) = u(iw_mom(1))/u(iw_rho)
+      u(iw_mom(2)) = u(iw_mom(2))/u(iw_rho)
+      u(iw_mom(3)) = u(iw_mom(3))/u(iw_rho)
 
+  ! Compute pressure from energy
   u(iw_e) = (hd_gamma-1.0_dp) * (u(iw_e) - 0.5_dp * u(iw_rho) * &
      sum(u(iw_mom(1:ndim))**2) )
 
@@ -336,15 +357,9 @@ pure subroutine to_conservative(u)
      sum(u(iw_mom(1:ndim))**2)
 
   ! Compute momentum from density and velocity components
-  
-       u(iw_mom(1)) = u(iw_rho) * u(iw_mom(1))
-  
-  
-       u(iw_mom(2)) = u(iw_rho) * u(iw_mom(2))
-  
-  
-       u(iw_mom(3)) = u(iw_rho) * u(iw_mom(3))
-  
+      u(iw_mom(1)) = u(iw_rho) * u(iw_mom(1))
+      u(iw_mom(2)) = u(iw_rho) * u(iw_mom(2))
+      u(iw_mom(3)) = u(iw_rho) * u(iw_mom(3))
 
 end subroutine to_conservative
 #:enddef
@@ -366,11 +381,7 @@ subroutine get_flux(u, xC, flux_dim, flux)
   ! Momentum flux with pressure term
   
        flux(iw_mom(1)) = u(iw_rho) * u(iw_mom(1)) * u(iw_mom(flux_dim))
-  
-  
        flux(iw_mom(2)) = u(iw_rho) * u(iw_mom(2)) * u(iw_mom(flux_dim))
-  
-  
        flux(iw_mom(3)) = u(iw_rho) * u(iw_mom(3)) * u(iw_mom(flux_dim))
   
   flux(iw_mom(flux_dim)) = flux(iw_mom(flux_dim)) + u(iw_e)
@@ -378,6 +389,13 @@ subroutine get_flux(u, xC, flux_dim, flux)
   ! Energy flux
   flux(iw_e) = u(iw_mom(flux_dim)) * (u(iw_e) * inv_gamma_m1 + 0.5_dp * &
      u(iw_rho) * sum(u(iw_mom(1:ndim))**2) + u(iw_e))
+
+  ! Tracer flux. Note that tracers stay conservative.
+#:if defined('N_TRACER')
+  #:for i in range(1, N_TRACER_+1)
+      flux(tracer(${i}$)) = u(tracer(${i}$)) * u(iw_mom(flux_dim))
+  #:endfor
+#:endif
 
 end subroutine get_flux
 #:enddef
@@ -393,6 +411,82 @@ pure real(dp) function get_cmax(u, x, flux_dim) result(wC)
 
 end function get_cmax
 #:enddef  
+
+
+#:def estimate_speeds_minmax()
+!> Wave speed estimates: min/max acoustic bounds (Davis 1988) 
+!> Reference: Toro 2010, Chapter 10.
+subroutine estimate_speeds_minmax(uL, uR, xC, flux_dim, wL, wR)
+  !$acc routine seq
+  real(dp), intent(in)  :: uL(nw_phys), uR(nw_phys)
+  real(dp), intent(in)  :: xC(ndim)
+  integer, intent(in)   :: flux_dim
+  real(dp), intent(out) :: wL, wR
+
+  real(dp)              :: cL, cR
+
+  cL = sqrt(hd_gamma * uL(iw_e) / uL(iw_rho))
+  cR = sqrt(hd_gamma * uR(iw_e) / uR(iw_rho))
+
+  wL = min(uL(iw_mom(flux_dim)) - cL, uR(iw_mom(flux_dim)) - cR)
+  wR = max(uL(iw_mom(flux_dim)) + cL, uR(iw_mom(flux_dim)) + cR)
+
+end subroutine estimate_speeds_minmax
+#:enddef
+
+
+#:def estimate_speeds_toro_pvrs()
+!> Wave speed estimates for HLL/HLLC using Toro (2010) PVRS pressure estimate
+!> Implements Eq. (10.67)-(10.69)
+subroutine estimate_speeds_toro_pvrs(uL, uR, xC, flux_dim, sL, sR)
+  !$acc routine seq
+  real(dp), intent(in)  :: uL(nw_phys), uR(nw_phys)
+  real(dp), intent(in)  :: xC(ndim)
+  integer,  intent(in)  :: flux_dim
+  real(dp), intent(out) :: sL, sR
+
+  real(dp) :: rhoL, rhoR, pL, pR, unL, unR
+  real(dp) :: aL, aR, abar, rhobar
+  real(dp) :: ppvrs, pstar
+  real(dp) :: qL, qR, pratio
+  real(dp), parameter :: tiny = 1e-30_dp
+
+  rhoL = uL(iw_rho);  rhoR = uR(iw_rho)
+  pL   = uL(iw_e);    pR   = uR(iw_e)
+  unL  = uL(iw_mom(flux_dim))
+  unR  = uR(iw_mom(flux_dim))
+
+  ! sound speeds
+  aL = sqrt(hd_gamma * pL / max(rhoL, tiny))
+  aR = sqrt(hd_gamma * pR / max(rhoR, tiny))
+
+  ! PVRS pressure estimate (Eq. 10.67)
+  rhobar = 0.5_dp*(rhoL + rhoR)
+  abar   = 0.5_dp*(aL + aR)
+  ppvrs  = 0.5_dp*(pL + pR) - 0.5_dp*(unR - unL)*rhobar*abar
+  pstar  = max(0._dp, ppvrs)
+
+  ! (Eq. 10.69)
+  if (pstar <= pL) then
+    qL = 1._dp
+  else
+    pratio = pstar / max(pL, tiny)
+    qL = sqrt(1._dp + 0.5_dp*(hd_gamma + 1._dp)/hd_gamma * (pratio - 1._dp))
+  end if
+
+  if (pstar <= pR) then
+    qR = 1._dp
+  else
+    pratio = pstar / max(pR, tiny)
+    qR = sqrt(1._dp + 0.5_dp*(hd_gamma + 1._dp)/hd_gamma * (pratio - 1._dp))
+  end if
+
+  sL = unL - aL*qL
+  sR = unR + aR*qR
+end subroutine estimate_speeds_toro_pvrs
+#:enddef
+
+
 
 #:def get_rho()
   pure real(dp) function get_rho(w, x) result(rho)

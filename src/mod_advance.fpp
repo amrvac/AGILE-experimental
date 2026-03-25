@@ -275,7 +275,7 @@ contains
     ixOmin1=ixGlo1+nghostcells;ixOmin2=ixGlo2+nghostcells
     ixOmin3=ixGlo3+nghostcells;ixOmax1=ixGhi1-nghostcells
     ixOmax2=ixGhi2-nghostcells;ixOmax3=ixGhi3-nghostcells;
-    call finite_volume_local( fs_hll, &          ! fs_hll
+    call finite_volume_local( &
         qdt, dtfactor, & !some scalars related to time stepping
         ixGlo1,ixGlo2,ixGlo3,ixGhi1,ixGhi2,ixGhi3,ixOmin1,ixOmin2,ixOmin3,&
            ixOmax1,ixOmax2,ixOmax3, idimmin,idimmax, & !bounds for some arrays

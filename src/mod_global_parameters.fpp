@@ -597,17 +597,7 @@ module mod_global_parameters
   !> flux schemes
   integer, parameter :: fs_hll=1
   integer, parameter :: fs_hllc=2
-  integer, parameter :: fs_hlld=3
-  integer, parameter :: fs_hllcd=4
   integer, parameter :: fs_tvdlf=5
-  integer, parameter :: fs_tvdmu=6
-  integer, parameter :: fs_tvd=7
-  integer, parameter :: fs_hancock=8
-  integer, parameter :: fs_cd=9
-  integer, parameter :: fs_cd4=10
-  integer, parameter :: fs_fd=11
-  integer, parameter :: fs_source=12
-  integer, parameter :: fs_nul=13
 
   !> time stepper type
   integer :: t_stepper=0

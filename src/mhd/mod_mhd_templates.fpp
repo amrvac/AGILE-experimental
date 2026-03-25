@@ -1,10 +1,16 @@
 #:if PHYS == 'mhd'
-  
+
+#:if defined('N_TRACER')
+#:set N_TRACER_ = N_TRACER
+#:else
+#:set N_TRACER_ = 0
+#:endif
+
 #:def phys_vars()
 
   integer, parameter :: dp = kind(0.0d0)
-  integer, parameter, public              :: nw_phys=2+2*ndim+1
-  integer, parameter, public              :: nw_flux=2+2*ndim+1
+  integer, parameter, public              :: nw_phys=2+2*ndim+1+${N_TRACER_}$
+  integer, parameter, public              :: nw_flux=2+2*ndim+1+${N_TRACER_}$
   
   !> Whether an energy equation is used
   logical, public                         :: mhd_energy = .true.
@@ -17,6 +23,12 @@
   !> Indices of the momentum density
   integer, allocatable, public            :: mom(:)
   !$acc declare create(mom)
+
+#:if defined('N_TRACER')
+  !> Indices of the tracers
+  integer, public                         :: tracer(${N_TRACER_}$)
+  !$acc declare create(tracer)
+#:endif
 
   !> Index of the energy density (-1 if not present)
   integer, public                         :: e_
@@ -33,6 +45,10 @@
   !> Indices of the GLM psi
   integer, public :: psi_
   !$acc declare create(psi_)
+
+  !> Number of tracer species
+  integer, public                         :: mhd_n_tracer = 0
+  !$acc declare copyin(mhd_n_tracer)
 
   !> The adiabatic index
   double precision, public                :: mhd_gamma = 5.d0/3.0d0
@@ -89,13 +105,20 @@
     character(len=*), intent(in) :: files(:)
     integer                      :: n
 
-    namelist /mhd_list/ mhd_gamma, mhd_glm_alpha, mhd_gravity
+    namelist /mhd_list/ mhd_energy, mhd_gamma, mhd_glm_alpha, mhd_gravity,&
+      mhd_n_tracer, He_abundance
 
     do n = 1, size(files)
        open(unitpar, file=trim(files(n)), status="old")
        read(unitpar, mhd_list, end=111)
 111    close(unitpar)
     end do
+
+#ifdef _OPENACC
+    !$acc update device(mhd_energy, &
+    !$acc&     mhd_gamma, mhd_glm_alpha, &
+    !$acc&     mhd_gravity, mhd_n_tracer, He_abundance)
+#endif
 
   end subroutine read_params
 #:enddef
@@ -322,8 +345,8 @@
     use mod_global_parameters
 !    use mod_particles, only: particles_init
 
-    call phys_units()
     call read_params(par_files)
+    call phys_units()
 
     phys_energy  = mhd_energy
     phys_total_energy  = mhd_energy
@@ -363,6 +386,14 @@
 
     ! Whether diagonal ghost cells are required for the physics
     phys_req_diagonal = .true.
+
+    ! Register tracer fields
+#:if defined('N_TRACER')
+    #:for i in range(1, N_TRACER_+1)
+        tracer(${i}$) = var_set_fluxvar("trc", "trp", ${i}$, need_bc=.false.)
+    #:endfor
+    !$acc update device(tracer)
+#:endif
 
     ! set number of variables which need update ghostcells
     nwgc=nwflux
@@ -494,6 +525,7 @@ end subroutine addsource_nonlocal
 
     ! Density flux
     flux(iw_rho)=u(iw_rho)*u(iw_mom(flux_dim))
+
     ! Momentum flux with pressure term
     flux(iw_mom(1))=u(iw_rho)*u(iw_mom(1))*u(iw_mom(flux_dim))-&
       u(iw_mag(flux_dim))*u(iw_mag(1))
@@ -503,19 +535,29 @@ end subroutine addsource_nonlocal
       u(iw_mag(flux_dim))*u(iw_mag(3))
     ptotal=u(iw_e)+0.5_dp*(u(iw_mag(1))**2+u(iw_mag(2))**2+u(iw_mag(3))**2)
     flux(iw_mom(flux_dim))=flux(iw_mom(flux_dim))+ptotal
+
     ! Energy flux
     flux(iw_e)=u(iw_mom(flux_dim))*(u(iw_e)/mhd_gamma_m1+0.5_dp*&
       u(iw_rho)*(u(iw_mom(1))**2+u(iw_mom(2))**2+u(iw_mom(3))**2)+&
       2.0_dp*ptotal-u(iw_e))-u(iw_mag(flux_dim))*&
       (u(iw_mag(1))*u(iw_mom(1))+u(iw_mag(2))*u(iw_mom(2))+u(iw_mag(3))*u(iw_mom(3)))
+
     ! Magnetic flux
     flux(iw_mag(1))=u(iw_mom(flux_dim))*u(iw_mag(1))-u(iw_mag(flux_dim))*u(iw_mom(1))
     flux(iw_mag(2))=u(iw_mom(flux_dim))*u(iw_mag(2))-u(iw_mag(flux_dim))*u(iw_mom(2))
     flux(iw_mag(3))=u(iw_mom(flux_dim))*u(iw_mag(3))-u(iw_mag(flux_dim))*u(iw_mom(3))
+
     ! GLM psi flux
     flux(iw_mag(flux_dim))=u(psi_)
       !f_i[psi]=Ch^2*b_{i} Eq. 24e and Eq. 38c Dedner et al 2002 JCP, 175, 645
     flux(psi_)=cmax_global**2*u(iw_mag(flux_dim))
+
+    ! Tracer flux. Note that tracers stay conservative.
+#:if defined('N_TRACER')
+  #:for i in range(1, N_TRACER_+1)
+      flux(tracer(${i}$)) = u(tracer(${i}$)) * u(iw_mom(flux_dim))
+  #:endfor
+#:endif
 
   end subroutine get_flux
 #:enddef

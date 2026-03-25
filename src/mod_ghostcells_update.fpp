@@ -1,6 +1,11 @@
 !> update ghost cells of all blocks including physical boundaries
 module mod_ghostcells_update
-
+#ifdef USE_MPIWRAPPERS
+  use mod_mpi_wrapper
+#else
+#define mpi_irecv_wrapper MPI_IRECV
+#define mpi_isend_wrapper MPI_ISEND
+#endif
   implicit none
   ! Special buffer for pole copy
   type wbuffer
@@ -1206,10 +1211,10 @@ contains
       !$acc host_data use_device(nbprocs_info%srl_rcv(inb)%buffer, nbprocs_info%srl_info_rcv(inb)%buffer)
 #endif
 #endif
-       call MPI_IRECV(nbprocs_info%srl_rcv(inb)%buffer, &
+       call mpi_irecv_wrapper(nbprocs_info%srl_rcv(inb)%buffer, &
             nbprocs_info%srl_rcv(inb)%size, &
             MPI_DOUBLE_PRECISION, nbprocs_info%nbprocs_srl_list(inb), 1, icomm, recv_srl_nb(inb), ierrmpi)
-       call MPI_IRECV(nbprocs_info%srl_info_rcv(inb)%buffer, &
+       call mpi_irecv_wrapper(nbprocs_info%srl_info_rcv(inb)%buffer, &
             nbprocs_info%srl_info_rcv(inb)%size, &
             MPI_INTEGER, nbprocs_info%nbprocs_srl_list(inb), 2, icomm, recv_srl_nb(nbprocs_info%nbprocs_srl + inb), ierrmpi)
 #ifndef NOGPUDIRECT
@@ -1226,10 +1231,10 @@ contains
       !$acc host_data use_device(nbprocs_info%f_rcv(inb)%buffer, nbprocs_info%f_info_rcv(inb)%buffer)
 #endif
 #endif
-       call MPI_IRECV(nbprocs_info%f_rcv(inb)%buffer, &
+       call mpi_irecv_wrapper(nbprocs_info%f_rcv(inb)%buffer, &
             nbprocs_info%f_rcv(inb)%size, &
             MPI_DOUBLE_PRECISION, nbprocs_info%nbprocs_f_list(inb), 1, icomm, recv_f_nb(inb), ierrmpi)
-       call MPI_IRECV(nbprocs_info%f_info_rcv(inb)%buffer, &
+       call mpi_irecv_wrapper(nbprocs_info%f_info_rcv(inb)%buffer, &
             nbprocs_info%f_info_rcv(inb)%size, &
             MPI_INTEGER, nbprocs_info%nbprocs_f_list(inb), 2, icomm, recv_f_nb(nbprocs_info%nbprocs_f + inb), ierrmpi)
 #ifndef NOGPUDIRECT
@@ -1348,10 +1353,10 @@ contains
       !$acc host_data use_device(nbprocs_info%srl_send(inb)%buffer, nbprocs_info%srl_info_send(inb)%buffer)
 #endif
 #endif
-       call MPI_ISEND(nbprocs_info%srl_send(inb)%buffer, &
+       call mpi_isend_wrapper(nbprocs_info%srl_send(inb)%buffer, &
             nbprocs_info%srl_send(inb)%size, &
             MPI_DOUBLE_PRECISION, nbprocs_info%nbprocs_srl_list(inb), 1, icomm, send_srl_nb(inb), ierrmpi)
-       call MPI_ISEND(nbprocs_info%srl_info_send(inb)%buffer, &
+       call mpi_isend_wrapper(nbprocs_info%srl_info_send(inb)%buffer, &
             nbprocs_info%srl_info_send(inb)%size, &
             MPI_INTEGER, nbprocs_info%nbprocs_srl_list(inb), 2, icomm, send_srl_nb(nbprocs_info%nbprocs_srl + inb), ierrmpi)
 #ifndef NOGPUDIRECT
@@ -1368,10 +1373,10 @@ contains
       !$acc host_data use_device(nbprocs_info%c_send(inb)%buffer, nbprocs_info%c_info_send(inb)%buffer)
 #endif
 #endif
-       call MPI_ISEND(nbprocs_info%c_send(inb)%buffer, &
+       call mpi_isend_wrapper(nbprocs_info%c_send(inb)%buffer, &
             nbprocs_info%c_send(inb)%size, &
             MPI_DOUBLE_PRECISION, nbprocs_info%nbprocs_c_list(inb), 1, icomm, send_c_nb(inb), ierrmpi)
-       call MPI_ISEND(nbprocs_info%c_info_send(inb)%buffer, &
+       call mpi_isend_wrapper(nbprocs_info%c_info_send(inb)%buffer, &
             nbprocs_info%c_info_send(inb)%size, &
             MPI_INTEGER, nbprocs_info%nbprocs_c_list(inb), 2, icomm, send_c_nb(nbprocs_info%nbprocs_c + inb), ierrmpi)
 #ifndef NOGPUDIRECT
@@ -1568,10 +1573,10 @@ contains
       !$acc host_data use_device(nbprocs_info%c_rcv(inb)%buffer, nbprocs_info%c_info_rcv(inb)%buffer)
 #endif
 #endif
-       call MPI_IRECV(nbprocs_info%c_rcv(inb)%buffer, &
+       call mpi_irecv_wrapper(nbprocs_info%c_rcv(inb)%buffer, &
             nbprocs_info%c_rcv(inb)%size, &
             MPI_DOUBLE_PRECISION, nbprocs_info%nbprocs_c_list(inb), 1, icomm, recv_c_nb(inb), ierrmpi)
-       call MPI_IRECV(nbprocs_info%c_info_rcv(inb)%buffer, &
+       call mpi_irecv_wrapper(nbprocs_info%c_info_rcv(inb)%buffer, &
             nbprocs_info%c_info_rcv(inb)%size, &
             MPI_INTEGER, nbprocs_info%nbprocs_c_list(inb), 2, icomm, recv_c_nb(nbprocs_info%nbprocs_c + inb), ierrmpi)
 #ifndef NOGPUDIRECT
@@ -1643,10 +1648,10 @@ contains
       !$acc host_data use_device(nbprocs_info%f_send(inb)%buffer, nbprocs_info%f_info_send(inb)%buffer)
 #endif
 #endif
-       call MPI_ISEND(nbprocs_info%f_send(inb)%buffer, &
+       call mpi_isend_wrapper(nbprocs_info%f_send(inb)%buffer, &
             nbprocs_info%f_send(inb)%size, &
             MPI_DOUBLE_PRECISION, nbprocs_info%nbprocs_f_list(inb), 1, icomm, send_f_nb(inb), ierrmpi)
-       call MPI_ISEND(nbprocs_info%f_info_send(inb)%buffer, &
+       call mpi_isend_wrapper(nbprocs_info%f_info_send(inb)%buffer, &
             nbprocs_info%f_info_send(inb)%size, &
             MPI_INTEGER, nbprocs_info%nbprocs_f_list(inb), 2, icomm, send_f_nb(nbprocs_info%nbprocs_f + inb), ierrmpi)
 #ifndef NOGPUDIRECT
@@ -1654,7 +1659,7 @@ contains
 #endif
     end do
 
-    
+
     ! fill coarse ghost-cell values of finer neighbors in the same processor
     !$acc parallel loop gang collapse(4) private(iib1,iib2,iib3,igrid)
     do iigrid=1,igridstail

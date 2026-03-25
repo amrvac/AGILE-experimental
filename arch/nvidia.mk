@@ -27,6 +27,12 @@ enabled += NOGPUDIRECT
 endif
 endif
 
+ifdef USE_MPIWRAPPERS
+$(info Enabling MPI wrappers)
+f90_flags += -DUSE_MPIWRAPPERS
+enabled += USE_MPIWRAPPERS
+endif
+
 ifdef INFO
 f90_flags += -Minfo=all
 endif

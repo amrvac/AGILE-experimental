@@ -4,8 +4,6 @@
    convert_type     = 'vtuBCCmpi'
    saveprim         = T
  /
-   base_filename    = '/scratch/leuven/377/vsc37715/agile_test/ti'
-
 
  &savelist
    itsave(1,1)      = 0
@@ -33,8 +31,6 @@
    typeboundary_min3 = 3*'periodic'
    typeboundary_max3 = 3*'periodic'
  /
-   typeboundary_min3 = 'symm','asymm','symm','asymm'
-   typeboundary_max3 = 'symm','asymm','symm','asymm'
 
  &meshlist
    refine_max_level   = 1
@@ -76,4 +72,3 @@
   scale = 0.1d0
   radius = 0.15d0
  /
-
