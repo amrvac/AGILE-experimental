@@ -63,7 +63,6 @@ contains
     real(dp)       :: fC3(2,ixImin1:ixOmax1,ixImin2:ixOmax2,1:nwflux)
     !-----------------------------------------------------------------------------
     
-     
     nx1=ixMhi1-ixMlo1+1
     nx2=ixMhi2-ixMlo2+1
     nx3=ixMhi3-ixMlo3+1
@@ -72,8 +71,8 @@ contains
     nxCo2=nx2/2
     nxCo3=nx3/2
 
-
-    !$acc enter data copyin(nx1,nx2,nx3,nxCo1,nxCo2,nxCo3)
+!!    !$acc enter data copyin(nx1,nx2,nx3,nxCo1,nxCo2,nxCo3)
+    !$acc enter data copyin(nxCo1,nxCo2,nxCo3)
 
     !$acc parallel loop gang private(uprim, inv_dr, dr, n, ix1, ix2, ix3, fC1, fC2, fC3) default(present)
     do iigrid = 1, igridstail_active
