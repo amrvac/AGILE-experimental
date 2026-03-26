@@ -2,13 +2,18 @@
 
 #:def get_cs2()
 !> obtain the squared sound speed
-pure real(dp) function get_cs2(u) result(cs2)
+real(dp) function get_cs2(u) result(cs2)
   !$acc routine seq
+  use mod_comm_lib, only: mpistop, mpistop_gpu
   real(dp), intent(in)  :: u(nw_phys)
 
-  ! provide nonsensical soundspeed so the user notices:
-  cs2 = -1.0d0
-  
+#ifdef _CRAYFTN
+  call mpistop_gpu()
+#else
+  call mpistop("get_cs2 not implemented for this physics module")
+#endif
+  cs2 = -1.0d0  ! unreachable
+
 end function get_cs2
 #:enddef
 
@@ -16,13 +21,19 @@ end function get_cs2
 #:def estimate_speeds_minmax()
 subroutine estimate_speeds_minmax(uL, uR, xC, flux_dim, wL, wR)
   !$acc routine seq
+  use mod_comm_lib, only: mpistop, mpistop_gpu
   real(dp), intent(in)  :: uL(nw_phys), uR(nw_phys)
   real(dp), intent(in)  :: xC(ndim)
   integer, intent(in)   :: flux_dim
   real(dp), intent(out) :: wL, wR
 
-  wL = -1._dp
-  WR = -1._dp
+#ifdef _CRAYFTN
+  call mpistop_gpu()
+#else
+  call mpistop("estimate_speeds_minmax not implemented for this physics module")
+#endif
+  wL = -1._dp  ! unreachable
+  wR = -1._dp
 
 end subroutine estimate_speeds_minmax
 #:enddef
@@ -31,12 +42,18 @@ end subroutine estimate_speeds_minmax
 #:def estimate_speeds_toro_pvrs()
 subroutine estimate_speeds_toro_pvrs(uL, uR, xC, flux_dim, sL, sR)
   !$acc routine seq
+  use mod_comm_lib, only: mpistop, mpistop_gpu
   real(dp), intent(in)  :: uL(nw_phys), uR(nw_phys)
   real(dp), intent(in)  :: xC(ndim)
   integer,  intent(in)  :: flux_dim
   real(dp), intent(out) :: sL, sR
 
-  sL = -1._dp
+#ifdef _CRAYFTN
+  call mpistop_gpu()
+#else
+  call mpistop("estimate_speeds_toro_pvrs not implemented for this physics module")
+#endif
+  sL = -1._dp  ! unreachable
   sR = -1._dp
 
 end subroutine estimate_speeds_toro_pvrs
