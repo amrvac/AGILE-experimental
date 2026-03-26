@@ -562,7 +562,9 @@ end subroutine addsource_nonlocal
   end subroutine get_flux
 #:enddef
 
-#:def get_cmax()  
+#:def get_cmax()
+!> Returns maximum local signal speed |v_n| + c_f (fast magnetosonic) from primitive state u in direction flux_dim;
+!> used in LLF/TVDLF flux estimation.
 pure real(dp) function get_cmax(u, x, flux_dim) result(wC)
   !$acc routine seq
   real(dp), intent(in)  :: u(nw_phys)
@@ -590,5 +592,43 @@ pure real(dp) function get_cs2(u) result(cs2)
   cs2 = phys_gamma*u(iw_e)/u(iw_rho)
 end function get_cs2
 #:enddef
+
+
+#:def estimate_speeds_minmax()
+!> Davis (1988) min/max wave speed estimates wL = min(v_n - c_f), wR = max(v_n + c_f) (fast magnetosonic) over left/right states;
+!> used in HLL flux estimation.
+subroutine estimate_speeds_minmax(uL, uR, xC, flux_dim, wL, wR)
+  !$acc routine seq
+  real(dp), intent(in)  :: uL(nw_phys), uR(nw_phys)
+  real(dp), intent(in)  :: xC(ndim)
+  integer, intent(in)   :: flux_dim
+  real(dp), intent(out) :: wL, wR
+
+  real(dp) :: inv_rho, cs2, cA2, cAn2, sum2, discriminant, cfL, cfR
+
+  ! Left state
+  inv_rho = 1.0_dp / uL(iw_rho)
+  cs2 = mhd_gamma * uL(iw_e) * inv_rho
+  cA2 = (uL(iw_mag(1))**2 + uL(iw_mag(2))**2 + uL(iw_mag(3))**2) * inv_rho
+  cAn2 = uL(iw_mag(flux_dim))**2 * inv_rho
+  sum2 = cs2 + cA2
+  discriminant = max(sum2**2 - 4.0_dp*cs2*cAn2, 0.0_dp)
+  cfL = sqrt(0.5_dp * (sum2 + sqrt(discriminant)))
+
+  ! Right state
+  inv_rho = 1.0_dp / uR(iw_rho)
+  cs2 = mhd_gamma * uR(iw_e) * inv_rho
+  cA2 = (uR(iw_mag(1))**2 + uR(iw_mag(2))**2 + uR(iw_mag(3))**2) * inv_rho
+  cAn2 = uR(iw_mag(flux_dim))**2 * inv_rho
+  sum2 = cs2 + cA2
+  discriminant = max(sum2**2 - 4.0_dp*cs2*cAn2, 0.0_dp)
+  cfR = sqrt(0.5_dp * (sum2 + sqrt(discriminant)))
+  
+  wL = min(uL(iw_mom(flux_dim)) - cfL, uR(iw_mom(flux_dim)) - cfR)
+  wR = max(uL(iw_mom(flux_dim)) + cfL, uR(iw_mom(flux_dim)) + cfR)
+
+end subroutine estimate_speeds_minmax
+#:enddef
+
 
 #:endif
