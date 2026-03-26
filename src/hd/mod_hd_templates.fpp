@@ -62,6 +62,10 @@
   logical, public                         :: hd_gravity = .false.
   !$acc declare copyin(hd_gravity)
 
+  !> switch for radiative cooling
+  logical, public                         :: hd_radiative_cooling = .false.
+  !$acc declare copyin(hd_radiative_cooling)
+
   !> Allows overruling default corner filling (for debug mode, since otherwise corner primitives fail)
   logical, public                         :: hd_force_diagonal = .true.
   !$acc declare copyin(hd_force_diagonal)
@@ -80,7 +84,7 @@
     integer                      :: n
 
     namelist /hd_list/ hd_energy, hd_gamma, hd_adiab, hd_partial_ionization,&
-        hd_force_diagonal, hd_particles, hd_gravity, hd_n_tracer, He_abundance
+        hd_force_diagonal, hd_particles, hd_gravity, hd_n_tracer, hd_radiative_cooling, He_abundance
 
     do n = 1, size(files)
        open(unitpar, file=trim(files(n)), status="old")
@@ -91,7 +95,7 @@
 #ifdef _OPENACC
     !$acc update device(hd_energy, hd_gamma, hd_adiab, &
     !$acc&     hd_partial_ionization, hd_force_diagonal, hd_particles, &
-    !$acc&     hd_gravity, hd_n_tracer, He_abundance)
+    !$acc&     hd_gravity, hd_n_tracer, hd_radiative_cooling, He_abundance)
 #endif
 
   end subroutine read_params
@@ -321,7 +325,7 @@ subroutine addsource_local(qdt, dtfactor, qtC, wCT, wCTprim, qt, wnew, x, dr, &
 #:endif  
 
 #:if defined('COOLING')
-  call radiative_cooling_add_source(qdt,wCT,wCTprim,wnew,x,rc_fl)
+  call radiative_cooling_add_source(qdt,wCT,wCTprim,wnew,x)
 #:endif
 
 end subroutine addsource_local
@@ -501,7 +505,7 @@ end subroutine estimate_speeds_toro_pvrs
 #:def get_pthermal()
 pure double precision function get_pthermal(w, x) result(pth)
   !$acc routine seq
-  double precision, intent(in)  :: w(nwflux)
+  double precision, intent(in)  :: w(nw_flux)
   double precision, intent(in)  :: x(1:ndim)
 
   pth = (phys_gamma-1.0_dp)*(w(iw_e)-0.5_dp*sum(w(iw_mom(:))**2)/w(iw_rho))
