@@ -590,10 +590,6 @@ module mod_global_parameters
   !> Which flux scheme of spatial discretization to use (per grid level)
   integer, allocatable :: flux_method(:)
 
-  !> The spatial discretization for the predictor step when using a two
-  !> step PC method
-  integer, allocatable :: typepred1(:)
-
   !> flux schemes
   integer, parameter :: fs_hll=1
   integer, parameter :: fs_hllc=2
@@ -646,31 +642,15 @@ module mod_global_parameters
   !> Limiter used for prolongation to refined grids and ghost cells
   integer :: prolong_limiter=0
 
-  !> Which type of entropy fix to use with Riemann-type solvers
-  character(len=std_len), allocatable :: typeentropy(:)
-
-  !> Which type of TVD method to use
-  character(len=std_len) :: typetvd
-
-  !> bound (left/min and right.max) speed of Riemann fan
-  integer :: boundspeed
-  !$acc declare create(boundspeed)
-
-  character(len=std_len) :: typeaverage
   character(len=std_len) :: typedimsplit
   character(len=std_len) :: geometry_name='default'
   character(len=std_len) :: typepoly
-  !$acc declare copyin(typeaverage, typedimsplit, geometry_name, typepoly)
-
-  integer                       :: nxdiffusehllc
-  double precision, allocatable :: entropycoef(:)
-  double precision              :: tvdlfeps
-  !$acc declare create(nxdiffusehllc, entropycoef, tvdlfeps)
+  !$acc declare copyin(typedimsplit, geometry_name, typepoly)
 
   logical, allocatable          :: loglimit(:), logflag(:)
   !$acc declare create(loglimit, logflag)
-  logical                       :: flathllc,flatcd,flatsh
-  !$acc declare create(flathllc, flatcd, flatsh)
+  logical                       :: flatcd,flatsh
+  !$acc declare create(flatcd, flatsh)
   !> Use split or unsplit way to add user's source terms, default: unsplit
   logical                       :: source_split_usr
   !$acc declare create(source_split_usr)
