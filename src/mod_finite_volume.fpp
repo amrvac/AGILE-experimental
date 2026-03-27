@@ -38,6 +38,7 @@ contains
     ixImin3,ixImax1,ixImax2,ixImax3, ixOmin1,ixOmin2,ixOmin3,ixOmax1,ixOmax2,&
     ixOmax3, idimsmin,idimsmax, qtC, bga, qt, bgb, fC, fE)
     use mod_global_parameters
+    use mod_comm_lib, only: mpistop
 
     double precision, intent(in)                                       :: qdt,&
       dtfactor, qtC, qt
@@ -75,9 +76,7 @@ contains
             ixOmax3, idimsmin,idimsmax, qtC, bga, qt, bgb, fC, fE)
 #:endfor
     case default
-      call finite_volume_local_muscl_llf(qdt, dtfactor, ixImin1,ixImin2,&
-            ixImin3,ixImax1,ixImax2,ixImax3, ixOmin1,ixOmin2,ixOmin3,ixOmax1,ixOmax2,&
-            ixOmax3, idimsmin,idimsmax, qtC, bga, qt, bgb, fC, fE)
+      call mpistop("finite_volume_local: unknown flux scheme")
     end select
 end subroutine finite_volume_local
 
@@ -328,7 +327,8 @@ end subroutine finite_volume_local
   end subroutine riemann_hll_prim
 
 
-  !> One-face HLLC numerical flux from primitive L/R states.
+  !> One-face HLLC numerical flux from primitive L/R states (HD only).
+  !> Uses scalar pressure assumption; not valid for MHD (use HLLD instead).
   !> Reference: Toro (2010), chapter 10 (Variant 2)
   subroutine riemann_hllc_prim(uL, uR, xC, flux_dim, F)
     !$acc routine seq

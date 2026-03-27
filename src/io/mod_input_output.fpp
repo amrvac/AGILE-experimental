@@ -214,8 +214,6 @@ contains
     character(len=std_len) :: typesourcesplit
     !> Which flux scheme of spatial discretization to use (per grid level)
     character(len=std_len), allocatable :: flux_scheme(:)
-    !> Which type of the maximal bound speed of Riemann fan to use
-    character(len=std_len) :: typeboundspeed
     !> Which time stepper to use
     character(len=std_len) :: time_stepper
     !> Which time integrator to use
@@ -263,9 +261,9 @@ contains
 
     namelist /methodlist/ time_stepper,time_integrator, source_split_usr,&
        typesourcesplit,local_timestep,dimsplit,typedimsplit,flux_scheme,&
-       limiter,gradient_limiter,cada3_radius,loglimit,typeboundspeed,&
-        H_correction,typetvd,typeentropy,entropycoef,typeaverage, typegrad,&
-       typediv,typecurl,nxdiffusehllc, flathllc, tvdlfeps,flatcd,flatsh,&
+       limiter,gradient_limiter,cada3_radius,loglimit,&
+       H_correction, typegrad,&
+       typediv,typecurl,flatcd,flatsh,&
        rk2_alfa,imex222_lambda,ssprk_order,rk3_switch,imex_switch,&
        small_temperature,small_pressure,small_density, small_values_method,&
         small_values_daverage, fix_small_values, check_small_values,&
@@ -482,10 +480,6 @@ contains
 
 
     ! Defaults for discretization methods
-    typeaverage     = 'default'
-    tvdlfeps        = one
-    nxdiffusehllc   = 0
-    flathllc        = .false.
     slowsteps       = -1
     courantpar      = 0.8d0
     typecourant     = 'maxsum'
@@ -499,8 +493,6 @@ contains
     schmid_rad1 = 1.d0
     schmid_rad2 = 1.d0
     schmid_rad3 = 1.d0
-    typetvd         = 'roe'
-    typeboundspeed  = 'Einfeldt'
     source_split_usr= .false.
     time_stepper    = 'twostep'
     time_integrator = 'default'
@@ -532,12 +524,10 @@ contains
     R_opt_thick=1.d0
     dat_resolution=.false.
 
-    allocate(flux_scheme(nlevelshi),typepred1(nlevelshi),&
-       flux_method(nlevelshi))
+    allocate(flux_scheme(nlevelshi), flux_method(nlevelshi))
     allocate(limiter(nlevelshi),gradient_limiter(nlevelshi))
     do level=1,nlevelshi
        flux_scheme(level) = 'tvdlf'
-       typepred1(level)   = 0
        limiter(level)     = 'minmod'
        gradient_limiter(level) = 'minmod'
     end do
@@ -547,12 +537,6 @@ contains
     typesourcesplit = 'sfs'
     allocate(loglimit(nw))
     loglimit(1:nw)  = .false.
-
-    allocate(typeentropy(nw))
-
-    do iw=1,nw
-       typeentropy(iw)='nul'      ! Entropy fix type
-    end do
 
     dtdiffpar     = 0.5d0
     dtpar         = -1.d0
@@ -786,21 +770,31 @@ contains
        call mpistop("Error from read_par_files: no such typecourant!")
     end select
 
+    ! =========================================================================
+    ! Flux scheme parsing and physics compatibility validation
+    ! =========================================================================
     do level=1,nlevelshi
        select case (flux_scheme(level))
        case ('hll')
           flux_method(level)=fs_hll
+          if (physics_type=='ffhd') then
+             call mpistop(trim(flux_scheme(level))//" flux scheme is not compatible with "//trim(physics_type))
+          end if
        case ('hllc')
           flux_method(level)=fs_hllc
+          if (physics_type=='mhd' .or. physics_type=='ffhd') then
+             call mpistop(trim(flux_scheme(level))//" flux scheme is not compatible with "//trim(physics_type))
+          end if
        case ('tvdlf')
           flux_method(level)=fs_tvdlf
        case default
-          call mpistop("unkown or bad flux scheme")
+          call mpistop("unknown or bad flux scheme: "//trim(flux_scheme(level)))
        end select
     end do
 
-    ! finite difference scheme fd need global maximal speed
-    if(any(flux_scheme=='fd')) need_global_cmax=.true.
+    ! =========================================================================
+    ! Limiter and spatial operator parsing
+    ! =========================================================================
     if(any(limiter=='schmid1')) need_global_a2max=.true.
 
     ! initialize type_curl
@@ -1971,18 +1965,6 @@ contains
       call mpistop("Reset w_refine_weight so the sum is 1.d0")
     end if
 
-    select case (typeboundspeed)
-    case('Einfeldt')
-      boundspeed=1
-    case('cmaxmean')
-      boundspeed=2
-    case('cmaxleftright')
-      boundspeed=3
-    case default
-      call mpistop&
-         ("set typeboundspeed='Einfieldt' or 'cmaxmean' or 'cmaxleftright'")
-    end select
-
     if (mype==0) write(unitterm, '(A30)', advance='no') 'Refine estimation: '
 
     select case (refine_criterion)
@@ -2043,8 +2025,8 @@ contains
 
     deallocate(flux_scheme)
 
-    !$acc update device(tvdlfeps,ixGhi1,ixGhi2,ixGhi3,ixGshi1,ixGshi2,ixGshi3,schmid_rad1,schmid_rad2,schmid_rad3,cada3_radius)
-    !$acc update device(fix_small_values,H_correction,type_limiter, boundspeed, max_blocks)
+    !$acc update device(ixGhi1,ixGhi2,ixGhi3,ixGshi1,ixGshi2,ixGshi3,schmid_rad1,schmid_rad2,schmid_rad3,cada3_radius)
+    !$acc update device(fix_small_values,H_correction,type_limiter, max_blocks)
     !$acc update device(rk_beta11,rk_beta22,rk_beta33,rk_beta44,rk_c2,rk_c3,rk_c4)
     !$acc update device(rk_alfa21,rk_alfa22,rk_alfa31,rk_alfa33,rk_alfa41,rk_alfa44)
     !$acc update device(rk_beta54,rk_beta55,rk_alfa53,rk_alfa54,rk_alfa55,rk_c5)
