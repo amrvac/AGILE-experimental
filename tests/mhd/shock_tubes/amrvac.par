@@ -1,0 +1,6 @@
+! Dummy par file for build system only (sets phys = 'mhd')
+! Actual runs use briowu.par, ryujones1a.par, etc.
+
+ &methodlist
+   phys = 'mhd'
+ /
