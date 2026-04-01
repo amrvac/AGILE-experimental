@@ -11,9 +11,9 @@ contains
   subroutine usr_init()
 
     usr_init_one_grid => initonegrid_usr
-    !usr_aux_output    => specialvar_output
-    !usr_add_aux_names => specialvarnames_output
-    !usr_init_vector_potential => initvecpot_usr
+    usr_aux_output    => specialvar_output
+    usr_add_aux_names => specialvarnames_output
+    usr_init_vector_potential => initvecpot_usr
 
     call set_coordinate_system("Cartesian_3D")
 
@@ -67,8 +67,7 @@ contains
 
   end subroutine initonegrid_usr
 
-
-  ! This is only called when using staggered grids
+  ! Initialise the vectorpotential on the corners - used with staggered grid
   subroutine initvecpot_usr(ixImin1,ixImin2,ixImin3,ixImax1,ixImax2,ixImax3,&
      ixCmin1,ixCmin2,ixCmin3,ixCmax1,ixCmax2,ixCmax3, xC, A, idir)
     integer, intent(in)                :: ixImin1,ixImin2,ixImin3,ixImax1,&
@@ -92,7 +91,6 @@ contains
 
   subroutine specialvar_output(ixImin1,ixImin2,ixImin3,ixImax1,ixImax2,&
      ixImax3,ixOmin1,ixOmin2,ixOmin3,ixOmax1,ixOmax2,ixOmax3,w,x,normconv)
-    use mod_functions_bfield
     integer, intent(in)          :: ixImin1,ixImin2,ixImin3,ixImax1,ixImax2,&
        ixImax3,ixOmin1,ixOmin2,ixOmin3,ixOmax1,ixOmax2,ixOmax3
     double precision, intent(in) :: x(ixImin1:ixImax1,ixImin2:ixImax2,&
@@ -101,12 +99,9 @@ contains
        ixImin3:ixImax3,nw+nwauxio)
     double precision             :: normconv(0:nw+nwauxio)
 
-    double precision :: divb(ixImin1:ixImax1,ixImin2:ixImax2,ixImin3:ixImax3)
-
-    call get_divb(w,ixImin1,ixImin2,ixImin3,ixImax1,ixImax2,ixImax3,&
-       ixOmin1,ixOmin2,ixOmin3,ixOmax1,ixOmax2,ixOmax3,divb)
-    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3,nw+1) = &
-       divb(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3)
+    ! TODO: get_divb segfaults as it reads device-resident variables (slab_uniform, mag) from host code.
+    ! Output zero until this is fixed
+    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3,nw+1) = 0.0_dp
 
   end subroutine specialvar_output
 
