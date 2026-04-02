@@ -34,8 +34,9 @@
   integer, public                         :: e_
   !$acc declare create(e_)
 
-  !> Indices of the magnetic field (host-only, not needed on device)
+  !> Indices of the magnetic field
   integer, allocatable, public            :: mag(:)
+  !$acc declare create(mag)
 
   !> Index of the gas pressure (-1 if not present) should equal e_
   integer, public                         :: p_
@@ -378,6 +379,7 @@
 
     allocate(mag(ndir))
     mag(:) = var_set_bfield(ndir)
+    !$acc update device(mag)
 
     psi_ = var_set_fluxvar('psi', 'psi', need_bc=.false.)
     !$acc update device(psi_)
