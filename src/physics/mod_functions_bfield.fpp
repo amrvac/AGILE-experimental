@@ -3,11 +3,7 @@ module mod_functions_bfield
   implicit none
   private
 
-
   public :: get_divb
-
-  !> Indices of the magnetic field
-  integer, allocatable, public :: mag(:)
 
 contains
 
@@ -17,6 +13,7 @@ contains
      ixOmin1,ixOmin2,ixOmin3,ixOmax1,ixOmax2,ixOmax3,divb, fourthorder)
     use mod_global_parameters
     use mod_geometry
+    use mod_physics, only: mag
 
     integer, intent(in)             :: ixImin1,ixImin2,ixImin3,ixImax1,ixImax2,&
        ixImax3, ixOmin1,ixOmin2,ixOmin3,ixOmax1,ixOmax2,ixOmax3
@@ -58,6 +55,8 @@ contains
         call divvectorS(w(ixImin1:ixImax1,ixImin2:ixImax2,ixImin3:ixImax3,&
            mag(1:ndir)),ixImin1,ixImin2,ixImin3,ixImax1,ixImax2,ixImax3,&
            ixOmin1,ixOmin2,ixOmin3,ixOmax1,ixOmax2,ixOmax3,divb)
+      case default
+        call mpistop("unknown typediv")
       end select
     end if
 

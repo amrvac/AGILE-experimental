@@ -5,6 +5,8 @@ module mod_usr
   implicit none
 
   double precision :: rho0, p0, b0
+  ! Host-side copies of B-field w-indices, saved before device update
+  integer :: ib1, ib2, ib3
 
 contains
 
@@ -22,6 +24,9 @@ contains
     rho0 = 25.0_dp / (36.0_dp * dpi)
     p0   =  5.0_dp / (12.0_dp * dpi)
     b0   =  1.0_dp / sqrt(4.0_dp * dpi)
+
+    ! Save B-field indices on host (mag becomes device-only after phys_activate)
+    ib1 = mag(1); ib2 = mag(2); ib3 = mag(3)
 
     if (mype == 0) then
       write(*,'(A)')        ' ========================================'
@@ -91,6 +96,7 @@ contains
 
   subroutine specialvar_output(ixImin1,ixImin2,ixImin3,ixImax1,ixImax2,&
      ixImax3,ixOmin1,ixOmin2,ixOmin3,ixOmax1,ixOmax2,ixOmax3,w,x,normconv)
+    use mod_functions_bfield
     integer, intent(in)          :: ixImin1,ixImin2,ixImin3,ixImax1,ixImax2,&
        ixImax3,ixOmin1,ixOmin2,ixOmin3,ixOmax1,ixOmax2,ixOmax3
     double precision, intent(in) :: x(ixImin1:ixImax1,ixImin2:ixImax2,&
@@ -99,9 +105,12 @@ contains
        ixImin3:ixImax3,nw+nwauxio)
     double precision             :: normconv(0:nw+nwauxio)
 
-    ! TODO: get_divb segfaults as it reads device-resident variables (slab_uniform, mag) from host code.
-    ! Output zero until this is fixed
-    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3,nw+1) = 0.0_dp
+    double precision :: divb(ixImin1:ixImax1,ixImin2:ixImax2,ixImin3:ixImax3)
+
+    call get_divb(w,ixImin1,ixImin2,ixImin3,ixImax1,ixImax2,ixImax3,&
+       ixOmin1,ixOmin2,ixOmin3,ixOmax1,ixOmax2,ixOmax3,divb)
+    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3,nw+1) = &
+       divb(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3)
 
   end subroutine specialvar_output
 
