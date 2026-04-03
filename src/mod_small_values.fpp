@@ -9,6 +9,11 @@ module mod_small_values
   character(len=20), public :: small_values_method = "error"
   !$acc declare copyin(small_values_method)
 
+  !> Integer enum for small_values_method (for GPU branching)
+  integer, parameter, public :: sv_error = 0, sv_average = 1, sv_ignore = 2
+  integer, public :: small_values_imethod = sv_error
+  !$acc declare copyin(small_values_imethod)
+
   !> Average over this many cells in each direction
   integer, public :: small_values_daverage = 1
   !$acc declare copyin(small_values_daverage)
@@ -23,8 +28,25 @@ module mod_small_values
 
   public :: small_values_error
   public :: small_values_average
+  public :: small_values_set_method
 
 contains
+
+  !> Convert the small_values_method string to an integer enum for GPU use
+  subroutine small_values_set_method()
+    select case (trim(small_values_method))
+    case ("error")
+       small_values_imethod = sv_error
+    case ("average")
+       small_values_imethod = sv_average
+    case ("ignore")
+       small_values_imethod = sv_ignore
+    case default
+       small_values_imethod = sv_error
+    end select
+    !$acc update device(small_values_imethod)
+    write(*,*) "Using :" // trim(small_values_method)
+  end subroutine small_values_set_method
 
 #if defined(_CRAYFTN) && defined(_OPENACC)
   subroutine small_values_error_gpu(wprim, x, ixImin1,ixImin2,ixImin3,ixImax1,&

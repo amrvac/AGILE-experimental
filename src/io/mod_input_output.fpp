@@ -2024,6 +2024,8 @@ contains
     endif
 
     deallocate(flux_scheme)
+    
+    call small_values_set_method()
 
     !$acc update device(ixGhi1,ixGhi2,ixGhi3,ixGshi1,ixGshi2,ixGshi3,schmid_rad1,schmid_rad2,schmid_rad3,cada3_radius)
     !$acc update device(fix_small_values,H_correction,type_limiter, max_blocks)

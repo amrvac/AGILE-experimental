@@ -484,7 +484,11 @@ end subroutine addsource_nonlocal
 #:def to_primitive()
   pure subroutine to_primitive(u)
     !$acc routine seq
+    use mod_global_parameters, only: small_density, small_pressure, fix_small_values
     real(dp), intent(inout) :: u(nw_phys)
+
+    ! Floor density before dividing
+    if (fix_small_values) u(iw_rho) = max(u(iw_rho), small_density)
 
     u(iw_mom(1))=u(iw_mom(1))/u(iw_rho)
     u(iw_mom(2))=u(iw_mom(2))/u(iw_rho)
@@ -492,6 +496,9 @@ end subroutine addsource_nonlocal
     u(iw_e)=mhd_gamma_m1*(u(iw_e)-0.5_dp*&
       (u(iw_rho)*(u(iw_mom(1))**2+u(iw_mom(2))**2+u(iw_mom(3))**2)+&
        u(iw_mag(1))**2+u(iw_mag(2))**2+u(iw_mag(3))**2))
+
+    ! Floor pressure
+    if (fix_small_values) u(iw_e) = max(u(iw_e), small_pressure)
 
   end subroutine to_primitive
 #:enddef
@@ -629,6 +636,26 @@ subroutine estimate_speeds_minmax(uL, uR, xC, flux_dim, wL, wR)
 
 end subroutine estimate_speeds_minmax
 #:enddef
+
+#:def check_w()
+!> Check a conservative state vector for unphysical values (negative density or pressure).
+!> Sets flag(iw) = .true. for each variable that violates the small value threshold.
+pure subroutine check_w(w, flag)
+  !$acc routine seq
+  use mod_global_parameters, only: small_density, small_pressure
+  real(dp), intent(in)  :: w(nw_phys)
+  logical, intent(out)  :: flag(nw_phys)
+  real(dp) :: e_internal
+
+  flag = .false.
+  if (w(iw_rho) < small_density) flag(iw_rho) = .true.
+  e_internal = w(iw_e) - 0.5_dp * ( &
+       (w(iw_mom(1))**2 + w(iw_mom(2))**2 + w(iw_mom(3))**2) / w(iw_rho) + &
+        w(iw_mag(1))**2 + w(iw_mag(2))**2 + w(iw_mag(3))**2 )
+  if (e_internal < small_pressure / mhd_gamma_m1) flag(iw_e) = .true.
+end subroutine check_w
+#:enddef
+
 
 
 #:endif

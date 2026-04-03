@@ -76,4 +76,16 @@ subroutine addsource_nonlocal(qdt, dtfactor, qtC, wCTprim, qt, wnew, x, dx, idir
 
 
 end subroutine addsource_nonlocal
+
 #:enddef
+
+#:def check_w()
+!> Dummy check_w: flags nothing
+pure subroutine check_w(w, flag)
+  !$acc routine seq
+  real(dp), intent(in)  :: w(nw_phys)
+  logical, intent(out)  :: flag(nw_phys)
+  flag = .false.
+end subroutine check_w
+#:enddef
+

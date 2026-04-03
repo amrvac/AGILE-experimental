@@ -78,7 +78,10 @@ contains
     case default
       call mpistop("finite_volume_local: unknown flux scheme")
     end select
-end subroutine finite_volume_local
+
+    ! TODO: Figure out where to put small value 'average'-type fixing 
+
+  end subroutine finite_volume_local
 
 #:def FV_KERNEL(scheme_tag, faceflux_proc)
   subroutine finite_volume_local_${scheme_tag}$(qdt, dtfactor, ixImin1,ixImin2,&
@@ -210,6 +213,7 @@ end subroutine finite_volume_local
                 end do
              end do
           end do
+
        end do
     end do
 
