@@ -116,8 +116,8 @@ module mod_physicaldata
   !$acc declare create(ps, ps1, ps2, ps3, ps4, psc)
 
   !> one block grid to rule them all
-  type(block_grid_t), dimension(:), allocatable, target   :: bg
-  !$acc declare create(bg)
+  type(block_grid_t), dimension(:), allocatable, target   :: bg, bgc
+  !$acc declare create(bg, bgc)
 
   !> array of physical blocks in reduced dimension
   type(state_sub), dimension(:), allocatable, target :: ps_sub
