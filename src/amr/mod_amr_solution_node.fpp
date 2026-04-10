@@ -1728,7 +1728,9 @@ contains
     integer             :: ixGsmin1,ixGsmin2,ixGsmin3,ixGsmax1,ixGsmax2,&
        ixGsmax3
   
-    allocate(s%w(ixGmin1:ixGmax1,ixGmin2:ixGmax2,ixGmin3:ixGmax3,1:nw))
+!    allocate(s%w(ixGmin1:ixGmax1,ixGmin2:ixGmax2,ixGmin3:ixGmax3,1:nw))
+    s%w => bgc(1)%w(:,:,:,:,igrid)
+
 
     s%igrid=igrid
     s%w=0.d0

@@ -91,6 +91,16 @@ contains
        !$acc update device(bg(istep))
        !$acc enter data copyin( bg(istep)%w )
     end do
+    allocate( bgc(1) )
+    ixCoGmin1=1;ixCoGmin2=1;ixCoGmin3=1;
+    ixCoGmax1=(ixGhi1-2*nghostcells)/2+2*nghostcells
+    ixCoGmax2=(ixGhi2-2*nghostcells)/2+2*nghostcells
+    ixCoGmax3=(ixGhi3-2*nghostcells)/2+2*nghostcells;
+
+    allocate ( bgc(1)%w(ixCoGmin1:ixCoGmax1, ixCoGmin2:ixCoGmax2, &
+    ixCoGmin3:ixCoGmax3, 1:nw, 1:max_blocks) )
+     !$acc update device( bgc(1) )
+     !$acc enter data copyin( bgc(1)%w ) 
 
     do igrid = 1, max_blocks
        ps(igrid)%igrid  = igrid; ps(igrid)%istep  = 1

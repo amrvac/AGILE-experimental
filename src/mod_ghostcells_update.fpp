@@ -1174,16 +1174,16 @@ contains
                       ixFi2=2*(ixCo2-ixCoMmin2)+ixMmin2
                       ixFi1=2*(ixCo1-ixCoMmin1)+ixMmin1
 
-                      psc(igrid)%w(ixCo1,ixCo2,ixCo3,iw) = 0.0d0
+                      bgc(1)%w(ixCo1,ixCo2,ixCo3,iw,igrid) = 0.0d0
                       do ix3 = ixFi3,ixFi3+1
                          do ix2 = ixFi2,ixFi2+1
                             do ix1 = ixFi1,ixFi1+1
-                               psc(igrid)%w(ixCo1,ixCo2,ixCo3,iw) = psc(igrid)%w(ixCo1,ixCo2,ixCo3,iw) &
+                               bgc(1)%w(ixCo1,ixCo2,ixCo3,iw,igrid) = bgc(1)%w(ixCo1,ixCo2,ixCo3,iw,igrid) &
                                     + bg(bgstep)%w(ix1,ix2,ix3,iw,igrid)
                             end do
                          end do
                       end do
-                      psc(igrid)%w(ixCo1,ixCo2,ixCo3,iw) = psc(igrid)%w(ixCo1,ixCo2,ixCo3,iw)*coFiRatio
+                      bgc(1)%w(ixCo1,ixCo2,ixCo3,iw,igrid) = bgc(1)%w(ixCo1,ixCo2,ixCo3,iw,igrid)*coFiRatio
 
                    end do
                 end do
@@ -1321,7 +1321,7 @@ contains
                            + Nx1 * (ix2-ixSmin2) &
                            + Nx1*Nx2 * (ix3-ixSmin3) &
                            + Nx1*Nx2*Nx3 * (iw-nwhead) &
-                           ) = psc(igrid)%w( ix1, ix2, ix3, iw)
+                           ) = bgc(1)%w( ix1, ix2, ix3, iw, igrid )
                    end do
                 end do
              end do
@@ -1445,8 +1445,8 @@ contains
                          do ix2=1,ixSmax2-ixSmin2+1
                             do ix1=1,ixSmax1-ixSmin1+1
                                bg(bgstep)%w(ixRmin1+ix1-1,ixRmin2+ix2-1,&
-                                    ixRmin3+ix3-1,iw,ineighbor) = psc(igrid)%w(ixSmin1+ix1-1,&
-                                    ixSmin2+ix2-1,ixSmin3+ix3-1,iw)
+                                    ixRmin3+ix3-1,iw,ineighbor) = bgc(1)%w(ixSmin1+ix1-1,&
+                                    ixSmin2+ix2-1,ixSmin3+ix3-1,iw, igrid)
                             end do
                          end do
                       end do
@@ -1700,8 +1700,8 @@ contains
                                   do ix3 =0, ixRmax3-ixRmin3
                                      do ix2 = 0, ixRmax2-ixRmin2
                                         do ix1 = 0, ixRmax1-ixRmin1
-                                           psc(ineighbor)%w(ixRmin1+ix1,ixRmin2+ix2,&
-                                                ixRmin3+ix3,iw) = bg(bgstep)%w(ixSmin1+ix1,&
+                                           bgc(1)%w(ixRmin1+ix1,ixRmin2+ix2,&
+                                                ixRmin3+ix3,iw,ineighbor) = bg(bgstep)%w(ixSmin1+ix1,&
                                                 ixSmin2+ix2,ixSmin3+ix3,iw, igrid)
                                         end do
                                      end do
@@ -1767,7 +1767,7 @@ contains
                            + Nx1*Nx2 * (ix3-ixRmin3) &
                            + Nx1*Nx2*Nx3 * (iw-nwhead) &
                            )
-                      psc(igrid)%w( ix1, ix2, ix3, iw ) = tempval
+                      bgc(1)%w( ix1, ix2, ix3, iw, igrid ) = tempval
                    end do
                 end do
              end do
@@ -1837,11 +1837,11 @@ contains
                                   jxCo2=ixCo2+kr(2,idims)
                                   jxCo3=ixCo3+kr(3,idims)
 
-                                  slopeL = psc(igrid)%w(ixCo1,ixCo2,ixCo3,iw) &
-                                       - psc(igrid)%w(hxCo1,hxCo2,hxCo3,iw)
+                                  slopeL = bgc(1)%w(ixCo1,ixCo2,ixCo3,iw,igrid) &
+                                       - bgc(1)%w(hxCo1,hxCo2,hxCo3,iw,igrid)
 
-                                  slopeR = psc(igrid)%w(jxCo1,jxCo2,jxCo3,iw) &
-                                       - psc(igrid)%w(ixCo1,ixCo2,ixCo3,iw)
+                                  slopeR = bgc(1)%w(jxCo1,jxCo2,jxCo3,iw,igrid) &
+                                       - bgc(1)%w(ixCo1,ixCo2,ixCo3,iw,igrid)
 
                                   slopeC = half * ( slopeR + slopeL )
 
@@ -1855,7 +1855,7 @@ contains
 
                                ! Interpolate from coarse cell using limited slopes
                                bg(bgstep)%w(ixFi1,ixFi2,ixFi3,iw,igrid) = &
-                                    psc(igrid)%w(ixCo1,ixCo2,ixCo3,iw) &
+                                    bgc(1)%w(ixCo1,ixCo2,ixCo3,iw, igrid) &
                                     + (slope(1)*eta1) + (slope(2)*eta2) + (slope(3)*eta3)
                             end do
 
