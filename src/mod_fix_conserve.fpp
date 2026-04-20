@@ -94,6 +94,8 @@ module mod_fix_conserve
          nsend=nsend+nsend_fc(1)
          nxCo1=1;nxCo2=ixGhi2/2-nghostcells;nxCo3=ixGhi3/2-nghostcells;
          isize(1)=nxCo1*nxCo2*nxCo3*(nwfluxin)
+         !$acc enter data copyin(isize) 
+
          recvsize=recvsize+nrecv_fc(1)*isize(1)
          sendsize=sendsize+nsend_fc(1)*isize(1)
          if(stagger_grid) then
@@ -1355,16 +1357,16 @@ module mod_fix_conserve
                else
                  if (slab_uniform) then
                    ibufnext=ibuf+isize(2)
-               !    if(stagger_grid) ibufnext=ibufnext-isize_stg(2)
+                 !    if(stagger_grid) ibufnext=ibufnext-isize_stg(2)
 
-               !$acc loop collapse(ndim-1) vector
-               do ix3=1,nxCo3 
-                 do ix1=1,nxCo1 
-                   psb(igrid)%w(ixmin1+ix1-1,ix,ixmin3+ix3-1,nw0:nw1) = &
-                     psb(igrid)%w(ixmin1+ix1-1,ix,ixmin3+ix3-1,nw0:nw1) + &
-                     CoFiratio * recvbuffer(ibuf + (ix1-1) + nxCo3*(ix3-1))
+                 !$acc loop collapse(ndim-1) vector
+                 do ix3=1,nxCo3 
+                   do ix1=1,nxCo1 
+                     psb(igrid)%w(ixmin1+ix1-1,ix,ixmin3+ix3-1,nw0:nw1) = &
+                       psb(igrid)%w(ixmin1+ix1-1,ix,ixmin3+ix3-1,nw0:nw1) + &
+                       CoFiratio * recvbuffer(ibuf + (ix1-1) + nxCo3*(ix3-1))
+                   end do
                  end do
-               end do
              
                ! --- Old ---
                ! psb(igrid)%w(ixmin1:ixmax1,ixmin2:ixmax2,ixmin3:ixmax3,&
@@ -1393,7 +1395,7 @@ module mod_fix_conserve
                !      ibuf=ibuf+nbuf
                !    end do
                !    ibuf=ibufnext
-               !  end if
+                 end if
                end if
              end do
              end do
@@ -1545,7 +1547,7 @@ module mod_fix_conserve
                !      ibuf=ibuf+nbuf
                !    end do
                !    ibuf=ibufnext
-               !  end if
+                 end if
                end if
              end do
              end do
