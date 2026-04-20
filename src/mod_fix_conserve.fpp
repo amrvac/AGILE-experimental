@@ -158,14 +158,18 @@ module mod_fix_conserve
        end select
      end do
 
+     !!!!!!!!! HECTOR HERE !!!!!!!!!!
      ! Reallocate buffers when size differs
      if (allocated(recvbuffer)) then
        if (recvsize /= size(recvbuffer)) then
+         !$acc exit data delete(recvbuffer)
          deallocate(recvbuffer)
          allocate(recvbuffer(recvsize))
+         !$acc enter data create(recvbuffer)
        end if
      else
        allocate(recvbuffer(recvsize))
+       !$acc enter data create(recvbuffer)
      end if
 
      if (allocated(fc_recvreq)) then
@@ -271,10 +275,16 @@ module mod_fix_conserve
                if (ipe_neighbor/=mype) then
                  irecv=irecv+1
                  itag=4**3*(igrid-1)+inc1*4**(1-1)+inc2*4**(2-1)+inc3*4**(3-1)
+                 #ifndef NOGPUDIRECT
+                 !$acc host_data use_device(recvbuffer)
+                 #endif
                  call mpi_irecv_wrapper(recvbuffer(ibuf),isize(idims),&
                      MPI_DOUBLE_PRECISION,ipe_neighbor,itag, icomm,&
                     fc_recvreq(irecv),ierrmpi)
                  ibuf=ibuf+isize(idims)
+                 #ifndef NOGPUDIRECT
+                 !$acc end host_data
+                 #endif
                end if
              end do
              end do
@@ -428,9 +438,21 @@ module mod_fix_conserve
                 !      fc_sendreq(isend),ierrmpi)
                 !   ibuf_send=ibuf_send_next
                 ! else
+
+                #ifdef NOGPUDIRECT
+                !$acc update host(pflux(iside,1,igrid)%flux)
+                #endif
+
+                #ifndef NOGPUDIRECT
+                !$acc host_data use_device(pflux(iside,1,igrid)%flux)
+                #endif
                    call MPI_ISEND(pflux(iside,1,igrid)%flux,isize(1),&
                        MPI_DOUBLE_PRECISION,ipe_neighbor,itag, icomm,&
                       fc_sendreq(isend),ierrmpi)
+                #ifndef NOGPUDIRECT
+                !$acc end host_data
+                #endif
+                
                 ! end if
                end if
 
@@ -534,9 +556,23 @@ module mod_fix_conserve
                 !      fc_sendreq(isend),ierrmpi)
                 !   ibuf_send=ibuf_send_next
                 ! else
+
+                #ifdef NOGPUDIRECT
+                !$acc update host(pflux(iside,2,igrid)%flux)
+                #endif
+
+                #ifndef NOGPUDIRECT
+                !$acc host_data use_device(pflux(iside,2,igrid)%flux)
+                #endif
+
                    call MPI_ISEND(pflux(iside,2,igrid)%flux,isize(2),&
                        MPI_DOUBLE_PRECISION,ipe_neighbor,itag, icomm,&
                       fc_sendreq(isend),ierrmpi)
+
+                #ifndef NOGPUDIRECT
+                !$acc end host_data
+                #endif
+
                 ! end if
                end if
 
@@ -640,9 +676,23 @@ module mod_fix_conserve
                 !      fc_sendreq(isend),ierrmpi)
                 !   ibuf_send=ibuf_send_next
                 ! else
+
+                #ifdef NOGPUDIRECT
+                !$acc update host(pflux(iside,3,igrid)%flux)
+                #endif
+
+                #ifndef NOGPUDIRECT
+                !$acc host_data use_device(pflux(iside,3,igrid)%flux)
+                #endif
+
                    call MPI_ISEND(pflux(iside,3,igrid)%flux,isize(3),&
                        MPI_DOUBLE_PRECISION,ipe_neighbor,itag, icomm,&
                       fc_sendreq(isend),ierrmpi)
+
+                #ifndef NOGPUDIRECT
+                !$acc end host_data
+                #endif
+
                 ! end if
                end if
 
@@ -994,6 +1044,8 @@ module mod_fix_conserve
      !- Do all the do-loops on the device, add openacc wrappers, follow
      !the structure that is currently in mod_finite_volume
 
+     ! HO: Re-activating MPI-related stuff
+
      nw1=nw0-1+nwfluxin
      if (slab_uniform) then
        ! The flux is divided by volume of fine cell. We need, however,
@@ -1117,9 +1169,6 @@ module mod_fix_conserve
                             pflux(iotherside,1,ineighbor&
                             )%flux(1,ix2,ix3,1:nwfluxin)&
                             * CoFiratio
-                            !TODO JESSE I suspect that the indexing
-                            !of flux (ix1..ix3) is not correct
-                            !yet...
                         end do
                      end do
 
@@ -1127,7 +1176,8 @@ module mod_fix_conserve
                  !     nw0:nw1) = psb(igrid)%w(ixmin1:ixmax1,ixmin2:ixmax2,&
                  !     ixmin3:ixmax3,nw0:nw1) + pflux(iotherside,1,&
                  !     ineighbor)%flux(:,:,:,1:nwfluxin)* CoFiratio
-                 !else !MPI-related, TODO, JESSE
+
+                 !else
                  !  do iw=nw0,nw1
                  !    psb(igrid)%w(ixmin1:ixmax1,ixmin2:ixmax2,ixmin3:ixmax3,&
                  !       iw)=psb(igrid)%w(ixmin1:ixmax1,ixmin2:ixmax2,&
@@ -1137,19 +1187,34 @@ module mod_fix_conserve
                  !       ixmin2:ixmax2,ixmin3:ixmax3)
                  !  end do
                  end if
-               !else
-               !  if (slab_uniform) then
-               !    ibufnext=ibuf+isize(1)
-               !    !if(stagger_grid) ibufnext=ibufnext-isize_stg(1)
-               !    !TODO JESSE: unclear what to do with the statement
-               !    !below here ...
-               !    psb(igrid)%w(ixmin1:ixmax1,ixmin2:ixmax2,ixmin3:ixmax3,&
-               !       nw0:nw1) = psb(igrid)%w(ixmin1:ixmax1,ixmin2:ixmax2,&
-               !       ixmin3:ixmax3,nw0:nw1)+CoFiratio &
-               !       *reshape(source=recvbuffer(ibuf:ibufnext-1),&
-               !        shape=shape(psb(igrid)%w(ixmin1:ixmax1,ixmin2:ixmax2,&
-               !       ixmin3:ixmax3,nw0:nw1)))
-               !    ibuf=ibuf+isize(1)
+               else !MPI-related, TODO, JESSE
+                 if (slab_uniform) then
+                   ibufnext=ibuf+isize(1)
+                   !if(stagger_grid) ibufnext=ibufnext-isize_stg(1)
+
+                   ! HO: Instead of using 'reshape', we manually copy from the 
+                   ! flattened array in a loop
+
+                   ! Direction 1, so loop runs over directions 2 and 3
+                   !$acc loop collapse(ndim-1) vector
+                   do ix3=1,nxCo3 
+                      do ix2=1,nxCo2 
+                         psb(igrid)%w(ix,ixmin2+ix2-1,ixmin3+ix3-1,nw0:nw1) = &
+                          psb(igrid)%w(ix,ixmin2+ix2-1,ixmin3+ix3-1,nw0:nw1) + &
+                          CoFiratio * recvbuffer(ibuf + (ix2-1) + nxCo3*(ix3-1))
+                      end do
+                   end do
+ 
+                  ! --- Old ---
+                  ! psb(igrid)%w(ixmin1:ixmax1,ixmin2:ixmax2,ixmin3:ixmax3,&
+                  !    nw0:nw1) = psb(igrid)%w(ixmin1:ixmax1,ixmin2:ixmax2,&
+                  !    ixmin3:ixmax3,nw0:nw1)+CoFiratio &
+                  !    *reshape(source=recvbuffer(ibuf:ibufnext-1),&
+                  !     shape=shape(psb(igrid)%w(ixmin1:ixmax1,ixmin2:ixmax2,&
+                  !    ixmin3:ixmax3,nw0:nw1)))
+
+                   ibuf=ibuf+isize(1)
+
                !  else
                !    ibufnext=ibuf+isize(1)
                !    if(stagger_grid) then
@@ -1168,7 +1233,7 @@ module mod_fix_conserve
                !      ibuf=ibuf+nbuf
                !    end do
                !    ibuf=ibufnext
-               !  end if
+                 end if
                end if
              end do
              end do
@@ -1287,17 +1352,29 @@ module mod_fix_conserve
                  !       ixmin2:ixmax2,ixmin3:ixmax3)
                  !  end do
                  end if
-               !else
-               !  if (slab_uniform) then
-               !    ibufnext=ibuf+isize(2)
+               else
+                 if (slab_uniform) then
+                   ibufnext=ibuf+isize(2)
                !    if(stagger_grid) ibufnext=ibufnext-isize_stg(2)
-               !    psb(igrid)%w(ixmin1:ixmax1,ixmin2:ixmax2,ixmin3:ixmax3,&
-               !       nw0:nw1) = psb(igrid)%w(ixmin1:ixmax1,ixmin2:ixmax2,&
-               !       ixmin3:ixmax3,nw0:nw1)+CoFiratio &
-               !       *reshape(source=recvbuffer(ibuf:ibufnext-1),&
-               !        shape=shape(psb(igrid)%w(ixmin1:ixmax1,ixmin2:ixmax2,&
-               !       ixmin3:ixmax3,nw0:nw1)))
-               !    ibuf=ibuf+isize(2)
+
+               !$acc loop collapse(ndim-1) vector
+               do ix3=1,nxCo3 
+                 do ix1=1,nxCo1 
+                   psb(igrid)%w(ixmin1+ix1-1,ix,ixmin3+ix3-1,nw0:nw1) = &
+                     psb(igrid)%w(ixmin1+ix1-1,ix,ixmin3+ix3-1,nw0:nw1) + &
+                     CoFiratio * recvbuffer(ibuf + (ix1-1) + nxCo3*(ix3-1))
+                 end do
+               end do
+             
+               ! --- Old ---
+               ! psb(igrid)%w(ixmin1:ixmax1,ixmin2:ixmax2,ixmin3:ixmax3,&
+               !    nw0:nw1) = psb(igrid)%w(ixmin1:ixmax1,ixmin2:ixmax2,&
+               !    ixmin3:ixmax3,nw0:nw1)+CoFiratio &
+               !    *reshape(source=recvbuffer(ibuf:ibufnext-1),&
+               !     shape=shape(psb(igrid)%w(ixmin1:ixmax1,ixmin2:ixmax2,&
+               !    ixmin3:ixmax3,nw0:nw1)))
+               ibuf=ibuf+isize(2)
+               
                !  else
                !    ibufnext=ibuf+isize(2)
                !    if(stagger_grid) then
@@ -1426,17 +1503,30 @@ module mod_fix_conserve
                  !       ixmin2:ixmax2,ixmin3:ixmax3)
                  !  end do
                  end if
-               !else
-               !  if (slab_uniform) then
-               !    ibufnext=ibuf+isize(3)
+               else
+                 if (slab_uniform) then
+                   ibufnext=ibuf+isize(3)
                !    if(stagger_grid) ibufnext=ibufnext-isize_stg(3)
-               !    psb(igrid)%w(ixmin1:ixmax1,ixmin2:ixmax2,ixmin3:ixmax3,&
-               !       nw0:nw1) = psb(igrid)%w(ixmin1:ixmax1,ixmin2:ixmax2,&
-               !       ixmin3:ixmax3,nw0:nw1)+CoFiratio &
-               !       *reshape(source=recvbuffer(ibuf:ibufnext-1),&
-               !        shape=shape(psb(igrid)%w(ixmin1:ixmax1,ixmin2:ixmax2,&
-               !       ixmin3:ixmax3,nw0:nw1)))
-               !    ibuf=ibuf+isize(3)
+
+                   !$acc loop collapse(ndim-1) vector
+                   do ix2=1,nxCo2 
+                     do ix1=1,nxCo1 
+                       psb(igrid)%w(ixmin1+ix1-1,ixmin2+ix2-1,ix,nw0:nw1) = &
+                         psb(igrid)%w(ixmin1+ix1-1,ixmin2+ix2-1,ix,nw0:nw1) + &
+                         CoFiratio * recvbuffer(ibuf  + (ix1-1) + nxCo2*(ix2-1))
+                     end do
+                   end do
+
+                   ! --- Old ---
+                   !psb(igrid)%w(ixmin1:ixmax1,ixmin2:ixmax2,ixmin3:ixmax3,&
+                   !   nw0:nw1) = psb(igrid)%w(ixmin1:ixmax1,ixmin2:ixmax2,&
+                   !   ixmin3:ixmax3,nw0:nw1)+CoFiratio &
+                   !   *reshape(source=recvbuffer(ibuf:ibufnext-1),&
+                   !    shape=shape(psb(igrid)%w(ixmin1:ixmax1,ixmin2:ixmax2,&
+                   !   ixmin3:ixmax3,nw0:nw1)))
+               
+                   ibuf=ibuf+isize(3)
+
                !  else
                !    ibufnext=ibuf+isize(3)
                !    if(stagger_grid) then
@@ -1467,6 +1557,11 @@ module mod_fix_conserve
 
      if (nsend>0) then
        call MPI_WAITALL(nsend,fc_sendreq,fc_sendstat,ierrmpi)
+
+       #ifdef NOGPUDIRECT
+             !$acc update device(recvbuffer)
+       #endif
+
      end if
 
    end subroutine fix_conserve

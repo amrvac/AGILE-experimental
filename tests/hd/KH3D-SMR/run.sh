@@ -7,7 +7,7 @@
 #SBATCH --mem=0
 #SBATCH --job-name=NVHPC
 #SBATCH --mail-type=ALL
-#SBATCH --time=00-00:30:00
+#SBATCH --time=00-00:10:00
 #SBATCH -o slurms/single_out-%j # STDOUT 
 #SBATCH -e slurms/single_err-%j # STDERR
 

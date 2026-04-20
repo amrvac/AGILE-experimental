@@ -44,11 +44,11 @@
  /
 
  &meshlist
-   max_blocks         = 512 !4096 !8192 !16384
-   refine_max_level   = 2 !4
+!   max_blocks         = 512 !4096 !8192 !16384
+!   refine_max_level   = 2 !4
 !!=======
-!!   max_blocks         = 32768
-!!   refine_max_level   = 3
+   max_blocks         = 32768
+   refine_max_level   = 3
 !!>>>>>>> origin/master
    refine_criterion   = 1 !user-defined criterion only (in mod_usr)
    refine_usr         = .true.
