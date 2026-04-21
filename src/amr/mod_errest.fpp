@@ -53,8 +53,6 @@ contains
     logical                            :: refineflag, coarsenflag
     double precision, parameter        :: epsilon=1.0d-6
 
-    associate(w => bg(1)%w(:,:,:,:, igrid))
-
       level       = node(plevel_,igrid)
       threshold   = refine_threshold(level)
 
@@ -78,47 +76,46 @@ contains
 
                         numerator = numerator + &
                              ( &
-                             ( w(ix1+kr(1,idims2)+kr(1,idims1), &
+                             ( bg(1)%w(ix1+kr(1,idims2)+kr(1,idims1), &
                              ix2+kr(2,idims2)+kr(2,idims1), &
-                             ix3+kr(3,idims2)+kr(3,idims1), iflag)    &
-                             - w(ix1-kr(1,idims2)+kr(1,idims1), &
+                             ix3+kr(3,idims2)+kr(3,idims1), iflag, igrid)    &
+                             - bg(1)%w(ix1-kr(1,idims2)+kr(1,idims1), &
                              ix2-kr(2,idims2)+kr(2,idims1), &
-                             ix3-kr(3,idims2)+kr(3,idims1), iflag) )  &
+                             ix3-kr(3,idims2)+kr(3,idims1), iflag, igrid) )  &
                              - &
-                             ( w(ix1+kr(1,idims2)-kr(1,idims1), &
+                             ( bg(1)%w(ix1+kr(1,idims2)-kr(1,idims1), &
                              ix2+kr(2,idims2)-kr(2,idims1), &
-                             ix3+kr(3,idims2)-kr(3,idims1), iflag)    &
-                             - w(ix1-kr(1,idims2)-kr(1,idims1), &
+                             ix3+kr(3,idims2)-kr(3,idims1), iflag, igrid)    &
+                             - bg(1)%w(ix1-kr(1,idims2)-kr(1,idims1), &
                              ix2-kr(2,idims2)-kr(2,idims1), &
-                             ix3-kr(3,idims2)-kr(3,idims1), iflag) )  &
+                             ix3-kr(3,idims2)-kr(3,idims1), iflag, igrid) )  &
                              )**2
 
                         denominator = denominator + &
                              ( &
                              abs( &
-                             w(ix1+2*kr(1,idims1), ix2+2*kr(2,idims1), ix3+2*kr(3,idims1), iflag) &
-                             - w(ix1, ix2, ix3, iflag) &
+                             bg(1)%w(ix1+2*kr(1,idims1), ix2+2*kr(2,idims1), ix3+2*kr(3,idims1), iflag, igrid) &
+                             - bg(1)%w(ix1, ix2, ix3, iflag, igrid) &
                              ) &
                              + abs( &
-                             w(ix1, ix2, ix3, iflag) &
-                             - w(ix1-2*kr(1,idims1), ix2-2*kr(2,idims1), ix3-2*kr(3,idims1), iflag) &
+                             bg(1)%w(ix1, ix2, ix3, iflag, igrid) &
+                             - bg(1)%w(ix1-2*kr(1,idims1), ix2-2*kr(2,idims1), ix3-2*kr(3,idims1), iflag, igrid) &
                              ) &
                              + amr_wavefilter(level) * ( &
-                             ( abs( w(ix1+kr(1,idims1)+kr(1,idims2), &
+                             ( abs( bg(1)%w(ix1+kr(1,idims1)+kr(1,idims2), &
                              ix2+kr(2,idims1)+kr(2,idims2), &
-                             ix3+kr(3,idims1)+kr(3,idims2), iflag) )   &
-                             + abs( w(ix1-kr(1,idims1)+kr(1,idims2), &
-                             ix2-kr(2,idims1)+kr(2,idims2), ix3-kr(3,idims1)+kr(3,idims2), iflag) ) ) &
+                             ix3+kr(3,idims1)+kr(3,idims2), iflag, igrid) )   &
+                             + abs( bg(1)%w(ix1-kr(1,idims1)+kr(1,idims2), &
+                             ix2-kr(2,idims1)+kr(2,idims2), ix3-kr(3,idims1)+kr(3,idims2), iflag, igrid) ) ) &
                              + &
-                             ( abs( w(ix1+kr(1,idims1)-kr(1,idims2), &
+                             ( abs( bg(1)%w(ix1+kr(1,idims1)-kr(1,idims2), &
                              ix2+kr(2,idims1)-kr(2,idims2), &
-                             ix3+kr(3,idims1)-kr(3,idims2), iflag) )   &
-                             + abs( w(ix1-kr(1,idims1)-kr(1,idims2), &
+                             ix3+kr(3,idims1)-kr(3,idims2), iflag, igrid) )   &
+                             + abs( bg(1)%w(ix1-kr(1,idims1)-kr(1,idims2), &
                              ix2-kr(2,idims1)-kr(2,idims2), &
-                             ix3-kr(3,idims1)-kr(3,idims2), iflag) ) ) &
+                             ix3-kr(3,idims1)-kr(3,idims2), iflag, igrid) ) ) &
                              ) &
                              )**2
-
                      end do
                   end do
 
@@ -140,7 +137,6 @@ contains
       if (refineflag .and. level < refine_max_level) refine(igrid,mype)=.true.
       if (coarsenflag .and. level > 1) coarsen(igrid,mype)=.true.
 
-    end associate
   end subroutine lohner_grid
 
   subroutine forcedrefine_grid(igrid)
