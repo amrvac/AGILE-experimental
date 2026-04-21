@@ -188,7 +188,6 @@ contains
     ixFismax1=ixFimax1;ixFismax2=ixFimax2;ixFismax3=ixFimax3;
 
 
-    associate(wCos=>sCo%ws, wFis=>sFi%ws,wCo=>sCo%w, wFi=>sFi%w)
     ! Assemble general indices
     ixGsmin1=sFi%ixGsmin1;ixGsmin2=sFi%ixGsmin2;ixGsmin3=sFi%ixGsmin3;
     ixGsmax1=sFi%ixGsmax1;ixGsmax2=sFi%ixGsmax2;ixGsmax3=sFi%ixGsmax3;
@@ -247,7 +246,7 @@ contains
       end if
       ! Convert fine fields to fluxes
       bfluxFi(ixFisEmin1:ixFisEmax1,ixFisEmin2:ixFisEmax2,&
-         ixFisEmin3:ixFisEmax3,idim1)=wFis(ixFisEmin1:ixFisEmax1,&
+         ixFisEmin3:ixFisEmax3,idim1)=sFi%ws(ixFisEmin1:ixFisEmax1,&
          ixFisEmin2:ixFisEmax2,ixFisEmin3:ixFisEmax3,&
          idim1)*sFi%surfaceC(ixFisEmin1:ixFisEmax1,ixFisEmin2:ixFisEmax2,&
          ixFisEmin3:ixFisEmax3,idim1)
@@ -353,7 +352,7 @@ contains
 
       ! Fill coarse flux array from coarse field
       bfluxCo(ixCosEmin1:ixCosEmax1,ixCosEmin2:ixCosEmax2,&
-         ixCosEmin3:ixCosEmax3,idim1)=wCos(ixCosEmin1:ixCosEmax1,&
+         ixCosEmin3:ixCosEmax3,idim1)=sCo%ws(ixCosEmin1:ixCosEmax1,&
          ixCosEmin2:ixCosEmax2,ixCosEmin3:ixCosEmax3,&
          idim1)*sCo%surfaceC(ixCosEmin1:ixCosEmax1,ixCosEmin2:ixCosEmax2,&
          ixCosEmin3:ixCosEmax3,idim1)
@@ -745,36 +744,34 @@ contains
       ixFisCmin3=ixFimin3-kr(3,idim1);
       where(sFi%surfaceC(ixFisCmin1:ixFisCmax1,ixFisCmin2:ixFisCmax2,&
          ixFisCmin3:ixFisCmax3,idim1)/=zero)
-        wFis(ixFisCmin1:ixFisCmax1,ixFisCmin2:ixFisCmax2,ixFisCmin3:ixFisCmax3,&
+        sFi%ws(ixFisCmin1:ixFisCmax1,ixFisCmin2:ixFisCmax2,ixFisCmin3:ixFisCmax3,&
            idim1)=bfluxFi(ixFisCmin1:ixFisCmax1,ixFisCmin2:ixFisCmax2,&
            ixFisCmin3:ixFisCmax3,idim1)/sFi%surfaceC(ixFisCmin1:ixFisCmax1,&
            ixFisCmin2:ixFisCmax2,ixFisCmin3:ixFisCmax3,idim1)
       elsewhere
-        wFis(ixFisCmin1:ixFisCmax1,ixFisCmin2:ixFisCmax2,ixFisCmin3:ixFisCmax3,&
+        sFi%ws(ixFisCmin1:ixFisCmax1,ixFisCmin2:ixFisCmax2,ixFisCmin3:ixFisCmax3,&
            idim1)=zero
       end where
     end do
 
     if(phys_total_energy.and. .not.prolongprimitive) then
       B_energy_change(ixFimin1:ixFimax1,ixFimin2:ixFimax2,&
-         ixFimin3:ixFimax3)=0.5d0*sum(wFi(ixFimin1:ixFimax1,ixFimin2:ixFimax2,&
+         ixFimin3:ixFimax3)=0.5d0*sum(sFi%w(ixFimin1:ixFimax1,ixFimin2:ixFimax2,&
          ixFimin3:ixFimax3,iw_mag(:))**2,dim=ndim+1)
     end if
     call phys_face_to_center(ixFimin1,ixFimin2,ixFimin3,ixFimax1,ixFimax2,&
        ixFimax3,sFi)
     if(phys_total_energy.and. .not.prolongprimitive) then
       B_energy_change(ixFimin1:ixFimax1,ixFimin2:ixFimax2,&
-         ixFimin3:ixFimax3)=0.5d0*sum(wFi(ixFimin1:ixFimax1,ixFimin2:ixFimax2,&
+         ixFimin3:ixFimax3)=0.5d0*sum(sFi%w(ixFimin1:ixFimax1,ixFimin2:ixFimax2,&
          ixFimin3:ixFimax3,iw_mag(:))**2,&
          dim=ndim+1)-B_energy_change(ixFimin1:ixFimax1,ixFimin2:ixFimax2,&
          ixFimin3:ixFimax3)
-      wFi(ixFimin1:ixFimax1,ixFimin2:ixFimax2,ixFimin3:ixFimax3,&
-         iw_e)=wFi(ixFimin1:ixFimax1,ixFimin2:ixFimax2,ixFimin3:ixFimax3,&
+      sFi%w(ixFimin1:ixFimax1,ixFimin2:ixFimax2,ixFimin3:ixFimax3,&
+         iw_e)=sFi%w(ixFimin1:ixFimax1,ixFimin2:ixFimax2,ixFimin3:ixFimax3,&
          iw_e)+B_energy_change(ixFimin1:ixFimax1,ixFimin2:ixFimax2,&
          ixFimin3:ixFimax3)
     end if
-
-    end associate
 
     ! END NOONED
   end subroutine prolong_2nd_stg

@@ -13,9 +13,9 @@ module mod_coarsen_refine
   integer, dimension(:), allocatable :: recvrequest, sendrequest
   integer, dimension(:,:), allocatable :: recvstatus, sendstatus
   !> MPI buffers to send non-local coarsened grids
-  double precision, allocatable, dimension(:,:,:,:,:)  :: snd_buff, rcv_buff
-  integer, allocatable, dimension(:,:)  :: rcv_info
-  !$acc declare create(snd_buff,rcv_buff,rcv_info)
+  double precision, allocatable, dimension(:,:,:,:,:)  :: snd_buff_cf, rcv_buff_cf
+  integer, allocatable, dimension(:,:)  :: rcv_info_cf
+  !$acc declare create(snd_buff_cf,rcv_buff_cf,rcv_info_cf)
   !> maximum number of coarse blocks that can be sent after coarsening
   integer, parameter :: max_buff=1024
   !$acc declare copyin(max_buff)
@@ -81,11 +81,11 @@ contains
     end if
 
     ! Allocate the send and receive buffers
-    if ( .not. allocated(snd_buff) ) then
-       allocate( snd_buff(block_nx1/2, block_nx2/2, block_nx3/2, nw, max_buff), &
-            rcv_buff(block_nx1/2, block_nx2/2, block_nx3/2, nw, max_buff), &
-            rcv_info(4, max_buff) )
-       !$acc update device(snd_buff, rcv_buff, rcv_info)
+    if ( .not. allocated(snd_buff_cf) ) then
+       allocate( snd_buff_cf(block_nx1/2, block_nx2/2, block_nx3/2, nw, max_buff), &
+            rcv_buff_cf(block_nx1/2, block_nx2/2, block_nx3/2, nw, max_buff), &
+            rcv_info_cf(4, max_buff) )
+       !$acc update device(snd_buff_cf, rcv_buff_cf, rcv_info_cf)
     end if
 
     do ipe=0,npe-1
@@ -139,16 +139,16 @@ contains
 
     ! unpack the receive buffers on GPU
 #ifdef NOGPUDIRECT
-    !$acc update device(rcv_buff(:,:,:,:,1:irecv))
+    !$acc update device(rcv_buff_cf(:,:,:,:,1:irecv))
 #endif
-    !$acc update device(rcv_info(:,1:irecv))
+    !$acc update device(rcv_info_cf(:,1:irecv))
 
     !$acc parallel loop gang
     do ibuff = 1, irecv
-       igrid = rcv_info(1,ibuff)
-       ic1   = rcv_info(2,ibuff)
-       ic2   = rcv_info(3,ibuff)
-       ic3   = rcv_info(4,ibuff)
+       igrid = rcv_info_cf(1,ibuff)
+       ic1   = rcv_info_cf(2,ibuff)
+       ic2   = rcv_info_cf(3,ibuff)
+       ic3   = rcv_info_cf(4,ibuff)
        !$acc loop collapse(4) vector
        do iw = 1, nw
           do ix3 = 1, block_nx3/2
@@ -159,7 +159,7 @@ contains
                         ixMlo2-1+(ic2-1)*block_nx2/2 + ix2, &
                         ixMlo3-1+(ic3-1)*block_nx3/2 + ix3, &
                         iw) &
-                        = rcv_buff(ix1, ix2, ix3, iw, ibuff)
+                        = rcv_buff_cf(ix1, ix2, ix3, iw, ibuff)
                 end do
              end do
           end do
@@ -507,7 +507,7 @@ contains
                       do ix3 = 1, block_nx3/2
                          do ix2 = 1, block_nx2/2
                             do ix1 = 1, block_nx1/2
-                               snd_buff(ix1, ix2, ix3, iw, isend) = &
+                               snd_buff_cf(ix1, ix2, ix3, iw, isend) = &
                                     psc(igridFi)%w(ixCoMmin1-1+ix1, ixCoMmin2-1+ix2, ixCoMmin3-1+ix3, iw)
                             end do
                          end do
@@ -515,11 +515,11 @@ contains
                    end do
 
 #ifndef NOGPUDIRECT
-                   !$acc host_data use_device(snd_buff)
+                   !$acc host_data use_device(snd_buff_cf)
 #else
-                   !$acc update host(snd_buff(:,:,:,:,isend))
+                   !$acc update host(snd_buff_cf(:,:,:,:,isend))
 #endif
-                   call mpi_isend_wrapper(snd_buff(:,:,:,:,isend), &
+                   call mpi_isend_wrapper(snd_buff_cf(:,:,:,:,isend), &
                         block_nx1*block_nx2*block_nx3/8*nw,MPI_DOUBLE_PRECISION,ipe,itag, icomm,&
                         sendrequest(isend),ierrmpi)
 #ifndef NOGPUDIRECT
@@ -542,15 +542,15 @@ contains
                       call mpistop('coarsen_grid_siblings: max_buff too small in receive')
                    end if
 #ifndef NOGPUDIRECT
-                   !$acc host_data use_device(rcv_buff)
+                   !$acc host_data use_device(rcv_buff_cf)
 #endif
-                   call mpi_irecv_wrapper(rcv_buff(:,:,:,:,irecv), &
+                   call mpi_irecv_wrapper(rcv_buff_cf(:,:,:,:,irecv), &
                         block_nx1*block_nx2*block_nx3/8*nw,MPI_DOUBLE_PRECISION,ipeFi, &
                         itag, icomm,recvrequest(irecv),ierrmpi)
 #ifndef NOGPUDIRECT
                    !$acc end host_data
 #endif
-                   rcv_info(:,irecv) = [igrid, ic1, ic2, ic3]
+                   rcv_info_cf(:,irecv) = [igrid, ic1, ic2, ic3]
                    if(stagger_grid) then
                       do idir=1,ndim
                          itag_stg=(npe+ipeFi+1)+igridFi*(ndir-1+idir)
