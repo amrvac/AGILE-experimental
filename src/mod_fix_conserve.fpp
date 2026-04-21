@@ -718,257 +718,518 @@ module mod_fix_conserve
      end do
    end subroutine sendflux
 
-   subroutine allocateBflux
-     use mod_global_parameters
+subroutine acc_create_flux(arr)
+  use openacc
+  implicit none
 
-     integer :: iigrid, igrid, iside, i1,i2,i3, nx1,nx2,nx3, nxCo1,nxCo2,nxCo3
-     integer :: idir,idim,pi1,pi2,pi3, mi1,mi2,mi3, ph1,ph2,ph3, mh1,mh2,mh3 !To detect corners
+  double precision, allocatable, intent(inout) :: arr(:,:,:,:)
 
-     nx1=ixMhi1-ixMlo1+1;nx2=ixMhi2-ixMlo2+1;nx3=ixMhi3-ixMlo3+1;
-     nxCo1=nx1/2;nxCo2=nx2/2;nxCo3=nx3/2;
+#ifdef OPENACC_
+!!!  !$acc exit data delete(arr)
+  !$acc enter data create(arr)
+  !$acc enter data attach(arr)
+#endif
 
-     !print *, "nx1, nx2, nx3, nxCo1, nxCo2, nxCo3", nx1, nx2, nx3, nxCo1, nxCo2, nxCo3 
+end subroutine acc_create_flux
 
-     do iigrid=1,igridstail; igrid=igrids(iigrid);
-       ! For every grid,
-       ! arrays for the fluxes are allocated for every face direction(^D)
-       ! and every side (1=left, 2=right)
-       do iside=1,2
-         i1=kr(1,1)*(2*iside-3);i2=kr(2,1)*(2*iside-3);i3=kr(3,1)*(2*iside-3);
 
-         if (neighbor_pole(i1,i2,i3,igrid)/=0) cycle
+subroutine allocateBflux()
+  use openacc
+  use mod_global_parameters
 
-         select case (neighbor_type(i1,i2,i3,igrid))
-         case(neighbor_fine)
+  integer :: iigrid, igrid, iside
+  integer :: i1,i2,i3
+  integer :: nx1,nx2,nx3, nxCo1,nxCo2,nxCo3
 
-           allocate(pflux(iside,1,igrid)%flux(1,1:nx2,1:nx3,1:nwflux))
-           !$acc enter data create(pflux(iside,1,igrid)%flux) !JESSE
-!!           !$acc enter data copyin(pflux(iside,1,igrid)%flux) !JESSE
-           !JESSE TODO CHECK IF THE COPYIN FUNC FIXES THINGS ...
+  nx1 = ixMhi1-ixMlo1+1
+  nx2 = ixMhi2-ixMlo2+1
+  nx3 = ixMhi3-ixMlo3+1
+
+  nxCo1 = nx1/2
+  nxCo2 = nx2/2
+  nxCo3 = nx3/2
+
+  do iigrid = 1, igridstail
+    igrid = igrids(iigrid)
+
+    !==================================================
+    ! DIMENSION 1
+    !==================================================
+    do iside = 1, 2
+      i1 = kr(1,1)*(2*iside-3)
+      i2 = kr(2,1)*(2*iside-3)
+      i3 = kr(3,1)*(2*iside-3)
+
+      if (neighbor_pole(i1,i2,i3,igrid) /= 0) cycle
+
+      !if (acc_is_present(pflux(iside,1,igrid)%flux)) then
+      !  print *, "[ERROR] Already present BEFORE create:", 1, iside, igrid
+      !end if
+
+      select case (neighbor_type(i1,i2,i3,igrid))
+
+      case (neighbor_fine)
+
+        allocate(pflux(iside,1,igrid)%flux(1,1:nx2,1:nx3,1:nwflux))
+        !!!call acc_create_flux(pflux(iside,1,igrid)%flux)
+        !!$acc exit data delete(pflux(iside,1,igrid)%flux)
+        !!$acc enter data create(pflux(iside,1,igrid)%flux)
+        !!$acc enter data attach(pflux(iside,1,igrid)%flux)
+        !!$acc update device(pflux(iside,1,igrid)%flux)
+
+        if (acc_is_present(pflux(iside,1,igrid)%flux)) then
+          !$acc update device(pflux(iside,1,igrid)%flux)
+        else
+          !$acc enter data create(pflux(iside,1,igrid)%flux)
+          !!!$acc enter data attach(pflux(iside,1,igrid)%flux)
+        end if
+
+      case (neighbor_coarse)
+        allocate(pflux(iside,1,igrid)%flux(1,1:nxCo2,1:nxCo3,1:nwflux))
+        !!!call acc_create_flux(pflux(iside,1,igrid)%flux)
+        !!$acc exit data delete(pflux(iside,1,igrid)%flux)
+        !!$acc enter data create(pflux(iside,1,igrid)%flux)
+        !!$acc enter data attach(pflux(iside,1,igrid)%flux)
+        !!$acc update device(pflux(iside,1,igrid)%flux)
+
+        if (acc_is_present(pflux(iside,1,igrid)%flux)) then
+          !$acc update device(pflux(iside,1,igrid)%flux)
+        else
+          !$acc enter data create(pflux(iside,1,igrid)%flux)
+          !!!$acc enter data attach(pflux(iside,1,igrid)%flux)
+        end if
+
+      end select
+    end do
+
+    !==================================================
+    ! DIMENSION 2
+    !==================================================
+    do iside = 1, 2
+      i1 = kr(1,2)*(2*iside-3)
+      i2 = kr(2,2)*(2*iside-3)
+      i3 = kr(3,2)*(2*iside-3)
+
+      if (neighbor_pole(i1,i2,i3,igrid) /= 0) cycle
+
+      !!if (acc_is_present(pflux(iside,2,igrid)%flux)) then
+      !!  print *, "[ERROR] Already present BEFORE create:", 2, iside, igrid
+      !!end if
+
+      select case (neighbor_type(i1,i2,i3,igrid))
+
+      case (neighbor_fine)
+        allocate(pflux(iside,2,igrid)%flux(1:nx1,1,1:nx3,1:nwflux))
+        !!call acc_create_flux(pflux(iside,2,igrid)%flux) !JESSE DOES NOT
+        !!SEEM TO WORK ...
+        !!$acc exit data delete(pflux(iside,2,igrid)%flux)
+        !!$acc enter data create(pflux(iside,2,igrid)%flux)
+        !!$acc enter data attach(pflux(iside,2,igrid)%flux)
+        !!$acc update device(pflux(iside,2,igrid)%flux)
+
+        if (acc_is_present(pflux(iside,2,igrid)%flux)) then
+          !$acc update device(pflux(iside,2,igrid)%flux)
+        else
+          !$acc enter data create(pflux(iside,2,igrid)%flux)
+          !!!$acc enter data attach(pflux(iside,2,igrid)%flux)
+        end if
+
+      case (neighbor_coarse)
+        allocate(pflux(iside,2,igrid)%flux(1:nxCo1,1,1:nxCo3,1:nwflux))
+        !!call acc_create_flux(pflux(iside,2,igrid)%flux)
+        !!$acc exit data delete(pflux(iside,2,igrid)%flux)
+        !!$acc enter data create(pflux(iside,2,igrid)%flux)
+        !!$acc enter data attach(pflux(iside,2,igrid)%flux)
+        !!$acc update device(pflux(iside,2,igrid)%flux)
+
+        if (acc_is_present(pflux(iside,2,igrid)%flux)) then
+          !$acc update device(pflux(iside,2,igrid)%flux)
+        else
+          !$acc enter data create(pflux(iside,2,igrid)%flux)
+          !!!$acc enter data attach(pflux(iside,2,igrid)%flux)
+        end if
+
+      end select
+    end do
+
+    !==================================================
+    ! DIMENSION 3
+    !==================================================
+    do iside = 1, 2
+      i1 = kr(1,3)*(2*iside-3)
+      i2 = kr(2,3)*(2*iside-3)
+      i3 = kr(3,3)*(2*iside-3)
+
+      if (neighbor_pole(i1,i2,i3,igrid) /= 0) cycle
+
+      !!if (acc_is_present(pflux(iside,3,igrid)%flux)) then
+      !!  print *, "[ERROR] Already present BEFORE create:", 3, iside, igrid
+      !!end if
+
+      select case (neighbor_type(i1,i2,i3,igrid))
+
+      case (neighbor_fine)
+        allocate(pflux(iside,3,igrid)%flux(1:nx1,1:nx2,1,1:nwflux))
+        !!call acc_create_flux(pflux(iside,3,igrid)%flux)
+        !!$acc exit data delete(pflux(iside,3,igrid)%flux)
+        !!$acc enter data create(pflux(iside,3,igrid)%flux)
+        !!$acc enter data attach(pflux(iside,3,igrid)%flux)
+        !!$acc update device(pflux(iside,3,igrid)%flux)
+
+        if (acc_is_present(pflux(iside,3,igrid)%flux)) then
+          !$acc update device(pflux(iside,3,igrid)%flux)
+        else
+          !$acc enter data create(pflux(iside,3,igrid)%flux)
+          !$acc enter data attach(pflux(iside,3,igrid)%flux)
+        end if
+
+      case (neighbor_coarse)
+        allocate(pflux(iside,3,igrid)%flux(1:nxCo1,1:nxCo2,1,1:nwflux))
+        !!call acc_create_flux(pflux(iside,3,igrid)%flux)
+        !!$acc exit data delete(pflux(iside,3,igrid)%flux)
+        !!$acc enter data create(pflux(iside,3,igrid)%flux)
+        !!$acc enter data attach(pflux(iside,3,igrid)%flux)
+        !!$acc update device(pflux(iside,3,igrid)%flux)
+
+        if (acc_is_present(pflux(iside,3,igrid)%flux)) then
+          !$acc update device(pflux(iside,3,igrid)%flux)
+        else
+          !$acc enter data create(pflux(iside,3,igrid)%flux)
+          !$acc enter data attach(pflux(iside,3,igrid)%flux)
+        end if
+
+      end select
+    end do
+
+  end do
+
+end subroutine allocateBflux
+
+
+!!   subroutine allocateBflux
+!!     use mod_global_parameters
+!!
+!!     integer :: iigrid, igrid, iside, i1,i2,i3, nx1,nx2,nx3, nxCo1,nxCo2,nxCo3
+!!     integer :: idir,idim,pi1,pi2,pi3, mi1,mi2,mi3, ph1,ph2,ph3, mh1,mh2,mh3 !To detect corners
+!!
+!!     nx1=ixMhi1-ixMlo1+1;nx2=ixMhi2-ixMlo2+1;nx3=ixMhi3-ixMlo3+1;
+!!     nxCo1=nx1/2;nxCo2=nx2/2;nxCo3=nx3/2;
+!!
+!!     !print *, "nx1, nx2, nx3, nxCo1, nxCo2, nxCo3", nx1, nx2, nx3, nxCo1, nxCo2, nxCo3 
+!!
+!!     do iigrid=1,igridstail; igrid=igrids(iigrid);
+!!       ! For every grid,
+!!       ! arrays for the fluxes are allocated for every face direction(^D)
+!!       ! and every side (1=left, 2=right)
+!!       do iside=1,2
+!!         i1=kr(1,1)*(2*iside-3);i2=kr(2,1)*(2*iside-3);i3=kr(3,1)*(2*iside-3);
+!!
+!!         if (neighbor_pole(i1,i2,i3,igrid)/=0) cycle
+!!
+!!         select case (neighbor_type(i1,i2,i3,igrid))
+!!         case(neighbor_fine)
+!!
+!!           allocate(pflux(iside,1,igrid)%flux(1,1:nx2,1:nx3,1:nwflux))
 !!           !$acc enter data create(pflux(iside,1,igrid)%flux) !JESSE
-!!           !$acc enter data attach(pflux(iside,1,igrid)%flux) !JESSE
+!!           !$acc enter data attach(pflux(iside,1,igrid)%flux)
+!!!!           !$acc enter data copyin(pflux(iside,1,igrid)%flux) !JESSE
+!!           !JESSE TODO CHECK IF THE COPYIN FUNC FIXES THINGS ...
+!!!!           !$acc enter data create(pflux(iside,1,igrid)%flux) !JESSE
+!!!!           !$acc enter data attach(pflux(iside,1,igrid)%flux) !JESSE
+!!
+!!        !   if(stagger_grid) allocate(pflux(iside,1,igrid)%edge(1,0:nx2,0:nx3,&
+!!        !      1:ndim-1))
+!!
+!!         case(neighbor_coarse)
+!!
+!!           allocate(pflux(iside,1,igrid)%flux(1,1:nxCo2,1:nxCo3,1:nwflux))
+!!           !$acc enter data create(pflux(iside,1,igrid)%flux) !JESSE: no copyin because the data is not initialized yet
+!!           !$acc enter data attach(pflux(iside,1,igrid)%flux)
+!!!!           !$acc enter data create(pflux(iside,1,igrid)%flux(1,1:nxCo2,1:nxCo3,1:nwflux)) !JESSE
+!!!!           !$acc enter data attach(pflux(iside,1,igrid)%flux) !JESSE: may need this because it is a pointer (device-side) pointer
+!!
+!!        !   if(stagger_grid) allocate(pflux(iside,1,igrid)%edge(1,0:nxCo2,&
+!!        !      0:nxCo3,1:ndim-1))
+!!
+!!        ! Need to bring back the following when implementing staggered.
+!!        ! case(neighbor_sibling)
+!!
+!!        !   if(stagger_grid) then
+!!        !     idim=1
+!!        !     do idir=idim+1,ndim
+!!        !     !do idir=min(idim+1,ndim),ndim
+!!        !       pi1=i1+kr(idir,1);pi2=i2+kr(idir,2);pi3=i3+kr(idir,3);
+!!        !       mi1=i1-kr(idir,1);mi2=i2-kr(idir,2);mi3=i3-kr(idir,3);
+!!        !       ph1=pi1-kr(1,1)*(2*iside-3);ph2=pi2-kr(1,2)*(2*iside-3)
+!!        !       ph3=pi3-kr(1,3)*(2*iside-3);
+!!        !       mh1=mi1-kr(1,1)*(2*iside-3);mh2=mi2-kr(1,2)*(2*iside-3)
+!!        !       mh3=mi3-kr(1,3)*(2*iside-3);
+!!        !       if ((neighbor_type(pi1,pi2,pi3,igrid)==4.and.neighbor_type(ph1,&
+!!        !          ph2,ph3,igrid)==3).or.(neighbor_type(mi1,mi2,mi3,&
+!!        !          igrid)==4.and.neighbor_type(mh1,mh2,mh3,igrid)==3)) then
+!!        !         allocate(pflux(iside,1,igrid)%edge(1,0:nx2,0:nx3,1:ndim-1))
+!!        !         exit
+!!        !       end if
+!!        !     end do
+!!        !   end if
+!!         end select
+!!       end do
+!!       do iside=1,2
+!!         i1=kr(1,2)*(2*iside-3);i2=kr(2,2)*(2*iside-3);i3=kr(3,2)*(2*iside-3);
+!!
+!!         if (neighbor_pole(i1,i2,i3,igrid)/=0) cycle
+!!
+!!         select case (neighbor_type(i1,i2,i3,igrid))
+!!         case(neighbor_fine)
+!!           allocate(pflux(iside,2,igrid)%flux(1:nx1,1,1:nx3,1:nwflux))
+!!           !$acc enter data create(pflux(iside,2,igrid)%flux) !JESSE
+!!           !$acc enter data attach(pflux(iside,2,igrid)%flux)
+!!!!           !$acc enter data attach(pflux(iside,2,igrid)%flux) !JESSE
+!!        !   if(stagger_grid) allocate(pflux(iside,2,igrid)%edge(0:nx1,1,0:nx3,&
+!!        !      1:ndim-1))
+!!         case(neighbor_coarse)
+!!           allocate(pflux(iside,2,igrid)%flux(1:nxCo1,1,1:nxCo3,1:nwflux))
+!!           !$acc enter data create(pflux(iside,2,igrid)%flux) !JESSE
+!!           !$acc enter data attach(pflux(iside,2,igrid)%flux)
+!!!!           !$acc enter data attach(pflux(iside,2,igrid)%flux) !JESSE
+!!        !   if(stagger_grid) allocate(pflux(iside,2,igrid)%edge(0:nxCo1,1,&
+!!        !      0:nxCo3,1:ndim-1))
+!!
+!!        ! Need to bring back the following when implementing staggered.
+!!        ! case(neighbor_sibling)
+!!        !   if(stagger_grid) then
+!!        !     idim=2
+!!        !     do idir=idim+1,ndim
+!!        !     !do idir=min(idim+1,ndim),ndim
+!!        !       pi1=i1+kr(idir,1);pi2=i2+kr(idir,2);pi3=i3+kr(idir,3);
+!!        !       mi1=i1-kr(idir,1);mi2=i2-kr(idir,2);mi3=i3-kr(idir,3);
+!!        !       ph1=pi1-kr(2,1)*(2*iside-3);ph2=pi2-kr(2,2)*(2*iside-3)
+!!        !       ph3=pi3-kr(2,3)*(2*iside-3);
+!!        !       mh1=mi1-kr(2,1)*(2*iside-3);mh2=mi2-kr(2,2)*(2*iside-3)
+!!        !       mh3=mi3-kr(2,3)*(2*iside-3);
+!!        !       if ((neighbor_type(pi1,pi2,pi3,igrid)==4.and.neighbor_type(ph1,&
+!!        !          ph2,ph3,igrid)==3).or.(neighbor_type(mi1,mi2,mi3,&
+!!        !          igrid)==4.and.neighbor_type(mh1,mh2,mh3,igrid)==3)) then
+!!        !         allocate(pflux(iside,2,igrid)%edge(0:nx1,1,0:nx3,1:ndim-1))
+!!        !         exit
+!!        !       end if
+!!        !     end do
+!!        !   end if
+!!         end select
+!!       end do
+!!       do iside=1,2
+!!         i1=kr(1,3)*(2*iside-3);i2=kr(2,3)*(2*iside-3);i3=kr(3,3)*(2*iside-3);
+!!
+!!         if (neighbor_pole(i1,i2,i3,igrid)/=0) cycle
+!!
+!!         select case (neighbor_type(i1,i2,i3,igrid))
+!!         case(neighbor_fine)
+!!           allocate(pflux(iside,3,igrid)%flux(1:nx1,1:nx2,1,1:nwflux))
+!!           !$acc enter data create(pflux(iside,3,igrid)%flux) !JESSE
+!!           !$acc enter data attach(pflux(iside,3,igrid)%flux)
+!!!!           !$acc enter data attach(pflux(iside,3,igrid)%flux) !JESSE
+!!        !   if(stagger_grid) allocate(pflux(iside,3,igrid)%edge(0:nx1,0:nx2,1,&
+!!        !      1:ndim-1))
+!!         case(neighbor_coarse)
+!!           allocate(pflux(iside,3,igrid)%flux(1:nxCo1,1:nxCo2,1,1:nwflux))
+!!           !$acc enter data create(pflux(iside,3,igrid)%flux) !JESSE
+!!           !$acc enter data attach(pflux(iside,3,igrid)%flux)
+!!!!           !$acc enter data attach(pflux(iside,3,igrid)%flux) !JESSE
+!!        ! 
+!!        !   if(stagger_grid) allocate(pflux(iside,3,igrid)%edge(0:nxCo1,0:nxCo2,&
+!!        !      1,1:ndim-1))
+!!
+!!         ! Need to bring back the following when implementing staggered.
+!!         !case(neighbor_sibling)
+!!         !  if(stagger_grid) then
+!!         !    idim=3
+!!         !    do idir=idim+1,ndim
+!!         !    !do idir=min(idim+1,ndim),ndim
+!!         !      pi1=i1+kr(idir,1);pi2=i2+kr(idir,2);pi3=i3+kr(idir,3);
+!!         !      mi1=i1-kr(idir,1);mi2=i2-kr(idir,2);mi3=i3-kr(idir,3);
+!!         !      ph1=pi1-kr(3,1)*(2*iside-3);ph2=pi2-kr(3,2)*(2*iside-3)
+!!         !      ph3=pi3-kr(3,3)*(2*iside-3);
+!!         !      mh1=mi1-kr(3,1)*(2*iside-3);mh2=mi2-kr(3,2)*(2*iside-3)
+!!         !      mh3=mi3-kr(3,3)*(2*iside-3);
+!!
+!!         !      if ((neighbor_type(pi1,pi2,pi3,igrid)==4.and.neighbor_type(ph1,&
+!!         !         ph2,ph3,igrid)==3).or.(neighbor_type(mi1,mi2,mi3,&
+!!         !         igrid)==4.and.neighbor_type(mh1,mh2,mh3,igrid)==3)) then
+!!         !        allocate(pflux(iside,3,igrid)%edge(0:nx1,0:nx2,1,1:ndim-1))
+!!         !        exit
+!!         !      end if
+!!         !    end do
+!!         !  end if
+!!         end select
+!!       end do
+!!     end do
+!!
+!!   end subroutine allocateBflux
 
-        !   if(stagger_grid) allocate(pflux(iside,1,igrid)%edge(1,0:nx2,0:nx3,&
-        !      1:ndim-1))
-
-         case(neighbor_coarse)
-
-           allocate(pflux(iside,1,igrid)%flux(1,1:nxCo2,1:nxCo3,1:nwflux))
-!!           !$acc enter data create(pflux(iside,1,igrid)%flux(1,1:nxCo2,1:nxCo3,1:nwflux)) !JESSE
-           !$acc enter data create(pflux(iside,1,igrid)%flux) !JESSE: no copyin because the data is not initialized yet
-!!           !$acc enter data attach(pflux(iside,1,igrid)%flux) !JESSE: may need this because it is a pointer (device-side) pointer
-
-        !   if(stagger_grid) allocate(pflux(iside,1,igrid)%edge(1,0:nxCo2,&
-        !      0:nxCo3,1:ndim-1))
-
-        ! Need to bring back the following when implementing staggered.
-        ! case(neighbor_sibling)
-
-        !   if(stagger_grid) then
-        !     idim=1
-        !     do idir=idim+1,ndim
-        !     !do idir=min(idim+1,ndim),ndim
-        !       pi1=i1+kr(idir,1);pi2=i2+kr(idir,2);pi3=i3+kr(idir,3);
-        !       mi1=i1-kr(idir,1);mi2=i2-kr(idir,2);mi3=i3-kr(idir,3);
-        !       ph1=pi1-kr(1,1)*(2*iside-3);ph2=pi2-kr(1,2)*(2*iside-3)
-        !       ph3=pi3-kr(1,3)*(2*iside-3);
-        !       mh1=mi1-kr(1,1)*(2*iside-3);mh2=mi2-kr(1,2)*(2*iside-3)
-        !       mh3=mi3-kr(1,3)*(2*iside-3);
-        !       if ((neighbor_type(pi1,pi2,pi3,igrid)==4.and.neighbor_type(ph1,&
-        !          ph2,ph3,igrid)==3).or.(neighbor_type(mi1,mi2,mi3,&
-        !          igrid)==4.and.neighbor_type(mh1,mh2,mh3,igrid)==3)) then
-        !         allocate(pflux(iside,1,igrid)%edge(1,0:nx2,0:nx3,1:ndim-1))
-        !         exit
-        !       end if
-        !     end do
-        !   end if
-         end select
-       end do
-       do iside=1,2
-         i1=kr(1,2)*(2*iside-3);i2=kr(2,2)*(2*iside-3);i3=kr(3,2)*(2*iside-3);
-
-         if (neighbor_pole(i1,i2,i3,igrid)/=0) cycle
-
-         select case (neighbor_type(i1,i2,i3,igrid))
-         case(neighbor_fine)
-           allocate(pflux(iside,2,igrid)%flux(1:nx1,1,1:nx3,1:nwflux))
-           !$acc enter data create(pflux(iside,2,igrid)%flux) !JESSE
-!!           !$acc enter data attach(pflux(iside,2,igrid)%flux) !JESSE
-        !   if(stagger_grid) allocate(pflux(iside,2,igrid)%edge(0:nx1,1,0:nx3,&
-        !      1:ndim-1))
-         case(neighbor_coarse)
-           allocate(pflux(iside,2,igrid)%flux(1:nxCo1,1,1:nxCo3,1:nwflux))
-           !$acc enter data create(pflux(iside,2,igrid)%flux) !JESSE
-!!           !$acc enter data attach(pflux(iside,2,igrid)%flux) !JESSE
-        !   if(stagger_grid) allocate(pflux(iside,2,igrid)%edge(0:nxCo1,1,&
-        !      0:nxCo3,1:ndim-1))
-
-        ! Need to bring back the following when implementing staggered.
-        ! case(neighbor_sibling)
-        !   if(stagger_grid) then
-        !     idim=2
-        !     do idir=idim+1,ndim
-        !     !do idir=min(idim+1,ndim),ndim
-        !       pi1=i1+kr(idir,1);pi2=i2+kr(idir,2);pi3=i3+kr(idir,3);
-        !       mi1=i1-kr(idir,1);mi2=i2-kr(idir,2);mi3=i3-kr(idir,3);
-        !       ph1=pi1-kr(2,1)*(2*iside-3);ph2=pi2-kr(2,2)*(2*iside-3)
-        !       ph3=pi3-kr(2,3)*(2*iside-3);
-        !       mh1=mi1-kr(2,1)*(2*iside-3);mh2=mi2-kr(2,2)*(2*iside-3)
-        !       mh3=mi3-kr(2,3)*(2*iside-3);
-        !       if ((neighbor_type(pi1,pi2,pi3,igrid)==4.and.neighbor_type(ph1,&
-        !          ph2,ph3,igrid)==3).or.(neighbor_type(mi1,mi2,mi3,&
-        !          igrid)==4.and.neighbor_type(mh1,mh2,mh3,igrid)==3)) then
-        !         allocate(pflux(iside,2,igrid)%edge(0:nx1,1,0:nx3,1:ndim-1))
-        !         exit
-        !       end if
-        !     end do
-        !   end if
-         end select
-       end do
-       do iside=1,2
-         i1=kr(1,3)*(2*iside-3);i2=kr(2,3)*(2*iside-3);i3=kr(3,3)*(2*iside-3);
-
-         if (neighbor_pole(i1,i2,i3,igrid)/=0) cycle
-
-         select case (neighbor_type(i1,i2,i3,igrid))
-         case(neighbor_fine)
-           allocate(pflux(iside,3,igrid)%flux(1:nx1,1:nx2,1,1:nwflux))
-           !$acc enter data create(pflux(iside,3,igrid)%flux) !JESSE
-!!           !$acc enter data attach(pflux(iside,3,igrid)%flux) !JESSE
-        !   if(stagger_grid) allocate(pflux(iside,3,igrid)%edge(0:nx1,0:nx2,1,&
-        !      1:ndim-1))
-         case(neighbor_coarse)
-           allocate(pflux(iside,3,igrid)%flux(1:nxCo1,1:nxCo2,1,1:nwflux))
-           !$acc enter data create(pflux(iside,3,igrid)%flux) !JESSE
-!!           !$acc enter data attach(pflux(iside,3,igrid)%flux) !JESSE
-        ! 
-        !   if(stagger_grid) allocate(pflux(iside,3,igrid)%edge(0:nxCo1,0:nxCo2,&
-        !      1,1:ndim-1))
-
-         ! Need to bring back the following when implementing staggered.
-         !case(neighbor_sibling)
-         !  if(stagger_grid) then
-         !    idim=3
-         !    do idir=idim+1,ndim
-         !    !do idir=min(idim+1,ndim),ndim
-         !      pi1=i1+kr(idir,1);pi2=i2+kr(idir,2);pi3=i3+kr(idir,3);
-         !      mi1=i1-kr(idir,1);mi2=i2-kr(idir,2);mi3=i3-kr(idir,3);
-         !      ph1=pi1-kr(3,1)*(2*iside-3);ph2=pi2-kr(3,2)*(2*iside-3)
-         !      ph3=pi3-kr(3,3)*(2*iside-3);
-         !      mh1=mi1-kr(3,1)*(2*iside-3);mh2=mi2-kr(3,2)*(2*iside-3)
-         !      mh3=mi3-kr(3,3)*(2*iside-3);
-
-         !      if ((neighbor_type(pi1,pi2,pi3,igrid)==4.and.neighbor_type(ph1,&
-         !         ph2,ph3,igrid)==3).or.(neighbor_type(mi1,mi2,mi3,&
-         !         igrid)==4.and.neighbor_type(mh1,mh2,mh3,igrid)==3)) then
-         !        allocate(pflux(iside,3,igrid)%edge(0:nx1,0:nx2,1,1:ndim-1))
-         !        exit
-         !      end if
-         !    end do
-         !  end if
-         end select
-       end do
-     end do
-
-   end subroutine allocateBflux
-
-   subroutine deallocateBflux
-     use mod_global_parameters
-     use openacc
-
-     integer :: iigrid, igrid, iside
-
-     do iigrid=1,igridstail; igrid=igrids(iigrid);
-       do iside=1,2
-
-#ifdef OPENACC_
-         if (acc_is_present(pflux(iside,1,igrid)%flux, &
-                  size(pflux(iside,1,igrid)%flux))) then
-!!         !$acc exit data detach(pflux(iside,1,igrid)%flux) !JESSE
-         !$acc exit data delete(pflux(iside,1,igrid)%flux) !JESSE
-         end if
-#endif
-
-        ! if (acc_is_present(pflux(iside,1,igrid)%edge, &
-        !          size(pflux(iside,1,igrid)%edge))) then
-        ! !$acc exit data detach(pflux(iside,1,igrid)%edge) !JESSE
-        ! !$acc exit data delete(pflux(iside,1,igrid)%edge) !JESSE
-        ! end if
-          
-         !! JESSE: the if_preset flag does not work unfortunately
-!!         !$acc exit data detach(pflux(iside,1,igrid)%flux) !JESSE
+!!   subroutine deallocateBflux
+!!     use mod_global_parameters
+!!     use openacc
+!!
+!!     integer :: iigrid, igrid, iside
+!!
+!!     do iigrid=1,igridstail; igrid=igrids(iigrid);
+!!       do iside=1,2
+!!
+!!#ifdef OPENACC_
+!!         if (acc_is_present(pflux(iside,1,igrid)%flux, &
+!!                  size(pflux(iside,1,igrid)%flux))) then
+!!!!         !$acc exit data detach(pflux(iside,1,igrid)%flux) !JESSE
 !!         !$acc exit data delete(pflux(iside,1,igrid)%flux) !JESSE
-!!         !$acc exit data detach(pflux(iside,1,igrid)%edge) if_present !JESSE
-!!         !$acc exit data delete(pflux(iside,1,igrid)%edge) if_present !JESSE
+!!         !$acc update device(pflux(iside,1,igrid))
+!!         end if
+!!#endif
+!!
+!!        ! if (acc_is_present(pflux(iside,1,igrid)%edge, &
+!!        !          size(pflux(iside,1,igrid)%edge))) then
+!!        ! !$acc exit data detach(pflux(iside,1,igrid)%edge) !JESSE
+!!        ! !$acc exit data delete(pflux(iside,1,igrid)%edge) !JESSE
+!!        ! end if
+!!          
+!!         !! JESSE: the if_preset flag does not work unfortunately
+!!!!         !$acc exit data detach(pflux(iside,1,igrid)%flux) !JESSE
+!!!!         !$acc exit data delete(pflux(iside,1,igrid)%flux) !JESSE
+!!!!         !$acc exit data detach(pflux(iside,1,igrid)%edge) if_present !JESSE
+!!!!         !$acc exit data delete(pflux(iside,1,igrid)%edge) if_present !JESSE
+!!
+!!         if (allocated(pflux(iside,1,igrid)%flux)) then
+!!           deallocate(pflux(iside,1,igrid)%flux)
+!!         end if
+!!        !!!!JESSE: no longer a pointer
+!!        !!if (associated(pflux(iside,1,igrid)%flux)) then
+!!        !!  deallocate(pflux(iside,1,igrid)%flux)
+!!        !!  !!nullify(pflux(iside,1,igrid)%flux) !!JESSE: no longer a pointer
+!!        !!end if
+!!        ! if (associated(pflux(iside,1,igrid)%edge)) then
+!!        !   deallocate(pflux(iside,1,igrid)%edge)
+!!        !   nullify(pflux(iside,1,igrid)%edge)
+!!        ! end if
+!!       end do
+!!       do iside=1,2
+!!#ifdef OPENACC_
+!!         if (acc_is_present(pflux(iside,2,igrid)%flux, &
+!!                  size(pflux(iside,2,igrid)%flux))) then
+!!!!         !$acc exit data detach(pflux(iside,1,igrid)%flux) !JESSE
+!!         !$acc exit data delete(pflux(iside,2,igrid)%flux) !JESSE
+!!         !$acc update device(pflux(iside,2,igrid))
+!!         end if
+!!#endif
+!!        ! if (acc_is_present(pflux(iside,2,igrid)%edge, &
+!!        !          size(pflux(iside,2,igrid)%edge))) then
+!!        ! !$acc exit data detach(pflux(iside,1,igrid)%edge) !JESSE
+!!        ! !$acc exit data delete(pflux(iside,1,igrid)%edge) !JESSE
+!!        ! end if
+!!         if (allocated(pflux(iside,2,igrid)%flux)) then
+!!           deallocate(pflux(iside,2,igrid)%flux)
+!!           !!nullify(pflux(iside,2,igrid)%flux)
+!!         end if
+!!        !! if (associated(pflux(iside,2,igrid)%flux)) then
+!!        !!   deallocate(pflux(iside,2,igrid)%flux)
+!!        !!   nullify(pflux(iside,2,igrid)%flux)
+!!        !! end if
+!!        ! if (associated(pflux(iside,2,igrid)%edge)) then
+!!        !   deallocate(pflux(iside,2,igrid)%edge)
+!!        !   nullify(pflux(iside,2,igrid)%edge)
+!!        ! end if
+!!       end do
+!!       do iside=1,2
+!!#ifdef OPENACC_
+!!         if (acc_is_present(pflux(iside,3,igrid)%flux, &
+!!                  size(pflux(iside,3,igrid)%flux))) then
+!!         !$acc exit data delete(pflux(iside,3,igrid)%flux) !JESSE
+!!         !$acc update device(pflux(iside,3,igrid))
+!!!!         !$acc exit data detach(pflux(iside,1,igrid)%flux) !JESSE
+!!         end if
+!!#endif
+!!        ! if (acc_is_present(pflux(iside,3,igrid)%edge, &
+!!        !          size(pflux(iside,2,igrid)%edge))) then
+!!        ! !$acc exit data detach(pflux(iside,1,igrid)%edge) !JESSE
+!!        ! !$acc exit data delete(pflux(iside,1,igrid)%edge) !JESSE
+!!        ! end if
+!!         if (allocated(pflux(iside,3,igrid)%flux)) then
+!!           deallocate(pflux(iside,3,igrid)%flux)
+!!           !!nullify(pflux(iside,3,igrid)%flux)
+!!         end if
+!!        !! if (associated(pflux(iside,3,igrid)%flux)) then
+!!        !!   deallocate(pflux(iside,3,igrid)%flux)
+!!        !!   nullify(pflux(iside,3,igrid)%flux)
+!!        !! end if
+!!        ! if (associated(pflux(iside,3,igrid)%edge)) then
+!!        !   deallocate(pflux(iside,3,igrid)%edge)
+!!        !   nullify(pflux(iside,3,igrid)%edge)
+!!        ! end if
+!!       end do
+!!     end do
+!!
+!!!!#ifdef OPENACC_
+!!!!      !$acc update device(pflux(iside,1,igrid))
+!!!!      !$acc update device(pflux(iside,2,igrid))
+!!!!      !$acc update device(pflux(iside,3,igrid))
+!!!!#endif
+!!
+!!   end subroutine deallocateBflux
 
-         if (allocated(pflux(iside,1,igrid)%flux)) then
-           deallocate(pflux(iside,1,igrid)%flux)
-         end if
-        !!!!JESSE: no longer a pointer
-        !!if (associated(pflux(iside,1,igrid)%flux)) then
-        !!  deallocate(pflux(iside,1,igrid)%flux)
-        !!  !!nullify(pflux(iside,1,igrid)%flux) !!JESSE: no longer a pointer
-        !!end if
-        ! if (associated(pflux(iside,1,igrid)%edge)) then
-        !   deallocate(pflux(iside,1,igrid)%edge)
-        !   nullify(pflux(iside,1,igrid)%edge)
-        ! end if
-       end do
-       do iside=1,2
-#ifdef OPENACC_
-         if (acc_is_present(pflux(iside,2,igrid)%flux, &
-                  size(pflux(iside,2,igrid)%flux))) then
-!!         !$acc exit data detach(pflux(iside,1,igrid)%flux) !JESSE
-         !$acc exit data delete(pflux(iside,1,igrid)%flux) !JESSE
-         end if
-#endif
-        ! if (acc_is_present(pflux(iside,2,igrid)%edge, &
-        !          size(pflux(iside,2,igrid)%edge))) then
-        ! !$acc exit data detach(pflux(iside,1,igrid)%edge) !JESSE
-        ! !$acc exit data delete(pflux(iside,1,igrid)%edge) !JESSE
-        ! end if
-         if (allocated(pflux(iside,2,igrid)%flux)) then
-           deallocate(pflux(iside,2,igrid)%flux)
-           !!nullify(pflux(iside,2,igrid)%flux)
-         end if
-        !! if (associated(pflux(iside,2,igrid)%flux)) then
-        !!   deallocate(pflux(iside,2,igrid)%flux)
-        !!   nullify(pflux(iside,2,igrid)%flux)
-        !! end if
-        ! if (associated(pflux(iside,2,igrid)%edge)) then
-        !   deallocate(pflux(iside,2,igrid)%edge)
-        !   nullify(pflux(iside,2,igrid)%edge)
-        ! end if
-       end do
-       do iside=1,2
-#ifdef OPENACC_
-         if (acc_is_present(pflux(iside,3,igrid)%flux, &
-                  size(pflux(iside,2,igrid)%flux))) then
-!!         !$acc exit data detach(pflux(iside,1,igrid)%flux) !JESSE
-         !$acc exit data delete(pflux(iside,1,igrid)%flux) !JESSE
-         end if
-#endif
-        ! if (acc_is_present(pflux(iside,3,igrid)%edge, &
-        !          size(pflux(iside,2,igrid)%edge))) then
-        ! !$acc exit data detach(pflux(iside,1,igrid)%edge) !JESSE
-        ! !$acc exit data delete(pflux(iside,1,igrid)%edge) !JESSE
-        ! end if
-         if (allocated(pflux(iside,3,igrid)%flux)) then
-           deallocate(pflux(iside,3,igrid)%flux)
-           !!nullify(pflux(iside,3,igrid)%flux)
-         end if
-        !! if (associated(pflux(iside,3,igrid)%flux)) then
-        !!   deallocate(pflux(iside,3,igrid)%flux)
-        !!   nullify(pflux(iside,3,igrid)%flux)
-        !! end if
-        ! if (associated(pflux(iside,3,igrid)%edge)) then
-        !   deallocate(pflux(iside,3,igrid)%edge)
-        !   nullify(pflux(iside,3,igrid)%edge)
-        ! end if
-       end do
-     end do
+subroutine deallocateBflux()
+  use openacc
+  use mod_global_parameters
 
-   end subroutine deallocateBflux
+  integer :: igrid, iigrid, iside
+
+  do iigrid = 1, igridstail
+    igrid = igrids(iigrid)
+
+    do iside = 1, 2
+
+#ifdef OPENACC_
+!!      ! Step 1: Clear device-side pointers FIRST
+!!      if (allocated(pflux(iside,1,igrid)%flux)) then
+!!        nullify(pflux(iside,1,igrid)%flux)
+!!        !$acc update device(pflux(iside,1,igrid))
+!!      end if
+!!
+!!      if (allocated(pflux(iside,2,igrid)%flux)) then
+!!        nullify(pflux(iside,2,igrid)%flux)
+!!        !$acc update device(pflux(iside,2,igrid))
+!!      end if
+!!
+!!      if (allocated(pflux(iside,3,igrid)%flux)) then
+!!        nullify(pflux(iside,3,igrid)%flux)
+!!        !$acc update device(pflux(iside,3,igrid))
+!!      end if
+!!
+!!      ! Step 2: Delete device allocations
+!!      !$acc exit data delete(pflux(iside,1,igrid)%flux)
+!!      !$acc exit data delete(pflux(iside,2,igrid)%flux)
+!!      !$acc exit data delete(pflux(iside,3,igrid)%flux)
+
+      ! delete device memory first
+      !$acc exit data delete(pflux(iside,1,igrid)%flux)
+      !$acc exit data delete(pflux(iside,2,igrid)%flux)
+      !$acc exit data delete(pflux(iside,3,igrid)%flux)
+
+#endif
+
+      ! deallocate host memory
+      if (allocated(pflux(iside,1,igrid)%flux)) then
+        deallocate(pflux(iside,1,igrid)%flux)
+      end if
+
+      if (allocated(pflux(iside,2,igrid)%flux)) then
+        deallocate(pflux(iside,2,igrid)%flux)
+      end if
+
+      if (allocated(pflux(iside,3,igrid)%flux)) then
+        deallocate(pflux(iside,3,igrid)%flux)
+      end if
+
+    end do
+  end do
+
+end subroutine deallocateBflux
 
    subroutine fix_conserve(psb,idimmin,idimmax,nw0,nwfluxin)
      use mod_global_parameters
