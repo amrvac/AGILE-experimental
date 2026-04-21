@@ -57,6 +57,7 @@ contains
     use mod_amr_fct, only: pface, fine_neighbors, old_neighbor
     use mod_geometry
 
+    integer :: i, j, k
     integer :: igrid, level, ipe, ig1,ig2,ig3
     logical :: ok
 
@@ -81,6 +82,15 @@ contains
     allocate(node(nodehi,max_blocks),node_sub(nodehi,max_blocks),&
        phyboundblock(max_blocks))
     allocate(pflux(2,3,max_blocks))
+    !!pflux(:,:,:)%flux => null() !! this does not work, lines below are
+    !a workaround
+    do k = 1, max_blocks
+      do j = 1, 3
+        do i = 1, 2
+          nullify(pflux(i,j,k)%flux)
+        end do
+      end do
+    end do
     !$acc enter data create(pflux) !JESSE
 !    !$acc enter data copyin(pflux(2,3,max_blocks)) !JESSE
     ! Hector: I don't think we need to copy in here, because we always fill

@@ -115,6 +115,7 @@ end subroutine finite_volume_local
     real(dp)       :: fC1(2,ixImin2:ixOmax2,ixImin3:ixOmax3,1:nwflux)
     real(dp)       :: fC2(2,ixImin1:ixOmax1,ixImin3:ixOmax3,1:nwflux)
     real(dp)       :: fC3(2,ixImin1:ixOmax1,ixImin2:ixOmax2,1:nwflux)
+    double precision, dimension(:,:,:,:), pointer :: f11,f21,f12,f22,f13,f23
     integer, parameter     :: max_batch=4096
     integer                :: nbatches, ibatch, igrid_beg, igrid_end
     !-----------------------------------------------------------------------------
@@ -142,9 +143,20 @@ end subroutine finite_volume_local
        igrid_beg = (ibatch-1) * max_batch + 1
        igrid_end = min(ibatch * max_batch, igridstail_active)
 
-       !$acc parallel loop gang private(uprim, inv_dr, dr, n, ix1, ix2, ix3, fC1, fC2, fC3) default(present)
+       !$acc parallel loop gang private(uprim,inv_dr,dr,n,ix1,ix2,ix3,fC1,fC2,fC3,f11,f21,f12,f22,f13,f23) default(present)
        do iigrid = igrid_beg, igrid_end
           n = igrids_active(iigrid)
+
+          ! JESSE working with pointers to prevent OpenACC from creating
+          ! slices of the pflux%flux array
+          f11 => pflux(1,1,n)%flux
+          f21 => pflux(2,1,n)%flux
+
+          f12 => pflux(1,2,n)%flux
+          f22 => pflux(2,2,n)%flux
+
+          f13 => pflux(1,3,n)%flux
+          f23 => pflux(2,3,n)%flux
 
           dr  = rnode(rpdx1_:rnodehi, n)
           inv_dr  = 1/dr
@@ -161,7 +173,7 @@ end subroutine finite_volume_local
              end do
           end do
 
-          !$acc loop vector collapse(ndim) private(f, wnew, tmp,xlocC,xloc#{if defined('SOURCE_LOCAL')}#, wCT, wprim #{endif}#)
+          !$acc loop vector collapse(ndim) private(f,wnew,tmp,xlocC,xloc#{if defined('SOURCE_LOCAL')}#, wCT, wprim#{endif}#)
           do ix3=ixOmin3,ixOmax3 
              do ix2=ixOmin2,ixOmax2 
                 do ix1=ixOmin1,ixOmax1 
@@ -293,7 +305,8 @@ end subroutine finite_volume_local
                   !$acc loop vector collapse(ndim-1) 
                   do ix3=1,nxCo3 
                     do ix2=1,nxCo2 
-                  pflux(1,1,n)%flux(1,ix2,ix3,1:nw_flux) = &
+                  !pflux(1,1,n)%flux(1,ix2,ix3,1:nw_flux) = &
+                  f11(1,ix2,ix3,1:nw_flux) = &
                     fC1(1,1+2*(ix2-1)+nghostcells,1+2*(ix3-1)+nghostcells,1:nw_flux) &
                    +fC1(1,2+2*(ix2-1)+nghostcells,1+2*(ix3-1)+nghostcells,1:nw_flux) &
                    +fC1(1,1+2*(ix2-1)+nghostcells,2+2*(ix3-1)+nghostcells,1:nw_flux) &
@@ -307,7 +320,8 @@ end subroutine finite_volume_local
                   !$acc loop vector collapse(ndim-1)
                   do ix3=1,nxCo3 
                      do ix2=1,nxCo2 
-                  pflux(2,1,n)%flux(1,ix2,ix3,1:nw_flux) = &
+                  !pflux(2,1,n)%flux(1,ix2,ix3,1:nw_flux) = &
+                  f21(1,ix2,ix3,1:nw_flux) = &
                     fC1(2,1+2*(ix2-1)+nghostcells,1+2*(ix3-1)+nghostcells,1:nw_flux) &
                    +fC1(2,2+2*(ix2-1)+nghostcells,1+2*(ix3-1)+nghostcells,1:nw_flux) &
                    +fC1(2,1+2*(ix2-1)+nghostcells,2+2*(ix3-1)+nghostcells,1:nw_flux) &
@@ -322,7 +336,8 @@ end subroutine finite_volume_local
                   !$acc loop vector collapse(ndim-1) 
                   do ix3=1,nxCo3 
                     do ix1=1,nxCo1 
-                  pflux(1,2,n)%flux(ix1,1,ix3,1:nw_flux) = &
+                  !pflux(1,2,n)%flux(ix1,1,ix3,1:nw_flux) = &
+                  f12(ix1,1,ix3,1:nw_flux) = &
                     fC2(1,1+2*(ix1-1)+nghostcells,1+2*(ix3-1)+nghostcells,1:nw_flux) &
                    +fC2(1,2+2*(ix1-1)+nghostcells,1+2*(ix3-1)+nghostcells,1:nw_flux) &
                    +fC2(1,1+2*(ix1-1)+nghostcells,2+2*(ix3-1)+nghostcells,1:nw_flux) &
@@ -336,7 +351,8 @@ end subroutine finite_volume_local
                   !$acc loop vector collapse(ndim-1)
                   do ix3=1,nxCo3 
                      do ix1=1,nxCo1 
-                  pflux(2,2,n)%flux(ix1,1,ix3,1:nw_flux) = &
+                  !pflux(2,2,n)%flux(ix1,1,ix3,1:nw_flux) = &
+                  f22(ix1,1,ix3,1:nw_flux) = &
                     fC2(2,1+2*(ix1-1)+nghostcells,1+2*(ix3-1)+nghostcells,1:nw_flux) &
                    +fC2(2,2+2*(ix1-1)+nghostcells,1+2*(ix3-1)+nghostcells,1:nw_flux) &
                    +fC2(2,1+2*(ix1-1)+nghostcells,2+2*(ix3-1)+nghostcells,1:nw_flux) &
@@ -351,7 +367,8 @@ end subroutine finite_volume_local
                   !$acc loop vector collapse(ndim-1) 
                   do ix2=1,nxCo2 
                     do ix1=1,nxCo1 
-                  pflux(1,3,n)%flux(ix1,ix2,1,1:nw_flux) = &
+                  !pflux(1,3,n)%flux(ix1,ix2,1,1:nw_flux) = &
+                  f13(ix1,ix2,1,1:nw_flux) = &
                     fC3(1,1+2*(ix1-1)+nghostcells,1+2*(ix2-1)+nghostcells,1:nw_flux) &
                    +fC3(1,2+2*(ix1-1)+nghostcells,1+2*(ix2-1)+nghostcells,1:nw_flux) &
                    +fC3(1,1+2*(ix1-1)+nghostcells,2+2*(ix2-1)+nghostcells,1:nw_flux) &
@@ -365,7 +382,8 @@ end subroutine finite_volume_local
                   !$acc loop vector collapse(ndim-1)
                   do ix2=1,nxCo2 
                      do ix1=1,nxCo1 
-                  pflux(2,3,n)%flux(ix1,ix2,1,1:nw_flux) = &
+                  !pflux(2,3,n)%flux(ix1,ix2,1,1:nw_flux) = &
+                  f23(ix1,ix2,1,1:nw_flux) = &
                     fC3(2,1+2*(ix1-1)+nghostcells,1+2*(ix2-1)+nghostcells,1:nw_flux) &
                    +fC3(2,2+2*(ix1-1)+nghostcells,1+2*(ix2-1)+nghostcells,1:nw_flux) &
                    +fC3(2,1+2*(ix1-1)+nghostcells,2+2*(ix2-1)+nghostcells,1:nw_flux) &

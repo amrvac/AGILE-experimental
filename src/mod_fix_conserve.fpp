@@ -17,7 +17,8 @@ module mod_fix_conserve
   !!end type fluxalloc
   !!JESSE NEW
   type fluxalloc
-     double precision, dimension(:,:,:,:), allocatable :: flux
+     !double precision, dimension(:,:,:,:), allocatable, target :: flux
+     double precision, dimension(:,:,:,:), pointer :: flux
   end type fluxalloc
   !!!JESSE: this does not work actually
   !!!type fluxalloc
@@ -777,12 +778,17 @@ subroutine allocateBflux()
         !!$acc enter data attach(pflux(iside,1,igrid)%flux)
         !!$acc update device(pflux(iside,1,igrid)%flux)
 
-        if (acc_is_present(pflux(iside,1,igrid)%flux)) then
-          !$acc update device(pflux(iside,1,igrid)%flux)
-        else
-          !$acc enter data create(pflux(iside,1,igrid)%flux)
-          !!!$acc enter data attach(pflux(iside,1,igrid)%flux)
-        end if
+        !!if (acc_is_present(pflux(iside,1,igrid)%flux)) then
+        !!  !$acc update device(pflux(iside,1,igrid)%flux)
+        !!else
+        !!  !$acc enter data create(pflux(iside,1,igrid)%flux)
+        !!  !!!$acc enter data attach(pflux(iside,1,igrid)%flux)
+        !!end if
+
+#ifdef OPENACC_
+        !$acc enter data create(pflux(iside,1,igrid)%flux)
+        !$acc enter data attach(pflux(iside,1,igrid)%flux)
+#endif
 
       case (neighbor_coarse)
         allocate(pflux(iside,1,igrid)%flux(1,1:nxCo2,1:nxCo3,1:nwflux))
@@ -792,12 +798,17 @@ subroutine allocateBflux()
         !!$acc enter data attach(pflux(iside,1,igrid)%flux)
         !!$acc update device(pflux(iside,1,igrid)%flux)
 
-        if (acc_is_present(pflux(iside,1,igrid)%flux)) then
-          !$acc update device(pflux(iside,1,igrid)%flux)
-        else
-          !$acc enter data create(pflux(iside,1,igrid)%flux)
-          !!!$acc enter data attach(pflux(iside,1,igrid)%flux)
-        end if
+        !!if (acc_is_present(pflux(iside,1,igrid)%flux)) then
+        !!  !$acc update device(pflux(iside,1,igrid)%flux)
+        !!else
+        !!  !$acc enter data create(pflux(iside,1,igrid)%flux)
+        !!  !!!$acc enter data attach(pflux(iside,1,igrid)%flux)
+        !!end if
+
+#ifdef OPENACC_
+        !$acc enter data create(pflux(iside,1,igrid)%flux)
+        !$acc enter data attach(pflux(iside,1,igrid)%flux)
+#endif
 
       end select
     end do
@@ -827,12 +838,17 @@ subroutine allocateBflux()
         !!$acc enter data attach(pflux(iside,2,igrid)%flux)
         !!$acc update device(pflux(iside,2,igrid)%flux)
 
-        if (acc_is_present(pflux(iside,2,igrid)%flux)) then
-          !$acc update device(pflux(iside,2,igrid)%flux)
-        else
-          !$acc enter data create(pflux(iside,2,igrid)%flux)
-          !!!$acc enter data attach(pflux(iside,2,igrid)%flux)
-        end if
+        !!if (acc_is_present(pflux(iside,2,igrid)%flux)) then
+        !!  !$acc update device(pflux(iside,2,igrid)%flux)
+        !!else
+        !!  !$acc enter data create(pflux(iside,2,igrid)%flux)
+        !!  !!!$acc enter data attach(pflux(iside,2,igrid)%flux)
+        !!end if
+
+#ifdef OPENACC_
+        !$acc enter data create(pflux(iside,2,igrid)%flux)
+        !$acc enter data attach(pflux(iside,2,igrid)%flux)
+#endif
 
       case (neighbor_coarse)
         allocate(pflux(iside,2,igrid)%flux(1:nxCo1,1,1:nxCo3,1:nwflux))
@@ -842,12 +858,17 @@ subroutine allocateBflux()
         !!$acc enter data attach(pflux(iside,2,igrid)%flux)
         !!$acc update device(pflux(iside,2,igrid)%flux)
 
-        if (acc_is_present(pflux(iside,2,igrid)%flux)) then
-          !$acc update device(pflux(iside,2,igrid)%flux)
-        else
-          !$acc enter data create(pflux(iside,2,igrid)%flux)
-          !!!$acc enter data attach(pflux(iside,2,igrid)%flux)
-        end if
+        !!if (acc_is_present(pflux(iside,2,igrid)%flux)) then
+        !!  !$acc update device(pflux(iside,2,igrid)%flux)
+        !!else
+        !!  !$acc enter data create(pflux(iside,2,igrid)%flux)
+        !!  !!!$acc enter data attach(pflux(iside,2,igrid)%flux)
+        !!end if
+
+#ifdef OPENACC_
+        !$acc enter data create(pflux(iside,2,igrid)%flux)
+        !$acc enter data attach(pflux(iside,2,igrid)%flux)
+#endif
 
       end select
     end do
@@ -876,12 +897,17 @@ subroutine allocateBflux()
         !!$acc enter data attach(pflux(iside,3,igrid)%flux)
         !!$acc update device(pflux(iside,3,igrid)%flux)
 
-        if (acc_is_present(pflux(iside,3,igrid)%flux)) then
-          !$acc update device(pflux(iside,3,igrid)%flux)
-        else
-          !$acc enter data create(pflux(iside,3,igrid)%flux)
-          !$acc enter data attach(pflux(iside,3,igrid)%flux)
-        end if
+        !!if (acc_is_present(pflux(iside,3,igrid)%flux)) then
+        !!  !$acc update device(pflux(iside,3,igrid)%flux)
+        !!else
+        !!  !$acc enter data create(pflux(iside,3,igrid)%flux)
+        !!  !$acc enter data attach(pflux(iside,3,igrid)%flux)
+        !!end if
+
+#ifdef OPENACC_
+        !$acc enter data create(pflux(iside,3,igrid)%flux)
+        !$acc enter data attach(pflux(iside,3,igrid)%flux)
+#endif
 
       case (neighbor_coarse)
         allocate(pflux(iside,3,igrid)%flux(1:nxCo1,1:nxCo2,1,1:nwflux))
@@ -891,12 +917,17 @@ subroutine allocateBflux()
         !!$acc enter data attach(pflux(iside,3,igrid)%flux)
         !!$acc update device(pflux(iside,3,igrid)%flux)
 
-        if (acc_is_present(pflux(iside,3,igrid)%flux)) then
-          !$acc update device(pflux(iside,3,igrid)%flux)
-        else
-          !$acc enter data create(pflux(iside,3,igrid)%flux)
-          !$acc enter data attach(pflux(iside,3,igrid)%flux)
-        end if
+        !!if (acc_is_present(pflux(iside,3,igrid)%flux)) then
+        !!  !$acc update device(pflux(iside,3,igrid)%flux)
+        !!else
+        !!  !$acc enter data create(pflux(iside,3,igrid)%flux)
+        !!  !$acc enter data attach(pflux(iside,3,igrid)%flux)
+        !!end if
+
+#ifdef OPENACC_
+        !$acc enter data create(pflux(iside,3,igrid)%flux)
+        !$acc enter data attach(pflux(iside,3,igrid)%flux)
+#endif
 
       end select
     end do
@@ -1207,33 +1238,41 @@ subroutine deallocateBflux()
 !!      !$acc exit data delete(pflux(iside,3,igrid)%flux)
 
       ! delete device memory first
-      !!$acc exit data delete(pflux(iside,1,igrid)%flux)
-      !!$acc exit data delete(pflux(iside,2,igrid)%flux)
-      !!$acc exit data delete(pflux(iside,3,igrid)%flux)
-      !$acc exit data delete(pflux(iside,*,igrid)%flux)
+      !$acc exit data delete(pflux(iside,1,igrid)%flux)
+      !$acc exit data delete(pflux(iside,2,igrid)%flux)
+      !$acc exit data delete(pflux(iside,3,igrid)%flux)
 #endif
 
       ! deallocate host memory
-      if (allocated(pflux(iside,1,igrid)%flux)) then
+      if (associated(pflux(iside,1,igrid)%flux)) then
         deallocate(pflux(iside,1,igrid)%flux)
+        nullify(pflux(iside,1,igrid)%flux)
       end if
 
-      if (allocated(pflux(iside,2,igrid)%flux)) then
+      if (associated(pflux(iside,2,igrid)%flux)) then
         deallocate(pflux(iside,2,igrid)%flux)
+        nullify(pflux(iside,2,igrid)%flux)
       end if
 
-      if (allocated(pflux(iside,3,igrid)%flux)) then
+      if (associated(pflux(iside,3,igrid)%flux)) then
         deallocate(pflux(iside,3,igrid)%flux)
+        nullify(pflux(iside,3,igrid)%flux)
       end if
+
+#ifdef OPENACC_
+      !$acc update device(pflux(iside,1,igrid))
+      !$acc update device(pflux(iside,2,igrid))
+      !$acc update device(pflux(iside,3,igrid))
+#endif
 
     end do
   end do
 
-  !$acc exit data delete(pflux)
-  deallocate(pflux)
-
-  allocate(pflux(2,3,max_blocks))
-  !$acc enter data create(pflux) !JESSE
+!!  !$acc exit data delete(pflux)
+!!  deallocate(pflux)
+!!
+!!  allocate(pflux(2,3,max_blocks))
+!!  !$acc enter data create(pflux) !JESSE
 
 end subroutine deallocateBflux
 
