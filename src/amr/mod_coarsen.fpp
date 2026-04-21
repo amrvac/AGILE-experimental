@@ -42,10 +42,10 @@ contains
           do ixCo3 = ixComin3,ixComax3
              do ixCo2 = ixComin2,ixComax2
                 do ixCo1 = ixComin1,ixComax1
-                   ixFi3=2*(ixCo3-ixComin3)+ixFimin3+ixFiGmin3
-                   ixFi2=2*(ixCo2-ixComin2)+ixFimin2+ixFiGmin2
-                   ixFi1=2*(ixCo1-ixComin1)+ixFimin1+ixFiGmin1
-                   sCo%w(ixCo1+ixCoGmin1,ixCo2+ixCoGmin2,ixCo3+ixCoGmin3,iw)=sum(sFi%w(ixFi1:ixFi1+1,ixFi2:ixFi2+1,&
+                   ixFi3=2*(ixCo3-ixComin3)+ixFimin3+ixFiGmin3-1
+                   ixFi2=2*(ixCo2-ixComin2)+ixFimin2+ixFiGmin2-1
+                   ixFi1=2*(ixCo1-ixComin1)+ixFimin1+ixFiGmin1-1
+                   sCo%w(ixCo1+ixCoGmin1-1,ixCo2+ixCoGmin2-1,ixCo3+ixCoGmin3-1,iw)=sum(sFi%w(ixFi1:ixFi1+1,ixFi2:ixFi2+1,&
                         ixFi3:ixFi3+1,iw))*CoFiratio
                 end do
              end do
@@ -58,10 +58,10 @@ contains
           do ixCo3 = ixComin3,ixComax3
              do ixCo2 = ixComin2,ixComax2
                 do ixCo1 = ixComin1,ixComax1
-                   ixFi3=2*(ixCo3-ixComin3)+ixFimin3+ixFiGmin3
-                   ixFi2=2*(ixCo2-ixComin2)+ixFimin2+ixFiGmin2
-                   ixFi1=2*(ixCo1-ixComin1)+ixFimin1+ixFiGmin1
-                   sCo%w(ixCo1+ixCoGmin1,ixCo2+ixCoGmin2,ixCo3+ixCoGmin3,iw)= sum(sFi%dvolume(ixFi1:ixFi1+1,&
+                   ixFi3=2*(ixCo3-ixComin3)+ixFimin3+ixFiGmin3-1
+                   ixFi2=2*(ixCo2-ixComin2)+ixFimin2+ixFiGmin2-1
+                   ixFi1=2*(ixCo1-ixComin1)+ixFimin1+ixFiGmin1-1
+                   sCo%w(ixCo1+ixCoGmin1-1,ixCo2+ixCoGmin2-1,ixCo3+ixCoGmin3-1,iw)= sum(sFi%dvolume(ixFi1:ixFi1+1,&
                         ixFi2:ixFi2+1,ixFi3:ixFi3+1)*sFi%w(ixFi1:ixFi1+1,ixFi2:ixFi2+1,&
                         ixFi3:ixFi3+1,iw)) /sCo%dvolume(ixCo1,ixCo2,ixCo3)
                 end do
