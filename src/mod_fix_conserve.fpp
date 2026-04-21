@@ -1207,10 +1207,10 @@ subroutine deallocateBflux()
 !!      !$acc exit data delete(pflux(iside,3,igrid)%flux)
 
       ! delete device memory first
-      !$acc exit data delete(pflux(iside,1,igrid)%flux)
-      !$acc exit data delete(pflux(iside,2,igrid)%flux)
-      !$acc exit data delete(pflux(iside,3,igrid)%flux)
-
+      !!$acc exit data delete(pflux(iside,1,igrid)%flux)
+      !!$acc exit data delete(pflux(iside,2,igrid)%flux)
+      !!$acc exit data delete(pflux(iside,3,igrid)%flux)
+      !$acc exit data delete(pflux(iside,*,igrid)%flux)
 #endif
 
       ! deallocate host memory
@@ -1228,6 +1228,12 @@ subroutine deallocateBflux()
 
     end do
   end do
+
+  !$acc exit data delete(pflux)
+  deallocate(pflux)
+
+  allocate(pflux(2,3,max_blocks))
+  !$acc enter data create(pflux) !JESSE
 
 end subroutine deallocateBflux
 
