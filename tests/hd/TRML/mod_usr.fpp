@@ -252,8 +252,8 @@ contains
     integer :: ix, iy, nx, ny
 
     associate(&
-      w_ => w(ixGmin1:ixGmax1,ixGmin2:ixGmax2,ixGmin3:ixGmax3,:),&
-      x_ => x(ixGmin1:ixGmax1,ixGmin2:ixGmax2,ixGmin3:ixGmax3,:))
+      w_ => w(ixGmin1:ixGmax1, ixGmin2:ixGmax2, ixGmin3:ixGmax3, :),&
+      x_ => x(ixGmin1:ixGmax1, ixGmin2:ixGmax2, ixGmin3:ixGmax3, :))
 
 ! STRATEGY:
 !   We are given empty w_, and x_ in primitive form, and w_ should be returned
@@ -412,7 +412,7 @@ contains
       w_ => w(ixGmin1:ixGmax1, ixGmin2:ixGmax2, ixGmin3:ixGmax3, :),&
       x_ => x(ixGmin1:ixGmax1, ixGmin2:ixGmax2, ixGmin3:ixGmax3, :))
 
-      if (qt == 0) then
+      if (qt == 0d0) then
         if (any(x_(:,:,:,3) > refine_z(1)) .and.&
             any(x_(:,:,:,3) < refine_z(2))) then
           coarsen = -1
