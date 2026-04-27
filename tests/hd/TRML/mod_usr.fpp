@@ -1,12 +1,3 @@
-! NOTE: This isn't nice currently, it must point into the source code. This is
-!   for our hack to be able to use `to_primitive` and `to_conservative`. But
-!   there is no nice solution right now other than doing it manually, since
-!   these conversion functions don't work well on the GPU at the moment in,
-!   also the block-based `phys_to_conserved` and `phys_to_primitive`.
-#:mute
-#:include "/volume1/scratch/olafw/off/amrvac_AGILE/src/physics/mod_physics_templates.fpp"
-#:endmute
-
 module mod_usr
 
   use mod_amrvac
@@ -342,6 +333,7 @@ contains
 !$acc routine vector
     ! use mod_physics, only: to_conservative, to_primitive
     use mod_global_parameters
+    use mod_physics
     implicit none
     integer, intent(in) :: ixImin1, ixImin2, ixImin3, ixImax1, ixImax2, ixImax3
     integer, intent(in) :: ixOmin1, ixOmin2, ixOmin3, ixOmax1, ixOmax2, ixOmax3
@@ -352,27 +344,26 @@ contains
     double precision, intent(in),&
       dimension(ixImin1:ixImax1, ixImin2:ixImax2, ixImin3:ixImax3, 1:ndim) :: x
     integer :: ix1, ix2, ix3
+    double precision :: inv_gamma_m1
 
-    ! call phys_to_primitive(&
-    !   ixImin1, ixImin2, ixImin3, ixImax1, ixImax2, ixImax3,&
-    !   ixOmin1, ixOmin2, ixOmin3, ixOmax1, ixOmax2, ixOmax3,&
-    !   w, x)
+    inv_gamma_m1 = 1d0/(hd_gamma-1d0)
 
 ! NOTE: Zero-gradient for vy and vz, i.e. copy the closest interior cell into
-!   the halo. Corners don't matter.
+!   the halo. There are no corners.
+! NOTE: Due to some quirks with primitive and conservative conversion at the
+!   moment, we apply the boundary condition in conservative form.
     select case(iB)
     case(5)
 !$acc loop collapse(3) vector
       do ix3 = ixOmin3, ixOmax3
       do ix2 = ixOmin2, ixOmax2
       do ix1 = ixOmin1, ixOmax1
-        call to_primitive(w(ix1,ix2,ix3,:))
         w(ix1,ix2,ix3,iw_rho) = rho_C/unit_density
-        w(ix1,ix2,ix3,iw_e) = P/unit_pressure
-        w(ix1,ix2,ix3,iw_mom(1)) = v_C/unit_velocity
+        w(ix1,ix2,ix3,iw_mom(1)) = v_C/unit_velocity*w(ix1,ix2,ix3,iw_rho)
         w(ix1,ix2,ix3,iw_mom(2)) = w(ix1,ix2,ixOmax3+1,iw_mom(2))
         w(ix1,ix2,ix3,iw_mom(3)) = w(ix1,ix2,ixOmax3+1,iw_mom(3))
-        call to_conservative(w(ix1,ix2,ix3,:))
+        w(ix1,ix2,ix3,iw_e) = P/unit_pressure*inv_gamma_m1+&
+          5d-1*sum(w(ix1,ix2,ix3,iw_mom(1:ndim))**2)/w(ix1,ix2,ix3,iw_rho)
       end do
       end do
       end do
@@ -381,30 +372,16 @@ contains
       do ix3 = ixOmin3, ixOmax3
       do ix2 = ixOmin2, ixOmax2
       do ix1 = ixOmin1, ixOmax1
-        call to_primitive(w(ix1,ix2,ix3,:))
         w(ix1,ix2,ix3,iw_rho) = rho_H/unit_density
-        w(ix1,ix2,ix3,iw_e) = P/unit_pressure
-        w(ix1,ix2,ix3,iw_mom(1)) = v_H/unit_velocity
+        w(ix1,ix2,ix3,iw_mom(1)) = v_H/unit_velocity*w(ix1,ix2,ix3,iw_rho)
         w(ix1,ix2,ix3,iw_mom(2)) = w(ix1,ix2,ixOmin3-1,iw_mom(2))
         w(ix1,ix2,ix3,iw_mom(3)) = w(ix1,ix2,ixOmin3-1,iw_mom(3))
-        call to_conservative(w(ix1,ix2,ix3,:))
+        w(ix1,ix2,ix3,iw_e) = P/unit_pressure*inv_gamma_m1+&
+          5d-1*sum(w(ix1,ix2,ix3,iw_mom(1:ndim))**2)/w(ix1,ix2,ix3,iw_rho)
       end do
       end do
       end do
     end select
-
-    ! call phys_to_conserved(&
-    !   ixImin1, ixImin2, ixImin3, ixImax1, ixImax2, ixImax3,&
-    !   ixOmin1, ixOmin2, ixOmin3, ixOmax1, ixOmax2, ixOmax3,&
-    !   w, x)
-
-  contains
-
-! NOTE: These must be in the scope of the subroutine since they're already used
-!   in the scope of `mod_physics` and can thereby not be used in any other
-!   module directly.
-@:to_primitive()
-@:to_conservative()
 
   end subroutine specialbound_usr
 

@@ -1,12 +1,6 @@
-! TRML_1
-
-! TODO: Set up support for slice outputs and 3D vtu output. That stopped working due to
-!   the small values but should work again now with the proper units.
  &filelist
-   base_filename    = '/volume1/scratch/olafw/off/project_2_trying_AGILE/TRML_1/temp/TRML'
-   convert_type     = 'vtuBCCmpi'
+   base_filename    = 'output/TRML'
    saveprim         = T
-   autoconvert      = T
  /
 
  &savelist
@@ -14,19 +8,19 @@
    itsave(1,2)      = 0
    itsave(1,3)      = 0
    ditsave_log      = 100
-   dtsave_dat       = 2.57d-1  ! t_sh/unit_time
-!  dtsave_dat       = 6.425d-2 ! 1/4 t_sh/unit_time
+!  dtsave_dat       = 2.57d-1  !     t_sh/unit_time
+   dtsave_dat       = 6.425d-2 ! 1/4 t_sh/unit_time
    nslices          = 1
-   slicedir(1)      = 1
+   slicedir(1)      = 2
    slicecoord(1)    = +5d-1
  /
 
  &stoplist
 !  time_max         = 7.74d0  ! 30 t_sh/unit_time
-!  time_max         = 5.14d0  ! 20 t_sh/unit_time
+   time_max         = 5.14d0  ! 20 t_sh/unit_time
 !  time_max         = 2.580d0 ! 10 t_sh/unit_time
 !  time_max         = 2.056d0 !  8 t_sh/unit_time
-   time_max         = 2.57d-1 !  1 t_sh/unit_time
+!  time_max         = 2.58d-1 !  1 t_sh/unit_time
 !  it_max           = 1
  /
 
