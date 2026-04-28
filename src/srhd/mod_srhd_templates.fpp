@@ -10,7 +10,7 @@
 
   integer, parameter :: dp = kind(0.0d0)
   integer, parameter, public              :: nw_phys=4+ndim+${N_TRACER_}$
-  integer, parameter, public              :: nw_flux=2+ndim+${N_TRACER_}$
+  integer, parameter, public              :: nw_flux=4+ndim+${N_TRACER_}$
 
   !> Whether an energy equation is used
   logical, public                         :: srhd_energy = .true.
@@ -96,7 +96,7 @@
 
     do n = 1, size(files)
        open(unitpar, file=trim(files(n)), status="old")
-       read(unitpar, hd_list, end=111)
+       read(unitpar, srhd_list, end=111)
 111    close(unitpar)
     end do
 
@@ -355,7 +355,7 @@ pure subroutine to_primitive(u)
       u(iw_mom(3)) = u(iw_mom(3))/u(iw_rho)
 
   ! Compute pressure from energy
-  u(iw_e) = (hd_gamma-1.0_dp) * (u(iw_e) - 0.5_dp * u(iw_rho) * &
+  u(iw_e) = (srhd_gamma-1.0_dp) * (u(iw_e) - 0.5_dp * u(iw_rho) * &
      sum(u(iw_mom(1:ndim))**2) )
 
 end subroutine to_primitive
@@ -367,7 +367,7 @@ pure subroutine to_conservative(u)
   real(dp), intent(inout) :: u(nw_phys)
   real(dp)                :: inv_gamma_m1
 
-  inv_gamma_m1 = 1.0d0/(hd_gamma - 1.0_dp)
+  inv_gamma_m1 = 1.0d0/(srhd_gamma - 1.0_dp)
 
   ! Compute energy from pressure and kinetic energy
   u(iw_e) = u(iw_e) * inv_gamma_m1 + 0.5_dp * u(iw_rho) * &
@@ -390,7 +390,7 @@ subroutine get_flux(u, xC, flux_dim, flux)
   real(dp), intent(out) :: flux(nw_flux)
   real(dp)              :: inv_gamma_m1
 
-  inv_gamma_m1 = 1.0d0/(hd_gamma - 1.0_dp)
+  inv_gamma_m1 = 1.0d0/(srhd_gamma - 1.0_dp)
 
   ! Density flux
   flux(iw_rho) = u(iw_rho) * u(iw_mom(flux_dim))
@@ -424,7 +424,7 @@ pure real(dp) function get_cmax(u, x, flux_dim) result(wC)
   real(dp), intent(in)  :: x(1:ndim)
   integer, intent(in)   :: flux_dim
 
-  wC = sqrt(hd_gamma * u(iw_e) / u(iw_rho)) + abs(u(iw_mom(flux_dim)))
+  wC = sqrt(srhd_gamma * u(iw_e) / u(iw_rho)) + abs(u(iw_mom(flux_dim)))
 
 end function get_cmax
 #:enddef  
@@ -442,8 +442,8 @@ subroutine estimate_speeds_minmax(uL, uR, xC, flux_dim, wL, wR)
 
   real(dp)              :: cL, cR
 
-  cL = sqrt(hd_gamma * uL(iw_e) / uL(iw_rho))
-  cR = sqrt(hd_gamma * uR(iw_e) / uR(iw_rho))
+  cL = sqrt(srhd_gamma * uL(iw_e) / uL(iw_rho))
+  cR = sqrt(srhd_gamma * uR(iw_e) / uR(iw_rho))
 
   wL = min(uL(iw_mom(flux_dim)) - cL, uR(iw_mom(flux_dim)) - cR)
   wR = max(uL(iw_mom(flux_dim)) + cL, uR(iw_mom(flux_dim)) + cR)
@@ -474,8 +474,8 @@ subroutine estimate_speeds_toro_pvrs(uL, uR, xC, flux_dim, sL, sR)
   unR  = uR(iw_mom(flux_dim))
 
   ! sound speeds
-  aL = sqrt(hd_gamma * pL / max(rhoL, tiny))
-  aR = sqrt(hd_gamma * pR / max(rhoR, tiny))
+  aL = sqrt(srhd_gamma * pL / max(rhoL, tiny))
+  aR = sqrt(srhd_gamma * pR / max(rhoR, tiny))
 
   ! PVRS pressure estimate (Eq. 10.67)
   rhobar = 0.5_dp*(rhoL + rhoR)
@@ -488,14 +488,14 @@ subroutine estimate_speeds_toro_pvrs(uL, uR, xC, flux_dim, sL, sR)
     qL = 1._dp
   else
     pratio = pstar / max(pL, tiny)
-    qL = sqrt(1._dp + 0.5_dp*(hd_gamma + 1._dp)/hd_gamma * (pratio - 1._dp))
+    qL = sqrt(1._dp + 0.5_dp*(srhd_gamma + 1._dp)/srhd_gamma * (pratio - 1._dp))
   end if
 
   if (pstar <= pR) then
     qR = 1._dp
   else
     pratio = pstar / max(pR, tiny)
-    qR = sqrt(1._dp + 0.5_dp*(hd_gamma + 1._dp)/hd_gamma * (pratio - 1._dp))
+    qR = sqrt(1._dp + 0.5_dp*(srhd_gamma + 1._dp)/srhd_gamma * (pratio - 1._dp))
   end if
 
   sL = unL - aL*qL
