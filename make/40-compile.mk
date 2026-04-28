@@ -15,3 +15,7 @@ $(build_dir)/obj/%.o: $(build_dir)/f90/%.f90 $(build_dir)/f90/amrvac.h
 	@echo -e "Compiling $(_magenta)$(notdir $<)$(_reset)"
 	@cd $(build_dir)/f90; $(compile) $(compile_flags) $< -o $@
 
+$(local_build_dir)/obj/%.o: $(local_build_dir)/f90/%.f90 $(build_dir)/f90/amrvac.h
+	@mkdir -p $(@D)
+	@echo -e "Compiling $(_magenta)$<$(_reset)"
+	@cd $(local_build_dir)/f90; $(compile) $(compile_flags) $< -o $@

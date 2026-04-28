@@ -2,6 +2,7 @@ $(info AMRVAC Path: $(AMRVAC_DIR))
 
 amrvac := $(AMRVAC_DIR)
 build := $(amrvac)/build
+local_build := $(shell pwd)/build
 
 ifeq ($(findstring help, $(MAKECMDGOALS)), help)
 disable_precompile := 1
@@ -15,4 +16,3 @@ endif
 
 help:
 	less $(amrvac)/make/README.md
-
