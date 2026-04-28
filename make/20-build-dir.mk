@@ -4,7 +4,7 @@ local_build_dir = $(local_build)/$(arch)-$(hash)
 
 $(info Build dir: $(build_dir))
 
-all: $(build)/latest/arch.mk $(local_build)/latest
+all: $(build)/latest/arch.mk $(local_build)/latest $(local_build_dir)/amrvac
 
 $(build)/latest::
 	@echo -e "Symlink $(_cyan)build/latest$(_reset) -> $(_blue)$(build_dir)$(_reset)"
