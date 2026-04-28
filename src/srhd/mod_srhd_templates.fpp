@@ -1,0 +1,535 @@
+#:if PHYS == 'srhd'
+ 
+#:if defined('N_TRACER')
+#:set N_TRACER_ = N_TRACER
+#:else
+#:set N_TRACER_ = 0
+#:endif
+
+#:def phys_vars()
+
+  integer, parameter :: dp = kind(0.0d0)
+  integer, parameter, public              :: nw_phys=4+ndim+${N_TRACER_}$
+  integer, parameter, public              :: nw_flux=2+ndim+${N_TRACER_}$
+
+  !> Whether an energy equation is used
+  logical, public                         :: srhd_energy = .true.
+  !$acc declare copyin(srhd_energy)
+
+  !> Index of the density (in the w array)
+  integer, public                         :: rho_
+  !$acc declare create(rho_)
+
+  !> Indices of the momentum density
+  integer, allocatable, public            :: mom(:)
+  !$acc declare create(mom)
+  
+   !> Index of the Lorentz factor
+  integer, public     :: lfac_
+  !$acc declare create(lfac_)
+
+  !> Index of the inertia
+  integer, public     :: xi_
+  !$acc declare create(xi_)
+  
+#:if defined('N_TRACER')
+  !> Indices of the tracers
+  integer, public                         :: tracer(${N_TRACER_}$)
+  !$acc declare create(tracer)
+#:endif
+
+  ! Set index for auxiliary variables
+  ! MUST be after the possible tracers (which have fluxes)
+  xi_  = var_set_auxvar('xi','xi')
+  lfac_= var_set_auxvar('lfac','lfac')
+
+  !> Index of the energy density (-1 if not present)
+  integer, public                         :: e_
+  !$acc declare create(e_)
+
+  !> Index of the gas pressure (-1 if not present) should equal e_
+  integer, public                         :: p_
+  !$acc declare create(p_)
+
+  !> The adiabatic index
+  double precision, public                :: srhd_gamma = 5.d0/3.0d0
+  !$acc declare copyin(srhd_gamma)
+
+  !> The adiabatic constant
+  double precision, public                :: srhd_adiab = 1.0d0
+  !$acc declare copyin(srhd_adiab)
+
+  !> The helium abundance
+  double precision, public                :: He_abundance=0.1d0
+  !$acc declare copyin(He_abundance)
+
+  !> Number of tracer species
+  integer, public                         :: srhd_n_tracer = 0
+  !$acc declare copyin(hd_n_tracer)
+
+  !> Whether plasma is partially ionized
+  logical, public                         :: srhd_partial_ionization = .false.
+  !$acc declare copyin(srhd_partial_ionization)
+  
+  !> Whether to use gravity
+  logical, public                         :: srhd_gravity = .false.
+  !$acc declare copyin(srhd_gravity)
+
+  !> switch for radiative cooling
+  logical, public                         :: srhd_radiative_cooling = .false.
+  !$acc declare copyin(srhd_radiative_cooling)
+
+  !> Allows overruling default corner filling (for debug mode, since otherwise corner primitives fail)
+  logical, public                         :: srhd_force_diagonal = .true.
+  !$acc declare copyin(srhd_force_diagonal)
+
+  !> Whether particles module is added
+  logical, public                         :: srhd_particles = .false.
+  !$acc declare copyin(srhd_particles)
+
+#:enddef
+
+#:def read_params()
+    !> Read this module's parameters from a file
+  subroutine read_params(files)
+    use mod_global_parameters
+    character(len=*), intent(in) :: files(:)
+    integer                      :: n
+
+    namelist /srhd_list/ srhd_energy, srhd_gamma, srhd_adiab, srhd_partial_ionization,&
+        srhd_force_diagonal, srhd_particles, srhd_gravity, srhd_n_tracer, srhd_radiative_cooling, He_abundance
+
+    do n = 1, size(files)
+       open(unitpar, file=trim(files(n)), status="old")
+       read(unitpar, hd_list, end=111)
+111    close(unitpar)
+    end do
+
+#ifdef _OPENACC
+    !$acc update device(srhd_energy, srhd_gamma, srhd_adiab, &
+    !$acc&     srhd_partial_ionization, srhd_force_diagonal, srhd_particles, &
+    !$acc&     srhd_gravity, srhd_n_tracer, srhd_radiative_cooling, He_abundance)
+#endif
+
+  end subroutine read_params
+#:enddef
+
+#:def phys_activate() 
+  subroutine phys_activate()
+    call phys_init()
+  end subroutine phys_activate
+#:enddef
+#:def phys_units()
+  subroutine phys_units()
+    use mod_global_parameters
+    double precision :: mp, kB
+    double precision :: a,b
+
+    !> here no SI_UNIT used by default, to be implemented
+    mp = mp_cgs
+    kB = kB_cgs
+    !> eq_state_units by default, to be implemented
+    a = 1.d0+4.d0*He_abundance
+    b = 2.d0+3.d0*He_abundance
+
+    if(unit_density/=1.d0 .or. unit_numberdensity/=1.d0) then
+      if(unit_density/=1.d0) then
+        unit_numberdensity=unit_density/(a*mp)
+      else if(unit_numberdensity/=1.d0) then
+        unit_density=a*mp*unit_numberdensity
+      end if
+      if(unit_temperature/=1.d0) then
+        unit_pressure=b*unit_numberdensity*kB*unit_temperature
+        unit_velocity=dsqrt(unit_pressure/unit_density)
+        if(unit_length/=1.d0) then
+          unit_time=unit_length/unit_velocity
+        else if(unit_time/=1.d0) then
+          unit_length=unit_velocity*unit_time
+        end if
+      else if(unit_pressure/=1.d0) then
+        unit_temperature=unit_pressure/(b*unit_numberdensity*kB)
+        unit_velocity=dsqrt(unit_pressure/unit_density)
+        if(unit_length/=1.d0) then
+          unit_time=unit_length/unit_velocity
+        else if(unit_time/=1.d0) then
+          unit_length=unit_velocity*unit_time
+        end if
+      else if(unit_velocity/=1.d0) then
+        unit_pressure=unit_density*unit_velocity**2
+        unit_temperature=unit_pressure/(b*unit_numberdensity*kB)
+        if(unit_length/=1.d0) then
+          unit_time=unit_length/unit_velocity
+        else if(unit_time/=1.d0) then
+          unit_length=unit_velocity*unit_time
+        end if
+      else if(unit_time/=1.d0) then
+        unit_velocity=unit_length/unit_time
+        unit_pressure=unit_density*unit_velocity**2
+        unit_temperature=unit_pressure/(b*unit_numberdensity*kB)
+      end if
+    else if(unit_temperature/=1.d0) then
+      ! units of temperature and velocity are dependent
+      if(unit_pressure/=1.d0) then
+        unit_numberdensity=unit_pressure/(b*unit_temperature*kB)
+        unit_density=a*mp*unit_numberdensity
+        unit_velocity=dsqrt(unit_pressure/unit_density)
+        if(unit_length/=1.d0) then
+          unit_time=unit_length/unit_velocity
+        else if(unit_time/=1.d0) then
+          unit_length=unit_velocity*unit_time
+        end if
+      end if
+    else if(unit_pressure/=1.d0) then
+      if(unit_velocity/=1.d0) then
+        unit_density=unit_pressure/unit_velocity**2
+        unit_numberdensity=unit_density/(a*mp)
+        unit_temperature=unit_pressure/(b*unit_numberdensity*kB)
+        if(unit_length/=1.d0) then
+          unit_time=unit_length/unit_velocity
+        else if(unit_time/=1.d0) then
+          unit_length=unit_velocity*unit_time
+        end if
+      else if(unit_time/=0.d0) then
+        unit_velocity=unit_length/unit_time
+        unit_density=unit_pressure/unit_velocity**2
+        unit_numberdensity=unit_density/(a*mp)
+        unit_temperature=unit_pressure/(b*unit_numberdensity*kB)
+      end if
+    end if
+    unit_mass=unit_density*unit_length**3
+
+    !$acc update device(unit_density, unit_numberdensity, unit_temperature, unit_pressure, unit_velocity, unit_length, unit_time, unit_mass)
+  end subroutine phys_units
+#:enddef
+  
+#:def phys_init()
+    !> Initialize the module
+  subroutine phys_init()
+    use mod_global_parameters
+!    use mod_particles, only: particles_init
+    #:if defined('COOLING')
+    use mod_radiative_cooling, only: rc_fl, radiative_cooling_init_params, radiative_cooling_init
+    #:endif
+
+    call read_params(par_files)
+    call phys_units()
+
+    phys_energy  = srhd_energy
+    phys_total_energy  = srhd_energy
+    phys_internal_e = .false.
+    phys_gamma = srhd_gamma
+    phys_partial_ionization= srhd_partial_ionization
+ !$acc update device(physics_type, phys_energy, phys_total_energy, phys_internal_e, phys_gamma, phys_partial_ionization)
+
+    use_particles = srhd_particles
+
+    ! Determine flux variables
+    rho_ = var_set_rho()
+    !$acc update device(rho_)
+
+    allocate(mom(ndir))
+    mom(:) = var_set_momentum(ndir)
+    !$acc update device(mom)
+
+    ! Set index of energy variable
+    if (srhd_energy) then
+       e_ = var_set_energy()
+       p_ = e_
+    else
+       e_ = -1
+       p_ = -1
+    end if
+    !$acc update device(e_,p_)
+
+    ! Whether diagonal ghost cells are required for the physics
+    phys_req_diagonal = .false.
+
+    if (srhd_force_diagonal) then
+       ! ensure corners are filled, otherwise divide by zero when getting primitives
+       !  --> only for debug purposes
+       phys_req_diagonal = .true.
+    endif
+
+#:if defined('N_TRACER')
+    #:for i in range(1, N_TRACER_+1)
+        tracer(${i}$) = var_set_fluxvar("trc", "trp", ${i}$, need_bc=.false.)
+    #:endfor
+    !$acc update device(tracer)
+#:endif
+
+    ! set number of variables which need update ghostcells
+    nwgc=nwflux+nwaux
+    !$acc update device(nwgc)
+
+! use cycle, needs to be dealt with:    
+!    ! Initialize particles module
+!    if (srhd_particles) then
+!       call particles_init()
+!       phys_req_diagonal = .true.
+!    end if
+
+    nvector      = 1 ! No. vector vars
+    allocate(iw_vector(nvector))
+    iw_vector(1) = mom(1) - 1
+    !$acc update device(nvector, iw_vector)
+    !$acc update device(phys_req_diagonal)
+
+#:if defined('COOLING')
+    call radiative_cooling_init_params(phys_gamma,He_abundance)
+    call radiative_cooling_init(rc_fl)
+    !$acc update device(rc_fl)
+    !$acc enter data copyin(rc_fl%tcool,rc_fl%Lcool, rc_fl%Yc)
+#:endif
+
+  end subroutine phys_init
+#:enddef
+
+#:def phys_get_dt()
+  subroutine phys_get_dt(w, x, dx, dtnew)
+  !$acc routine seq
+#:if defined('GRAVITY')
+  use mod_usr, only: gravity_field
+#:endif    
+    real(dp), intent(in)   :: w(nw_phys), x(1:ndim), dx(1:ndim)
+    real(dp), intent(out)  :: dtnew
+    ! .. local ..
+    integer                :: idim
+    real(dp)               :: field
+
+    dtnew = huge(1.0d0)
+    
+#:if defined('GRAVITY')
+    do idim = 1, ndim
+       field = gravity_field(w, x, idim)
+       field = max( abs(field), epsilon(1.0d0) )
+       dtnew = min( dtnew, 1_dp / sqrt( field/dx(idim) ) )
+    end do
+#:endif    
+    
+  end subroutine phys_get_dt
+#:enddef  
+
+#:def addsource_local()
+subroutine addsource_local(qdt, dtfactor, qtC, wCT, wCTprim, qt, wnew, x, dr, &
+    qsourcesplit)
+  !$acc routine seq
+#:if defined('GRAVITY')
+  use mod_usr, only: gravity_field
+#:endif    
+#:if defined('COOLING')
+  use mod_radiative_cooling, only: rc_fl, radiative_cooling_add_source
+#:endif
+
+  real(dp), intent(in)     :: qdt, dtfactor, qtC, qt
+  real(dp), intent(in)     :: wCT(nw_phys), wCTprim(nw_phys)
+  real(dp), intent(in)     :: x(1:ndim), dr(ndim)
+  real(dp), intent(inout)  :: wnew(nw_phys)
+  logical, intent(in)      :: qsourcesplit
+  ! .. local ..
+  integer                  :: idim
+  real(dp)                 :: field
+
+#:if defined('GRAVITY')
+  do idim = 1, ndim
+     field = gravity_field(wCT, x, idim)
+     wnew(iw_mom(idim)) = wnew(iw_mom(idim)) + qdt * field * wCT(iw_rho)
+     wnew(iw_e)         = wnew(iw_e) + qdt * field * wCT(iw_mom(idim))
+  end do
+#:endif  
+
+#:if defined('COOLING')
+  call radiative_cooling_add_source(qdt,wCT,wCTprim,wnew,x)
+#:endif
+
+end subroutine addsource_local
+#:enddef
+
+#:def to_primitive()
+pure subroutine to_primitive(u)
+  !$acc routine seq
+  real(dp), intent(inout) :: u(nw_phys)
+
+  ! Compute velocity from momentum
+      u(iw_mom(1)) = u(iw_mom(1))/u(iw_rho)
+      u(iw_mom(2)) = u(iw_mom(2))/u(iw_rho)
+      u(iw_mom(3)) = u(iw_mom(3))/u(iw_rho)
+
+  ! Compute pressure from energy
+  u(iw_e) = (hd_gamma-1.0_dp) * (u(iw_e) - 0.5_dp * u(iw_rho) * &
+     sum(u(iw_mom(1:ndim))**2) )
+
+end subroutine to_primitive
+#:enddef
+
+#:def to_conservative()  
+pure subroutine to_conservative(u)
+  !$acc routine seq
+  real(dp), intent(inout) :: u(nw_phys)
+  real(dp)                :: inv_gamma_m1
+
+  inv_gamma_m1 = 1.0d0/(hd_gamma - 1.0_dp)
+
+  ! Compute energy from pressure and kinetic energy
+  u(iw_e) = u(iw_e) * inv_gamma_m1 + 0.5_dp * u(iw_rho) * &
+     sum(u(iw_mom(1:ndim))**2)
+
+  ! Compute momentum from density and velocity components
+      u(iw_mom(1)) = u(iw_rho) * u(iw_mom(1))
+      u(iw_mom(2)) = u(iw_rho) * u(iw_mom(2))
+      u(iw_mom(3)) = u(iw_rho) * u(iw_mom(3))
+
+end subroutine to_conservative
+#:enddef
+
+#:def get_flux()
+subroutine get_flux(u, xC, flux_dim, flux)
+  !$acc routine seq
+  real(dp), intent(in)  :: u(nw_phys)
+  real(dp), intent(in)  :: xC(ndim)
+  integer, intent(in)   :: flux_dim
+  real(dp), intent(out) :: flux(nw_flux)
+  real(dp)              :: inv_gamma_m1
+
+  inv_gamma_m1 = 1.0d0/(hd_gamma - 1.0_dp)
+
+  ! Density flux
+  flux(iw_rho) = u(iw_rho) * u(iw_mom(flux_dim))
+
+  ! Momentum flux with pressure term
+  
+       flux(iw_mom(1)) = u(iw_rho) * u(iw_mom(1)) * u(iw_mom(flux_dim))
+       flux(iw_mom(2)) = u(iw_rho) * u(iw_mom(2)) * u(iw_mom(flux_dim))
+       flux(iw_mom(3)) = u(iw_rho) * u(iw_mom(3)) * u(iw_mom(flux_dim))
+  
+  flux(iw_mom(flux_dim)) = flux(iw_mom(flux_dim)) + u(iw_e)
+
+  ! Energy flux
+  flux(iw_e) = u(iw_mom(flux_dim)) * (u(iw_e) * inv_gamma_m1 + 0.5_dp * &
+     u(iw_rho) * sum(u(iw_mom(1:ndim))**2) + u(iw_e))
+
+  ! Tracer flux. Note that tracers stay conservative.
+#:if defined('N_TRACER')
+  #:for i in range(1, N_TRACER_+1)
+      flux(tracer(${i}$)) = u(tracer(${i}$)) * u(iw_mom(flux_dim))
+  #:endfor
+#:endif
+
+end subroutine get_flux
+#:enddef
+
+#:def get_cmax()  
+pure real(dp) function get_cmax(u, x, flux_dim) result(wC)
+  !$acc routine seq
+  real(dp), intent(in)  :: u(nw_phys)
+  real(dp), intent(in)  :: x(1:ndim)
+  integer, intent(in)   :: flux_dim
+
+  wC = sqrt(hd_gamma * u(iw_e) / u(iw_rho)) + abs(u(iw_mom(flux_dim)))
+
+end function get_cmax
+#:enddef  
+
+
+#:def estimate_speeds_minmax()
+!> Wave speed estimates: min/max acoustic bounds (Davis 1988) 
+!> Reference: Toro 2010, Chapter 10.
+subroutine estimate_speeds_minmax(uL, uR, xC, flux_dim, wL, wR)
+  !$acc routine seq
+  real(dp), intent(in)  :: uL(nw_phys), uR(nw_phys)
+  real(dp), intent(in)  :: xC(ndim)
+  integer, intent(in)   :: flux_dim
+  real(dp), intent(out) :: wL, wR
+
+  real(dp)              :: cL, cR
+
+  cL = sqrt(hd_gamma * uL(iw_e) / uL(iw_rho))
+  cR = sqrt(hd_gamma * uR(iw_e) / uR(iw_rho))
+
+  wL = min(uL(iw_mom(flux_dim)) - cL, uR(iw_mom(flux_dim)) - cR)
+  wR = max(uL(iw_mom(flux_dim)) + cL, uR(iw_mom(flux_dim)) + cR)
+
+end subroutine estimate_speeds_minmax
+#:enddef
+
+
+#:def estimate_speeds_toro_pvrs()
+!> Wave speed estimates for HLL/HLLC using Toro (2010) PVRS pressure estimate
+!> Implements Eq. (10.67)-(10.69)
+subroutine estimate_speeds_toro_pvrs(uL, uR, xC, flux_dim, sL, sR)
+  !$acc routine seq
+  real(dp), intent(in)  :: uL(nw_phys), uR(nw_phys)
+  real(dp), intent(in)  :: xC(ndim)
+  integer,  intent(in)  :: flux_dim
+  real(dp), intent(out) :: sL, sR
+
+  real(dp) :: rhoL, rhoR, pL, pR, unL, unR
+  real(dp) :: aL, aR, abar, rhobar
+  real(dp) :: ppvrs, pstar
+  real(dp) :: qL, qR, pratio
+  real(dp), parameter :: tiny = 1e-30_dp
+
+  rhoL = uL(iw_rho);  rhoR = uR(iw_rho)
+  pL   = uL(iw_e);    pR   = uR(iw_e)
+  unL  = uL(iw_mom(flux_dim))
+  unR  = uR(iw_mom(flux_dim))
+
+  ! sound speeds
+  aL = sqrt(hd_gamma * pL / max(rhoL, tiny))
+  aR = sqrt(hd_gamma * pR / max(rhoR, tiny))
+
+  ! PVRS pressure estimate (Eq. 10.67)
+  rhobar = 0.5_dp*(rhoL + rhoR)
+  abar   = 0.5_dp*(aL + aR)
+  ppvrs  = 0.5_dp*(pL + pR) - 0.5_dp*(unR - unL)*rhobar*abar
+  pstar  = max(0._dp, ppvrs)
+
+  ! (Eq. 10.69)
+  if (pstar <= pL) then
+    qL = 1._dp
+  else
+    pratio = pstar / max(pL, tiny)
+    qL = sqrt(1._dp + 0.5_dp*(hd_gamma + 1._dp)/hd_gamma * (pratio - 1._dp))
+  end if
+
+  if (pstar <= pR) then
+    qR = 1._dp
+  else
+    pratio = pstar / max(pR, tiny)
+    qR = sqrt(1._dp + 0.5_dp*(hd_gamma + 1._dp)/hd_gamma * (pratio - 1._dp))
+  end if
+
+  sL = unL - aL*qL
+  sR = unR + aR*qR
+end subroutine estimate_speeds_toro_pvrs
+#:enddef
+
+
+
+#:def get_rho()
+  pure real(dp) function get_rho(w, x) result(rho)
+    !$acc routine seq
+    real(dp), intent(in)  :: w(nw_phys)
+    real(dp), intent(in)  :: x(1:ndim)
+
+    rho = w(iw_rho)
+  end function get_rho
+#:enddef
+
+#:def get_pthermal()
+pure double precision function get_pthermal(w, x) result(pth)
+  !$acc routine seq
+  double precision, intent(in)  :: w(nw_flux)
+  double precision, intent(in)  :: x(1:ndim)
+
+  pth = (phys_gamma-1.0_dp)*(w(iw_e)-0.5_dp*sum(w(iw_mom(:))**2)/w(iw_rho))
+end function get_pthermal
+#:enddef
+
+#:def get_Rfactor()
+pure double precision function get_Rfactor() result(Rfactor)
+  !$acc routine seq
+  Rfactor = 1.0d0
+end function get_Rfactor
+#:enddef
+
+#:endif
