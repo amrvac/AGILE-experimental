@@ -38,11 +38,6 @@
   !$acc declare create(tracer)
 #:endif
 
-  ! Set index for auxiliary variables
-  ! MUST be after the possible tracers (which have fluxes)
-  xi_  = var_set_auxvar('xi','xi')
-  lfac_= var_set_auxvar('lfac','lfac')
-
   !> Index of the energy density (-1 if not present)
   integer, public                         :: e_
   !$acc declare create(e_)
@@ -257,6 +252,11 @@
     !$acc update device(tracer)
 #:endif
 
+  ! Set index for auxiliary variables
+  ! MUST be after the possible tracers (which have fluxes)
+  xi_  = var_set_auxvar('xi','xi')
+  lfac_= var_set_auxvar('lfac','lfac')
+  
     ! set number of variables which need update ghostcells
     nwgc=nwflux+nwaux
     !$acc update device(nwgc)
