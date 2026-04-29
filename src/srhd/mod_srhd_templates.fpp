@@ -60,7 +60,7 @@
 
   !> Number of tracer species
   integer, public                         :: srhd_n_tracer = 0
-  !$acc declare copyin(hd_n_tracer)
+  !$acc declare copyin(srhd_n_tracer)
 
   !> Whether plasma is partially ionized
   logical, public                         :: srhd_partial_ionization = .false.
