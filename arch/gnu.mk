@@ -15,7 +15,7 @@ endif
 ifdef DEBUG
 $(info Enable debugging symbols)
 enabled += DEBUG
-f90_flags += -g -O0 -fbacktrace -fcheck=all
+f90_flags += -ffpe-trap=invalid,zero,overflow -g -O0 -fbacktrace -fcheck=all
 else
 f90_flags += -O3
 endif

@@ -10,7 +10,7 @@
 
   integer, parameter :: dp = kind(0.0d0)
   integer, parameter, public              :: nw_phys=4+ndim+${N_TRACER_}$
-  integer, parameter, public              :: nw_flux=4+ndim+${N_TRACER_}$
+  integer, parameter, public              :: nw_flux=2+ndim+${N_TRACER_}$
 
   !> Whether an energy equation is used
   logical, public                         :: srhd_energy = .true.
@@ -252,11 +252,16 @@
     !$acc update device(tracer)
 #:endif
 
-  ! Set index for auxiliary variables
-  ! MUST be after the possible tracers (which have fluxes)
-  xi_  = var_set_auxvar('xi','xi')
-  lfac_= var_set_auxvar('lfac','lfac')
-  
+    ! Set index for auxiliary variables
+    ! MUST be after the possible tracers (which have fluxes)
+    xi_  = var_set_auxvar('xi','xi')
+    lfac_= var_set_auxvar('lfac','lfac')
+    
+    ! works:
+!    xi_  = var_set_extravar('xi','xi')
+!    lfac_= var_set_extravar('lfac','lfac')
+    !$acc update device(xi_,lfac_)
+    
     ! set number of variables which need update ghostcells
     nwgc=nwflux+nwaux
     !$acc update device(nwgc)
@@ -350,9 +355,9 @@ pure subroutine to_primitive(u)
   real(dp), intent(inout) :: u(nw_phys)
 
   ! Compute velocity from momentum
-      u(iw_mom(1)) = u(iw_mom(1))/u(iw_rho)
-      u(iw_mom(2)) = u(iw_mom(2))/u(iw_rho)
-      u(iw_mom(3)) = u(iw_mom(3))/u(iw_rho)
+  u(iw_mom(1)) = u(iw_mom(1))/u(iw_rho)
+  u(iw_mom(2)) = u(iw_mom(2))/u(iw_rho)
+  u(iw_mom(3)) = u(iw_mom(3))/u(iw_rho)
 
   ! Compute pressure from energy
   u(iw_e) = (srhd_gamma-1.0_dp) * (u(iw_e) - 0.5_dp * u(iw_rho) * &
@@ -374,9 +379,9 @@ pure subroutine to_conservative(u)
      sum(u(iw_mom(1:ndim))**2)
 
   ! Compute momentum from density and velocity components
-      u(iw_mom(1)) = u(iw_rho) * u(iw_mom(1))
-      u(iw_mom(2)) = u(iw_rho) * u(iw_mom(2))
-      u(iw_mom(3)) = u(iw_rho) * u(iw_mom(3))
+  u(iw_mom(1)) = u(iw_rho) * u(iw_mom(1))
+  u(iw_mom(2)) = u(iw_rho) * u(iw_mom(2))
+  u(iw_mom(3)) = u(iw_rho) * u(iw_mom(3))
 
 end subroutine to_conservative
 #:enddef
@@ -394,13 +399,12 @@ subroutine get_flux(u, xC, flux_dim, flux)
 
   ! Density flux
   flux(iw_rho) = u(iw_rho) * u(iw_mom(flux_dim))
-
+  
   ! Momentum flux with pressure term
-  
-       flux(iw_mom(1)) = u(iw_rho) * u(iw_mom(1)) * u(iw_mom(flux_dim))
-       flux(iw_mom(2)) = u(iw_rho) * u(iw_mom(2)) * u(iw_mom(flux_dim))
-       flux(iw_mom(3)) = u(iw_rho) * u(iw_mom(3)) * u(iw_mom(flux_dim))
-  
+  flux(iw_mom(1)) = u(iw_rho) * u(iw_mom(1)) * u(iw_mom(flux_dim))
+  flux(iw_mom(2)) = u(iw_rho) * u(iw_mom(2)) * u(iw_mom(flux_dim))
+  flux(iw_mom(3)) = u(iw_rho) * u(iw_mom(3)) * u(iw_mom(flux_dim))
+
   flux(iw_mom(flux_dim)) = flux(iw_mom(flux_dim)) + u(iw_e)
 
   ! Energy flux
