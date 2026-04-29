@@ -256,11 +256,7 @@
     ! MUST be after the possible tracers (which have fluxes)
     xi_  = var_set_auxvar('xi','xi')
     lfac_= var_set_auxvar('lfac','lfac')
-    
-    ! works:
-!    xi_  = var_set_extravar('xi','xi')
-!    lfac_= var_set_extravar('lfac','lfac')
-    !$acc update device(xi_,lfac_)
+    !$acc update device(xi_, lfac_)
     
     ! set number of variables which need update ghostcells
     nwgc=nwflux+nwaux
