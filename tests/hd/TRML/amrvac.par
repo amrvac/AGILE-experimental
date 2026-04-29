@@ -10,6 +10,8 @@
    ditsave_log      = 100
 !  dtsave_dat       = 2.583698d-1 !     t_sh/unit_time
    dtsave_dat       = 6.459244d-2 ! 1/4 t_sh/unit_time
+!  dtsave_slice     = 2.583698d-1 !     t_sh/unit_time
+   dtsave_slice     = 6.459244d-2 ! 1/4 t_sh/unit_time
    nslices          = 1
    slicedir(1)      = 2
    slicecoord(1)    = +5d-1
