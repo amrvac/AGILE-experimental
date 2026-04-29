@@ -18,6 +18,7 @@
  /
 
  &stoplist
+!  time_max         = 1.033479d+1 ! 40 t_sh/unit_time
    time_max         = 7.751093d+0 ! 30 t_sh/unit_time
 !  time_max         = 5.167395d+0 ! 20 t_sh/unit_time
 !  time_max         = 2.583698d+0 ! 10 t_sh/unit_time
