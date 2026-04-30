@@ -49,7 +49,7 @@
    itfixgrid          = 0
    refine_criterion   = 1
    refine_usr         = T
-   max_blocks         = 256 ! per rank
+   max_blocks         = 512 ! per rank
    block_nx1          = 48
    block_nx2          = 48
    block_nx3          = 48
