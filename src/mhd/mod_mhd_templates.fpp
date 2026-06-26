@@ -636,7 +636,7 @@ end subroutine addsource_compact
 subroutine addsource_nonlocal(qdt, dtfactor, qtC, wCTprim, qt, wnew, x, dx, idir, &
      qsourcesplit)
   !$acc routine seq
-  use mod_global_parameters, only: dt, cmax_global, third, &
+  use mod_global_parameters, only: dt, cmax_global, third, smalldouble, &
        unit_temperature, unit_length, unit_density, unit_velocity
 
   real(dp), intent(in)     :: qdt, dtfactor, qtC, qt
@@ -648,7 +648,7 @@ subroutine addsource_nonlocal(qdt, dtfactor, qtC, wCTprim, qt, wnew, x, dx, idir
   ! .. local ..
   real(dp)                 :: tau, htc_qrsc, sig_par
   real(dp)                 :: Te(1:5), gradT
-  real(dp)                 :: mag
+  real(dp)                 :: mag, Bmag
 
   if (.not. qsourcesplit) then
      !---------------------------------
@@ -669,7 +669,9 @@ subroutine addsource_nonlocal(qdt, dtfactor, qtC, wCTprim, qt, wnew, x, dx, idir
     tau = max(4.d0*dt, sig_par*Te(3)*(mhd_gamma-1.0d0)/&
         (wCTprim(iw_e,3)*cmax_global**2))
 
-    htc_qrsc = sig_par * mag * gradT
+    Bmag = sqrt(max(wCTprim(iw_mag(1),3)**2 + wCTprim(iw_mag(2),3)**2 + &
+                    wCTprim(iw_mag(3),3)**2, smalldouble**2))
+    htc_qrsc = sig_par * (mag/Bmag) * gradT
 
     wnew(iw_q) = wnew(iw_q) - qdt * (htc_qrsc + wCTprim(iw_q,3)*third) / tau
 #:endif
@@ -730,6 +732,8 @@ end subroutine addsource_nonlocal
     real(dp)              :: ptotal
 #:if defined('HYPERTC_ANISO')
     real(dp)              :: Bmag2_tc, Bmag_tc, Bmag2_tc_safe, b_fd
+#:elif defined('HYPERTC')
+    real(dp)              :: Bmag_tc
 #:endif
 
 #:if defined('MHD_ENERGY_ONLY')
@@ -742,7 +746,8 @@ end subroutine addsource_nonlocal
     b_fd          = u(iw_mag(flux_dim)) * Bmag_tc / Bmag2_tc_safe
     flux(iw_e) = u(q_)*b_fd + u(qperp_)*sqrt(max(1.0_dp - b_fd**2, 0.0_dp))
 #:elif defined('HYPERTC')
-    flux(iw_e) = u(iw_q) * u(iw_mag(flux_dim))
+    Bmag_tc = sqrt(max(u(iw_mag(1))**2 + u(iw_mag(2))**2 + u(iw_mag(3))**2, smalldouble**2))
+    flux(iw_e) = u(iw_q) * u(iw_mag(flux_dim)) / Bmag_tc
 #:endif
     return
 #:endif
@@ -793,8 +798,9 @@ end subroutine addsource_nonlocal
     flux(q_)    = 0.0_dp
     flux(qperp_)= 0.0_dp
 #:elif defined('HYPERTC')
-    ! Field-aligned scalar: flux = q * B_{flux_dim}
-    flux(iw_e) = flux(iw_e) + u(iw_q) * u(iw_mag(flux_dim))
+    ! Field-aligned scalar: flux = q * bhat_{flux_dim}
+    Bmag_tc = sqrt(max(u(iw_mag(1))**2 + u(iw_mag(2))**2 + u(iw_mag(3))**2, smalldouble**2))
+    flux(iw_e) = flux(iw_e) + u(iw_q) * u(iw_mag(flux_dim)) / Bmag_tc
     flux(iw_q) = 0.0_dp
 #:endif
 
