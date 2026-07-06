@@ -37,8 +37,9 @@ contains
        end if
     end do
 
-    ! set up boundary flux conservation arrays
-    if(levmax>levmin) call allocateBflux
+  !! TODO JESSE, WE NO LONGER USE ALLOCATE/DEALLOCATEBFLUX
+!!    ! set up boundary flux conservation arrays
+!!    if(levmax>levmin) call allocateBflux
 
   end subroutine settree
 
@@ -51,8 +52,9 @@ contains
     use mod_errest, only: errest 
     use mod_particles
     
-    if(levmax>levmin) call deallocateBflux
-    if(stagger_grid) call deallocateBfaces
+  !! TODO JESSE, WE NO LONGER USE ALLOCATE/DEALLOCATEBFLUX
+!!    if(levmax>levmin) call deallocateBflux
+!!    if(stagger_grid) call deallocateBfaces
 
     ! deallocate old grids for particles
     if(use_particles) then
@@ -63,8 +65,9 @@ contains
 
     call amr_coarsen_refine
 
-    ! set up boundary flux conservation arrays
-    if(levmax>levmin) call allocateBflux
+  !! TODO JESSE, WE NO LONGER USE ALLOCATE/DEALLOCATEBFLUX
+!!    ! set up boundary flux conservation arrays
+!!    if(levmax>levmin) call allocateBflux
 
     ! generate new grids for particles
     if(use_particles) then

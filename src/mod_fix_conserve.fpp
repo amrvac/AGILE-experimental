@@ -9,13 +9,20 @@ module mod_fix_conserve
   implicit none
   private
 
+  !!JESSE OLD ONE
+!!  type fluxalloc
+!!     double precision, dimension(:,:,:,:), allocatable :: flux
+!!     !!double precision, dimension(:,:,:,:), pointer:: flux => null()
+!!     !!double precision, dimension(:,:,:,:), pointer:: edge => null()
+!!  end type fluxalloc
+!!  !> store flux to fix conservation
+!!  type(fluxalloc), dimension(:,:,:), allocatable, public :: pflux
+
   type fluxalloc
-     double precision, dimension(:,:,:,:), allocatable :: flux
-     !!double precision, dimension(:,:,:,:), pointer:: flux => null()
-     !!double precision, dimension(:,:,:,:), pointer:: edge => null()
+     double precision, dimension(:,:,:,:,:), allocatable :: flux
   end type fluxalloc
   !> store flux to fix conservation
-  type(fluxalloc), dimension(:,:,:), allocatable, public :: pflux
+  type(fluxalloc), dimension(:,:), allocatable, public :: pflux
 
   integer, save                        :: nrecv, nsend
   double precision, allocatable, save  :: recvbuffer(:), sendbuffer(:)
@@ -35,8 +42,8 @@ module mod_fix_conserve
       irecv, irecv_cc
 
   public :: init_comm_fix_conserve
-  public :: allocateBflux
-  public :: deallocateBflux
+!!  public :: allocateBflux
+!!  public :: deallocateBflux
   public :: sendflux
   public :: recvflux
   public :: store_flux
@@ -414,7 +421,8 @@ module mod_fix_conserve
                  !!     fc_sendreq(isend),ierrmpi)
                  !!  ibuf_send=ibuf_send_next
                  else
-                   call mpi_isend_wrapper(pflux(iside,1,igrid)%flux,isize(1),&
+                   !TODO DEBUG UPDATE JESSE
+                   call mpi_isend_wrapper(pflux(iside,1)%flux,isize(1),&
                        MPI_DOUBLE_PRECISION,ipe_neighbor,itag, icomm,&
                       fc_sendreq(isend),ierrmpi)
                  end if
@@ -520,7 +528,8 @@ module mod_fix_conserve
                  !!     fc_sendreq(isend),ierrmpi)
                  !!  ibuf_send=ibuf_send_next
                  else
-                   call mpi_isend_wrapper(pflux(iside,2,igrid)%flux,isize(2),&
+                   !TODO UPDATE JESSE
+                   call mpi_isend_wrapper(pflux(iside,2)%flux,isize(2),&
                        MPI_DOUBLE_PRECISION,ipe_neighbor,itag, icomm,&
                       fc_sendreq(isend),ierrmpi)
                  end if
@@ -626,7 +635,8 @@ module mod_fix_conserve
                  !!     fc_sendreq(isend),ierrmpi)
                  !!  ibuf_send=ibuf_send_next
                  else
-                   call mpi_isend_wrapper(pflux(iside,3,igrid)%flux,isize(3),&
+                   !TODO UPDATE JESSE
+                   call mpi_isend_wrapper(pflux(iside,3)%flux,isize(3),&
                        MPI_DOUBLE_PRECISION,ipe_neighbor,itag, icomm,&
                       fc_sendreq(isend),ierrmpi)
                  end if
@@ -704,171 +714,173 @@ module mod_fix_conserve
      end do
    end subroutine sendflux
 
-subroutine allocateBflux()
-  use openacc
-  use mod_global_parameters
-
-  integer :: iigrid, igrid, iside
-  integer :: i1,i2,i3
-  integer :: nx1,nx2,nx3, nxCo1,nxCo2,nxCo3
-
-  nx1 = ixMhi1-ixMlo1+1
-  nx2 = ixMhi2-ixMlo2+1
-  nx3 = ixMhi3-ixMlo3+1
-
-  nxCo1 = nx1/2
-  nxCo2 = nx2/2
-  nxCo3 = nx3/2
-
-  do iigrid = 1, igridstail
-    igrid = igrids(iigrid)
-
-    ! DIMENSION 1
-    do iside = 1, 2
-      i1 = kr(1,1)*(2*iside-3)
-      i2 = kr(2,1)*(2*iside-3)
-      i3 = kr(3,1)*(2*iside-3)
-
-      if (neighbor_pole(i1,i2,i3,igrid) /= 0) cycle
-
-      select case (neighbor_type(i1,i2,i3,igrid))
-
-      case (neighbor_fine)
-
-        allocate(pflux(iside,1,igrid)%flux(1,1:nx2,1:nx3,1:nwflux))
-
-        if (acc_is_present(pflux(iside,1,igrid)%flux)) then
-          !$acc update device(pflux(iside,1,igrid)%flux)
-        else
-          !$acc enter data create(pflux(iside,1,igrid)%flux)
-        end if
-
-      case (neighbor_coarse)
-        allocate(pflux(iside,1,igrid)%flux(1,1:nxCo2,1:nxCo3,1:nwflux))
-        !!$acc update device(pflux(iside,1,igrid)%flux)
-
-        if (acc_is_present(pflux(iside,1,igrid)%flux)) then
-          !$acc update device(pflux(iside,1,igrid)%flux)
-        else
-          !$acc enter data create(pflux(iside,1,igrid)%flux)
-        end if
-
-      end select
-    end do
-
-    ! DIMENSION 2
-    do iside = 1, 2
-      i1 = kr(1,2)*(2*iside-3)
-      i2 = kr(2,2)*(2*iside-3)
-      i3 = kr(3,2)*(2*iside-3)
-
-      if (neighbor_pole(i1,i2,i3,igrid) /= 0) cycle
-
-      select case (neighbor_type(i1,i2,i3,igrid))
-
-      case (neighbor_fine)
-        allocate(pflux(iside,2,igrid)%flux(1:nx1,1,1:nx3,1:nwflux))
-
-        if (acc_is_present(pflux(iside,2,igrid)%flux)) then
-          !$acc update device(pflux(iside,2,igrid)%flux)
-        else
-          !$acc enter data create(pflux(iside,2,igrid)%flux)
-        end if
-
-      case (neighbor_coarse)
-        allocate(pflux(iside,2,igrid)%flux(1:nxCo1,1,1:nxCo3,1:nwflux))
-
-        if (acc_is_present(pflux(iside,2,igrid)%flux)) then
-          !$acc update device(pflux(iside,2,igrid)%flux)
-        else
-          !$acc enter data create(pflux(iside,2,igrid)%flux)
-        end if
-
-      end select
-    end do
-
-    ! DIMENSION 3
-    do iside = 1, 2
-      i1 = kr(1,3)*(2*iside-3)
-      i2 = kr(2,3)*(2*iside-3)
-      i3 = kr(3,3)*(2*iside-3)
-
-      if (neighbor_pole(i1,i2,i3,igrid) /= 0) cycle
-
-      select case (neighbor_type(i1,i2,i3,igrid))
-
-      case (neighbor_fine)
-        allocate(pflux(iside,3,igrid)%flux(1:nx1,1:nx2,1,1:nwflux))
-
-        if (acc_is_present(pflux(iside,3,igrid)%flux)) then
-          !$acc update device(pflux(iside,3,igrid)%flux)
-        else
-          !$acc enter data create(pflux(iside,3,igrid)%flux)
-        end if
-
-      case (neighbor_coarse)
-        allocate(pflux(iside,3,igrid)%flux(1:nxCo1,1:nxCo2,1,1:nwflux))
-
-        if (acc_is_present(pflux(iside,3,igrid)%flux)) then
-          !$acc update device(pflux(iside,3,igrid)%flux)
-        else
-          !$acc enter data create(pflux(iside,3,igrid)%flux)
-        end if
-
-      end select
-    end do
-
-  end do
-
-end subroutine allocateBflux
-
-subroutine deallocateBflux()
-  use openacc
-  use mod_global_parameters
-
-  integer :: igrid, iigrid, iside
-
-  do iigrid = 1, igridstail
-    igrid = igrids(iigrid)
-
-    do iside = 1, 2
-
-#ifdef _OPENACC
-      ! delete device memory first
-      !$acc exit data delete(pflux(iside,1,igrid)%flux)
-      !$acc exit data delete(pflux(iside,2,igrid)%flux)
-      !$acc exit data delete(pflux(iside,3,igrid)%flux)
-
-#endif
-
-      ! deallocate host memory
-      if (allocated(pflux(iside,1,igrid)%flux)) then
-        deallocate(pflux(iside,1,igrid)%flux)
-      end if
-
-      if (allocated(pflux(iside,2,igrid)%flux)) then
-        deallocate(pflux(iside,2,igrid)%flux)
-      end if
-
-      if (allocated(pflux(iside,3,igrid)%flux)) then
-        deallocate(pflux(iside,3,igrid)%flux)
-      end if
-
-    end do
-  end do
-
-  !!optional full delete of the structure,
-  !!which was a rather regorous test (that worked btw)
-  !!!!!$acc exit data delete(pflux%flux)
-  !!!$acc exit data delete(pflux)
-  !!deallocate(pflux)
-
-  !!allocate(pflux(2,3,max_blocks))
-  !!!$acc enter data create(pflux) !JESSE
-
-end subroutine deallocateBflux
+       !!!JESSE TODO LONGER USE ALLOCATE/DEALLOCATE Bflux
+!!!subroutine allocateBflux()
+!!!  use openacc
+!!!  use mod_global_parameters
+!!!
+!!!  integer :: iigrid, igrid, iside
+!!!  integer :: i1,i2,i3
+!!!  integer :: nx1,nx2,nx3, nxCo1,nxCo2,nxCo3
+!!!
+!!!  nx1 = ixMhi1-ixMlo1+1
+!!!  nx2 = ixMhi2-ixMlo2+1
+!!!  nx3 = ixMhi3-ixMlo3+1
+!!!
+!!!  nxCo1 = nx1/2
+!!!  nxCo2 = nx2/2
+!!!  nxCo3 = nx3/2
+!!!
+!!!  do iigrid = 1, igridstail
+!!!    igrid = igrids(iigrid)
+!!!
+!!!    ! DIMENSION 1
+!!!    do iside = 1, 2
+!!!      i1 = kr(1,1)*(2*iside-3)
+!!!      i2 = kr(2,1)*(2*iside-3)
+!!!      i3 = kr(3,1)*(2*iside-3)
+!!!
+!!!      if (neighbor_pole(i1,i2,i3,igrid) /= 0) cycle
+!!!
+!!!      select case (neighbor_type(i1,i2,i3,igrid))
+!!!
+!!!      case (neighbor_fine)
+!!!
+!!!        allocate(pflux(iside,1,igrid)%flux(1,1:nx2,1:nx3,1:nwflux))
+!!!
+!!!        if (acc_is_present(pflux(iside,1,igrid)%flux)) then
+!!!          !$acc update device(pflux(iside,1,igrid)%flux)
+!!!        else
+!!!          !$acc enter data create(pflux(iside,1,igrid)%flux)
+!!!        end if
+!!!
+!!!      case (neighbor_coarse)
+!!!        allocate(pflux(iside,1,igrid)%flux(1,1:nxCo2,1:nxCo3,1:nwflux))
+!!!        !!$acc update device(pflux(iside,1,igrid)%flux)
+!!!
+!!!        if (acc_is_present(pflux(iside,1,igrid)%flux)) then
+!!!          !$acc update device(pflux(iside,1,igrid)%flux)
+!!!        else
+!!!          !$acc enter data create(pflux(iside,1,igrid)%flux)
+!!!        end if
+!!!
+!!!      end select
+!!!    end do
+!!!
+!!!    ! DIMENSION 2
+!!!    do iside = 1, 2
+!!!      i1 = kr(1,2)*(2*iside-3)
+!!!      i2 = kr(2,2)*(2*iside-3)
+!!!      i3 = kr(3,2)*(2*iside-3)
+!!!
+!!!      if (neighbor_pole(i1,i2,i3,igrid) /= 0) cycle
+!!!
+!!!      select case (neighbor_type(i1,i2,i3,igrid))
+!!!
+!!!      case (neighbor_fine)
+!!!        allocate(pflux(iside,2,igrid)%flux(1:nx1,1,1:nx3,1:nwflux))
+!!!
+!!!        if (acc_is_present(pflux(iside,2,igrid)%flux)) then
+!!!          !$acc update device(pflux(iside,2,igrid)%flux)
+!!!        else
+!!!          !$acc enter data create(pflux(iside,2,igrid)%flux)
+!!!        end if
+!!!
+!!!      case (neighbor_coarse)
+!!!        allocate(pflux(iside,2,igrid)%flux(1:nxCo1,1,1:nxCo3,1:nwflux))
+!!!
+!!!        if (acc_is_present(pflux(iside,2,igrid)%flux)) then
+!!!          !$acc update device(pflux(iside,2,igrid)%flux)
+!!!        else
+!!!          !$acc enter data create(pflux(iside,2,igrid)%flux)
+!!!        end if
+!!!
+!!!      end select
+!!!    end do
+!!!
+!!!    ! DIMENSION 3
+!!!    do iside = 1, 2
+!!!      i1 = kr(1,3)*(2*iside-3)
+!!!      i2 = kr(2,3)*(2*iside-3)
+!!!      i3 = kr(3,3)*(2*iside-3)
+!!!
+!!!      if (neighbor_pole(i1,i2,i3,igrid) /= 0) cycle
+!!!
+!!!      select case (neighbor_type(i1,i2,i3,igrid))
+!!!
+!!!      case (neighbor_fine)
+!!!        allocate(pflux(iside,3,igrid)%flux(1:nx1,1:nx2,1,1:nwflux))
+!!!
+!!!        if (acc_is_present(pflux(iside,3,igrid)%flux)) then
+!!!          !$acc update device(pflux(iside,3,igrid)%flux)
+!!!        else
+!!!          !$acc enter data create(pflux(iside,3,igrid)%flux)
+!!!        end if
+!!!
+!!!      case (neighbor_coarse)
+!!!        allocate(pflux(iside,3,igrid)%flux(1:nxCo1,1:nxCo2,1,1:nwflux))
+!!!
+!!!        if (acc_is_present(pflux(iside,3,igrid)%flux)) then
+!!!          !$acc update device(pflux(iside,3,igrid)%flux)
+!!!        else
+!!!          !$acc enter data create(pflux(iside,3,igrid)%flux)
+!!!        end if
+!!!
+!!!      end select
+!!!    end do
+!!!
+!!!  end do
+!!!
+!!!end subroutine allocateBflux
+!!!
+!!!subroutine deallocateBflux()
+!!!  use openacc
+!!!  use mod_global_parameters
+!!!
+!!!  integer :: igrid, iigrid, iside
+!!!
+!!!  do iigrid = 1, igridstail
+!!!    igrid = igrids(iigrid)
+!!!
+!!!    do iside = 1, 2
+!!!
+!!!#ifdef _OPENACC
+!!!      ! delete device memory first
+!!!      !$acc exit data delete(pflux(iside,1,igrid)%flux)
+!!!      !$acc exit data delete(pflux(iside,2,igrid)%flux)
+!!!      !$acc exit data delete(pflux(iside,3,igrid)%flux)
+!!!
+!!!#endif
+!!!
+!!!      ! deallocate host memory
+!!!      if (allocated(pflux(iside,1,igrid)%flux)) then
+!!!        deallocate(pflux(iside,1,igrid)%flux)
+!!!      end if
+!!!
+!!!      if (allocated(pflux(iside,2,igrid)%flux)) then
+!!!        deallocate(pflux(iside,2,igrid)%flux)
+!!!      end if
+!!!
+!!!      if (allocated(pflux(iside,3,igrid)%flux)) then
+!!!        deallocate(pflux(iside,3,igrid)%flux)
+!!!      end if
+!!!
+!!!    end do
+!!!  end do
+!!!
+!!!  !!optional full delete of the structure,
+!!!  !!which was a rather regorous test (that worked btw)
+!!!  !!!!!$acc exit data delete(pflux%flux)
+!!!  !!!$acc exit data delete(pflux)
+!!!  !!deallocate(pflux)
+!!!
+!!!  !!allocate(pflux(2,3,max_blocks))
+!!!  !!!$acc enter data create(pflux) !JESSE
+!!!
+!!!end subroutine deallocateBflux
 
    subroutine fix_conserve(psb,idimmin,idimmax,nw0,nwfluxin)
+     use openacc
      use mod_global_parameters
 
      integer, intent(in) :: idimmin,idimmax, nw0, nwfluxin
@@ -897,10 +909,26 @@ end subroutine deallocateBflux
      nxCo2=(ixMhi2-ixMlo2+1)/2
      nxCo3=(ixMhi3-ixMlo3+1)/2
 
+!!    !$acc parallel
+!!    if (acc_on_device(acc_device_nvidia)) then
+!!        print *,"SHAPE 1,1:", pflux(1,1)%flux(1,1,1,1,1)
+!!        print *,"SHAPE 2,1:", pflux(2,1)%flux(1,1,1,1,1)
+!!        print *,"SHAPE 1,2:", pflux(1,2)%flux(1,1,1,1,1)
+!!        print *,"SHAPE 2,2:", pflux(2,2)%flux(1,1,1,1,1)
+!!        print *,"SHAPE 1,3:", pflux(1,3)%flux(1,1,1,1,1)
+!!        print *,"SHAPE 2,3:", pflux(2,3)%flux(1,1,1,1,1)
+!!    end if
+!!    !$acc end parallel
+
      ! for all grids: perform flux update at Coarse-Fine interfaces
      !$acc parallel loop gang private(i1,i2,i3,ic1,ic2,ic3,ix1,ix2,ix3) default(present)
      do iigrid=1,igridstail
        igrid=igrids(iigrid)
+
+       if (igrid == 1 .or. igrid == 100) then
+         print *, "FIX_CONSERVE   READ: n=", igrid, "pflux(2,2)=",&
+pflux(2,2)%flux(1,1,1,1,igrid)
+       endif
 
        do idims=idimmin,idimmax
          select case (idims)
@@ -951,11 +979,9 @@ end subroutine deallocateBflux
                   do ix2=ixMlo2,ixMhi2 
                     psb(igrid)%w(ix,ix2,ix3,nw0:nw1) = &
                       psb(igrid)%w(ix,ix2,ix3,nw0:nw1) - &
-                      pflux(iside,1,igrid)%flux(1,ix2-nghostcells,ix3-nghostcells,1:nwfluxin)
-                      !TODO JESSE I suspect that the indexing
-                      !of flux (ix1..ix3) is not correct
-                      !yet...
-                      ! HO: Should be ok now
+                      pflux(iside,1)%flux(1,ix2-nghostcells,ix3-nghostcells,1:nwfluxin,igrid)
+                      !old version
+                      !pflux(iside,1,igrid)%flux(1,ix2-nghostcells,ix3-nghostcells,1:nwfluxin)
                   end do
                 end do
              !  psb(igrid)%w(ix,ixMlo2:ixMhi2,ixMlo3:ixMhi3,&
@@ -997,12 +1023,13 @@ end subroutine deallocateBflux
                         do ix2=1,nxCo2 
                            psb(igrid)%w(ix,ixmin2+ix2-1,ixmin3+ix3-1,nw0:nw1) = &
                             psb(igrid)%w(ix,ixmin2+ix2-1,ixmin3+ix3-1,nw0:nw1) + &
-                            pflux(iotherside,1,ineighbor&
-                            )%flux(1,ix2,ix3,1:nwfluxin)&
+                            pflux(iotherside,1&
+                            )%flux(1,ix2,ix3,1:nwfluxin,ineighbor)&
                             * CoFiratio
-                            !TODO JESSE I suspect that the indexing
-                            !of flux (ix1..ix3) is not correct
-                            !yet...
+                          !!OLD VERSION JESSE
+                          !  pflux(iotherside,1,ineighbor&
+                          !  )%flux(1,ix2,ix3,1:nwfluxin)&
+                          !  * CoFiratio
                         end do
                      end do
 
@@ -1101,7 +1128,9 @@ end subroutine deallocateBflux
                   do ix1=ixMlo1,ixMhi1 
                     psb(igrid)%w(ix1,ix,ix3,nw0:nw1) = &
                      psb(igrid)%w(ix1,ix,ix3,nw0:nw1) - &
-                     pflux(iside,2,igrid)%flux(ix1-nghostcells,1,ix3-nghostcells,1:nwfluxin)
+                     pflux(iside,2)%flux(ix1-nghostcells,1,ix3-nghostcells,1:nwfluxin,igrid)
+                     !!OLD VERSION JESSE
+                     !pflux(iside,2,igrid)%flux(ix1-nghostcells,1,ix3-nghostcells,1:nwfluxin)
                   end do
                 end do
              !  psb(igrid)%w(ixMlo1:ixMhi1,ix,ixMlo3:ixMhi3,&
@@ -1143,7 +1172,9 @@ end subroutine deallocateBflux
                      do ix1=1,nxCo1 
                        psb(igrid)%w(ixmin1+ix1-1,ix,ixmin3+ix3-1,nw0:nw1) = &
                          psb(igrid)%w(ixmin1+ix1-1,ix,ixmin3+ix3-1,nw0:nw1) + &
-                         pflux(iotherside,2,ineighbor)%flux(ix1,1,ix3,1:nwfluxin) * CoFiratio
+                         pflux(iotherside,2)%flux(ix1,1,ix3,1:nwfluxin,ineighbor) * CoFiratio
+                         !!OLD VERSION JESSE
+                         !pflux(iotherside,2,ineighbor)%flux(ix1,1,ix3,1:nwfluxin) * CoFiratio
                      end do
                    end do
 
@@ -1242,7 +1273,9 @@ end subroutine deallocateBflux
                  do ix1=ixMlo1,ixMhi1 
                    psb(igrid)%w(ix1,ix2,ix,nw0:nw1) = &
                      psb(igrid)%w(ix1,ix2,ix,nw0:nw1) - &
-                     pflux(iside,3,igrid)%flux(ix1-nghostcells,ix2-nghostcells,1,1:nwfluxin)
+                     pflux(iside,3)%flux(ix1-nghostcells,ix2-nghostcells,1,1:nwfluxin,igrid)
+                     !!OLD JESSE
+                     !pflux(iside,3,igrid)%flux(ix1-nghostcells,ix2-nghostcells,1,1:nwfluxin)
                  end do
                end do
              !  psb(igrid)%w(ixMlo1:ixMhi1,ixMlo2:ixMhi2,ix,&
@@ -1282,8 +1315,11 @@ end subroutine deallocateBflux
                      do ix1=1,nxCo1 
                        psb(igrid)%w(ixmin1+ix1-1,ixmin2+ix2-1,ix,nw0:nw1) = &
                          psb(igrid)%w(ixmin1+ix1-1,ixmin2+ix2-1,ix,nw0:nw1) + &
-                         pflux(iotherside,3,ineighbor&
-                         )%flux(ix1,ix2,1,1:nwfluxin)* CoFiratio
+                         pflux(iotherside,3)%flux(ix1,ix2,1,1:nwfluxin,&
+                          ineighbor)* CoFiratio
+                         !!OLD JESSE
+                         !pflux(iotherside,3,ineighbor&
+                         !)%flux(ix1,ix2,1,1:nwfluxin)* CoFiratio
                      end do
                    end do
                  !  psb(igrid)%w(ixmin1:ixmax1,ixmin2:ixmax2,ixmin3:ixmax3,&
@@ -1355,154 +1391,154 @@ end subroutine deallocateBflux
      integer :: idims, iside, i1,i2,i3, ic1,ic2,ic3, inc1,inc2,inc3, ix1,ix2,&
         ix3, ixCo1,ixCo2,ixCo3, nxCo1,nxCo2,nxCo3, iw
 
-     do idims = idimmin,idimmax
-       select case (idims)
-         case (1)
-         do iside=1,2
-           i1=kr(1,1)*(2*iside-3);i2=kr(2,1)*(2*iside-3)
-           i3=kr(3,1)*(2*iside-3);
-
-           if (neighbor_pole(i1,i2,i3,igrid)/=0) cycle
-
-           select case (neighbor_type(i1,i2,i3,igrid))
-           case (neighbor_fine)
-             select case (iside)
-             case (1)
-               pflux(iside,1,igrid)%flux(1,:,:,1:nwfluxin) = -fC(nghostcells,&
-                  ixMlo2:ixMhi2,ixMlo3:ixMhi3,1:nwfluxin,1)
-             case (2)
-               pflux(iside,1,igrid)%flux(1,:,:,1:nwfluxin) = fC(ixMhi1,&
-                  ixMlo2:ixMhi2,ixMlo3:ixMhi3,1:nwfluxin,1)
-             end select
-           case (neighbor_coarse)
-             nxCo1=1;nxCo2=ixGhi2/2-nghostcells;nxCo3=ixGhi3/2-nghostcells;
-             select case (iside)
-             case (1)
-               do iw=1,nwfluxin
-                do ixCo3=1,nxCo3
-         do ixCo2=1,nxCo2
-         do ixCo1=1,nxCo1
-                   ix1=nghostcells;ix2=ixMlo2+2*(ixCo2-1)
-                   ix3=ixMlo3+2*(ixCo3-1);
-                   pflux(iside,1,igrid)%flux(ixCo1,ixCo2,ixCo3,&
-                      iw) = sum(fC(ix1,ix2:ix2+1,ix3:ix3+1,iw,1))
-                end do
-         end do
-         end do
-               end do
-             case (2)
-               do iw=1,nwfluxin
-                do ixCo3=1,nxCo3
-         do ixCo2=1,nxCo2
-         do ixCo1=1,nxCo1
-                   ix1=ixMhi1;ix2=ixMlo2+2*(ixCo2-1);ix3=ixMlo3+2*(ixCo3-1);
-                   pflux(iside,1,igrid)%flux(ixCo1,ixCo2,ixCo3,&
-                      iw) =-sum(fC(ix1,ix2:ix2+1,ix3:ix3+1,iw,1))
-                end do
-         end do
-         end do
-               end do
-             end select
-           end select
-         end do
-         case (2)
-         do iside=1,2
-           i1=kr(1,2)*(2*iside-3);i2=kr(2,2)*(2*iside-3)
-           i3=kr(3,2)*(2*iside-3);
-
-           if (neighbor_pole(i1,i2,i3,igrid)/=0) cycle
-
-           select case (neighbor_type(i1,i2,i3,igrid))
-           case (neighbor_fine)
-             select case (iside)
-             case (1)
-               pflux(iside,2,igrid)%flux(:,1,:,1:nwfluxin) = -fC(ixMlo1:ixMhi1,&
-                  nghostcells,ixMlo3:ixMhi3,1:nwfluxin,2)
-             case (2)
-               pflux(iside,2,igrid)%flux(:,1,:,1:nwfluxin) = fC(ixMlo1:ixMhi1,&
-                  ixMhi2,ixMlo3:ixMhi3,1:nwfluxin,2)
-             end select
-           case (neighbor_coarse)
-             nxCo1=ixGhi1/2-nghostcells;nxCo2=1;nxCo3=ixGhi3/2-nghostcells;
-             select case (iside)
-             case (1)
-               do iw=1,nwfluxin
-                do ixCo3=1,nxCo3
-         do ixCo2=1,nxCo2
-         do ixCo1=1,nxCo1
-                   ix1=ixMlo1+2*(ixCo1-1);ix2=nghostcells
-                   ix3=ixMlo3+2*(ixCo3-1);
-                   pflux(iside,2,igrid)%flux(ixCo1,ixCo2,ixCo3,&
-                      iw) = sum(fC(ix1:ix1+1,ix2,ix3:ix3+1,iw,2))
-                end do
-         end do
-         end do
-               end do
-             case (2)
-               do iw=1,nwfluxin
-                do ixCo3=1,nxCo3
-         do ixCo2=1,nxCo2
-         do ixCo1=1,nxCo1
-                   ix1=ixMlo1+2*(ixCo1-1);ix2=ixMhi2;ix3=ixMlo3+2*(ixCo3-1);
-                   pflux(iside,2,igrid)%flux(ixCo1,ixCo2,ixCo3,&
-                      iw) =-sum(fC(ix1:ix1+1,ix2,ix3:ix3+1,iw,2))
-                end do
-         end do
-         end do
-               end do
-             end select
-           end select
-         end do
-         case (3)
-         do iside=1,2
-           i1=kr(1,3)*(2*iside-3);i2=kr(2,3)*(2*iside-3)
-           i3=kr(3,3)*(2*iside-3);
-
-           if (neighbor_pole(i1,i2,i3,igrid)/=0) cycle
-
-           select case (neighbor_type(i1,i2,i3,igrid))
-           case (neighbor_fine)
-             select case (iside)
-             case (1)
-               pflux(iside,3,igrid)%flux(:,:,1,1:nwfluxin) = -fC(ixMlo1:ixMhi1,&
-                  ixMlo2:ixMhi2,nghostcells,1:nwfluxin,3)
-             case (2)
-               pflux(iside,3,igrid)%flux(:,:,1,1:nwfluxin) = fC(ixMlo1:ixMhi1,&
-                  ixMlo2:ixMhi2,ixMhi3,1:nwfluxin,3)
-             end select
-           case (neighbor_coarse)
-             nxCo1=ixGhi1/2-nghostcells;nxCo2=ixGhi2/2-nghostcells;nxCo3=1;
-             select case (iside)
-             case (1)
-               do iw=1,nwfluxin
-                do ixCo3=1,nxCo3
-         do ixCo2=1,nxCo2
-         do ixCo1=1,nxCo1
-                   ix1=ixMlo1+2*(ixCo1-1);ix2=ixMlo2+2*(ixCo2-1)
-                   ix3=nghostcells;
-                   pflux(iside,3,igrid)%flux(ixCo1,ixCo2,ixCo3,&
-                      iw) = sum(fC(ix1:ix1+1,ix2:ix2+1,ix3,iw,3))
-                end do
-         end do
-         end do
-               end do
-             case (2)
-               do iw=1,nwfluxin
-                do ixCo3=1,nxCo3
-         do ixCo2=1,nxCo2
-         do ixCo1=1,nxCo1
-                   ix1=ixMlo1+2*(ixCo1-1);ix2=ixMlo2+2*(ixCo2-1);ix3=ixMhi3;
-                   pflux(iside,3,igrid)%flux(ixCo1,ixCo2,ixCo3,&
-                      iw) =-sum(fC(ix1:ix1+1,ix2:ix2+1,ix3,iw,3))
-                end do
-         end do
-         end do
-               end do
-             end select
-           end select
-         end do
-       end select
-     end do
+!!     do idims = idimmin,idimmax
+!!       select case (idims)
+!!         case (1)
+!!         do iside=1,2
+!!           i1=kr(1,1)*(2*iside-3);i2=kr(2,1)*(2*iside-3)
+!!           i3=kr(3,1)*(2*iside-3);
+!!
+!!           if (neighbor_pole(i1,i2,i3,igrid)/=0) cycle
+!!
+!!           select case (neighbor_type(i1,i2,i3,igrid))
+!!           case (neighbor_fine)
+!!             select case (iside)
+!!             case (1)
+!!               pflux(iside,1,igrid)%flux(1,:,:,1:nwfluxin) = -fC(nghostcells,&
+!!                  ixMlo2:ixMhi2,ixMlo3:ixMhi3,1:nwfluxin,1)
+!!             case (2)
+!!               pflux(iside,1,igrid)%flux(1,:,:,1:nwfluxin) = fC(ixMhi1,&
+!!                  ixMlo2:ixMhi2,ixMlo3:ixMhi3,1:nwfluxin,1)
+!!             end select
+!!           case (neighbor_coarse)
+!!             nxCo1=1;nxCo2=ixGhi2/2-nghostcells;nxCo3=ixGhi3/2-nghostcells;
+!!             select case (iside)
+!!             case (1)
+!!               do iw=1,nwfluxin
+!!                do ixCo3=1,nxCo3
+!!         do ixCo2=1,nxCo2
+!!         do ixCo1=1,nxCo1
+!!                   ix1=nghostcells;ix2=ixMlo2+2*(ixCo2-1)
+!!                   ix3=ixMlo3+2*(ixCo3-1);
+!!                   pflux(iside,1,igrid)%flux(ixCo1,ixCo2,ixCo3,&
+!!                      iw) = sum(fC(ix1,ix2:ix2+1,ix3:ix3+1,iw,1))
+!!                end do
+!!         end do
+!!         end do
+!!               end do
+!!             case (2)
+!!               do iw=1,nwfluxin
+!!                do ixCo3=1,nxCo3
+!!         do ixCo2=1,nxCo2
+!!         do ixCo1=1,nxCo1
+!!                   ix1=ixMhi1;ix2=ixMlo2+2*(ixCo2-1);ix3=ixMlo3+2*(ixCo3-1);
+!!                   pflux(iside,1,igrid)%flux(ixCo1,ixCo2,ixCo3,&
+!!                      iw) =-sum(fC(ix1,ix2:ix2+1,ix3:ix3+1,iw,1))
+!!                end do
+!!         end do
+!!         end do
+!!               end do
+!!             end select
+!!           end select
+!!         end do
+!!         case (2)
+!!         do iside=1,2
+!!           i1=kr(1,2)*(2*iside-3);i2=kr(2,2)*(2*iside-3)
+!!           i3=kr(3,2)*(2*iside-3);
+!!
+!!           if (neighbor_pole(i1,i2,i3,igrid)/=0) cycle
+!!
+!!           select case (neighbor_type(i1,i2,i3,igrid))
+!!           case (neighbor_fine)
+!!             select case (iside)
+!!             case (1)
+!!               pflux(iside,2,igrid)%flux(:,1,:,1:nwfluxin) = -fC(ixMlo1:ixMhi1,&
+!!                  nghostcells,ixMlo3:ixMhi3,1:nwfluxin,2)
+!!             case (2)
+!!               pflux(iside,2,igrid)%flux(:,1,:,1:nwfluxin) = fC(ixMlo1:ixMhi1,&
+!!                  ixMhi2,ixMlo3:ixMhi3,1:nwfluxin,2)
+!!             end select
+!!           case (neighbor_coarse)
+!!             nxCo1=ixGhi1/2-nghostcells;nxCo2=1;nxCo3=ixGhi3/2-nghostcells;
+!!             select case (iside)
+!!             case (1)
+!!               do iw=1,nwfluxin
+!!                do ixCo3=1,nxCo3
+!!         do ixCo2=1,nxCo2
+!!         do ixCo1=1,nxCo1
+!!                   ix1=ixMlo1+2*(ixCo1-1);ix2=nghostcells
+!!                   ix3=ixMlo3+2*(ixCo3-1);
+!!                   pflux(iside,2,igrid)%flux(ixCo1,ixCo2,ixCo3,&
+!!                      iw) = sum(fC(ix1:ix1+1,ix2,ix3:ix3+1,iw,2))
+!!                end do
+!!         end do
+!!         end do
+!!               end do
+!!             case (2)
+!!               do iw=1,nwfluxin
+!!                do ixCo3=1,nxCo3
+!!         do ixCo2=1,nxCo2
+!!         do ixCo1=1,nxCo1
+!!                   ix1=ixMlo1+2*(ixCo1-1);ix2=ixMhi2;ix3=ixMlo3+2*(ixCo3-1);
+!!                   pflux(iside,2,igrid)%flux(ixCo1,ixCo2,ixCo3,&
+!!                      iw) =-sum(fC(ix1:ix1+1,ix2,ix3:ix3+1,iw,2))
+!!                end do
+!!         end do
+!!         end do
+!!               end do
+!!             end select
+!!           end select
+!!         end do
+!!         case (3)
+!!         do iside=1,2
+!!           i1=kr(1,3)*(2*iside-3);i2=kr(2,3)*(2*iside-3)
+!!           i3=kr(3,3)*(2*iside-3);
+!!
+!!           if (neighbor_pole(i1,i2,i3,igrid)/=0) cycle
+!!
+!!           select case (neighbor_type(i1,i2,i3,igrid))
+!!           case (neighbor_fine)
+!!             select case (iside)
+!!             case (1)
+!!               pflux(iside,3,igrid)%flux(:,:,1,1:nwfluxin) = -fC(ixMlo1:ixMhi1,&
+!!                  ixMlo2:ixMhi2,nghostcells,1:nwfluxin,3)
+!!             case (2)
+!!               pflux(iside,3,igrid)%flux(:,:,1,1:nwfluxin) = fC(ixMlo1:ixMhi1,&
+!!                  ixMlo2:ixMhi2,ixMhi3,1:nwfluxin,3)
+!!             end select
+!!           case (neighbor_coarse)
+!!             nxCo1=ixGhi1/2-nghostcells;nxCo2=ixGhi2/2-nghostcells;nxCo3=1;
+!!             select case (iside)
+!!             case (1)
+!!               do iw=1,nwfluxin
+!!                do ixCo3=1,nxCo3
+!!         do ixCo2=1,nxCo2
+!!         do ixCo1=1,nxCo1
+!!                   ix1=ixMlo1+2*(ixCo1-1);ix2=ixMlo2+2*(ixCo2-1)
+!!                   ix3=nghostcells;
+!!                   pflux(iside,3,igrid)%flux(ixCo1,ixCo2,ixCo3,&
+!!                      iw) = sum(fC(ix1:ix1+1,ix2:ix2+1,ix3,iw,3))
+!!                end do
+!!         end do
+!!         end do
+!!               end do
+!!             case (2)
+!!               do iw=1,nwfluxin
+!!                do ixCo3=1,nxCo3
+!!         do ixCo2=1,nxCo2
+!!         do ixCo1=1,nxCo1
+!!                   ix1=ixMlo1+2*(ixCo1-1);ix2=ixMlo2+2*(ixCo2-1);ix3=ixMhi3;
+!!                   pflux(iside,3,igrid)%flux(ixCo1,ixCo2,ixCo3,&
+!!                      iw) =-sum(fC(ix1:ix1+1,ix2:ix2+1,ix3,iw,3))
+!!                end do
+!!         end do
+!!         end do
+!!               end do
+!!             end select
+!!           end select
+!!         end do
+!!       end select
+!!     end do
 
    end subroutine store_flux
 

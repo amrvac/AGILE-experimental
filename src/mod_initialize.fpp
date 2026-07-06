@@ -55,6 +55,7 @@ contains
     use mod_geometry
 
     integer :: igrid, level, ipe, ig1,ig2,ig3
+    integer :: nx1, nx2, nx3
     logical :: ok
 
     allocate(ps(max_blocks))
@@ -77,8 +78,48 @@ contains
     allocate(rnode(rnodehi,max_blocks),rnode_sub(rnodehi,max_blocks))
     allocate(node(nodehi,max_blocks),node_sub(nodehi,max_blocks),&
        phyboundblock(max_blocks))
-    allocate(pflux(2,3,max_blocks))
-    !$acc enter data create(pflux) !JESSE
+
+     !!old pflux shape
+!!    allocate(pflux(2,3,max_blocks))
+!!    !$acc enter data create(pflux) !JESSE
+
+!!    !pflux(iside,idir)%flux(
+!!    !allocate(pflux(2,3))
+!!    !!$acc enter data create(pflux) !JESSE
+
+    nx1=ixMhi1-ixMlo1+1
+    nx2=ixMhi2-ixMlo2+1
+    nx3=ixMhi3-ixMlo3+1
+
+    allocate(pflux(2,3))
+    !$acc enter data create(pflux)
+
+    allocate(pflux(1,1)%flux(1,1:nx2,1:nx3,1:nwflux,1:max_blocks))
+    pflux(1,1)%flux = 0.0d0
+    !$acc enter data copyin(pflux(1,1)%flux)
+!!    allocate(pflux(2,1)%flux(nx1,1:nx2,1:nx3,1:nwflux,1:max_blocks))
+    allocate(pflux(2,1)%flux(1,1:nx2,1:nx3,1:nwflux,1:max_blocks))
+    pflux(2,1)%flux = 0.0d0
+    !$acc enter data copyin(pflux(2,1)%flux)
+    !!allocate(pflux(2,1)%flux(nx1,1:nx2,1:nx3,1:nwflux,1:max_blocks)
+
+    allocate(pflux(1,2)%flux(1:nx1,1,1:nx3,1:nwflux,1:max_blocks))
+    pflux(1,2)%flux = 0.0d0
+    !$acc enter data copyin(pflux(1,2)%flux)
+!!    allocate(pflux(2,2)%flux(1:nx1,nx2,1:nx3,1:nwflux,1:max_blocks))
+    allocate(pflux(2,2)%flux(1:nx1,1,1:nx3,1:nwflux,1:max_blocks))
+    pflux(2,2)%flux = 0.0d0
+    !$acc enter data copyin(pflux(2,2)%flux)
+
+    allocate(pflux(1,3)%flux(1:nx1,1:nx2,1,1:nwflux,1:max_blocks))
+    pflux(1,3)%flux = 0.0d0
+    !$acc enter data copyin(pflux(1,3)%flux)
+!!    allocate(pflux(2,3)%flux(1:nx1,1:nx2,nx3,1:nwflux,1:max_blocks))
+    allocate(pflux(2,3)%flux(1:nx1,1:nx2,1,1:nwflux,1:max_blocks))
+    pflux(2,3)%flux = 0.0d0
+    !$acc enter data copyin(pflux(2,3)%flux)
+
+    !!!$acc enter data copyin(pflux)
 
     allocate( bg(1:nstep) )
     !$acc enter data copyin(bg)
