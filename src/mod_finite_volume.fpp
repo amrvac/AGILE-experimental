@@ -242,7 +242,7 @@ end subroutine finite_volume_local
   !> Returns uL(:,iface), uR(:,iface) for iface=1 (between cells 2-3) and iface=2 (between 3-4).
   pure subroutine muscl_reconstruct_prim(u, typelim, uL, uR)
     !$acc routine seq
-    use mod_limiter, only: limiter_minmod, limiter_vanleer
+    use mod_limiter, only: limiter_minmod, limiter_vanleer, limiter_koren
     real(dp), intent(in)  :: u(nw_phys,5)
     integer,  intent(in)  :: typelim
     real(dp), intent(out) :: uL(nw_phys,2), uR(nw_phys,2)
@@ -262,7 +262,13 @@ end subroutine finite_volume_local
         sig(iw,1) = vanleer(u(iw,2)-u(iw,1), u(iw,3)-u(iw,2))
         sig(iw,2) = vanleer(u(iw,3)-u(iw,2), u(iw,4)-u(iw,3))
         sig(iw,3) = vanleer(u(iw,4)-u(iw,3), u(iw,5)-u(iw,4))
-      end do
+     end do
+     case (limiter_koren)
+      do iw=1,nw_phys
+        sig(iw,1) = koren(u(iw,2)-u(iw,1), u(iw,3)-u(iw,2))
+        sig(iw,2) = koren(u(iw,3)-u(iw,2), u(iw,4)-u(iw,3))
+        sig(iw,3) = koren(u(iw,4)-u(iw,3), u(iw,5)-u(iw,4))
+     end do
     case default  ! Fallback: Godunov (piecewise constant)
       do iw=1,nw_phys
         sig(iw,1)=0._dp
@@ -526,4 +532,36 @@ end subroutine finite_volume_local
     end if
   end function minmod
 
+  !  scavenged from afivo, thanks Jannis :-) !
+  !> Modified implementation of Koren limiter, to avoid division and the min/max
+  !> functions, which can be problematic / expensive. In most literature, you
+  !> have r = a / b (ratio of gradients). Then the limiter phi(r) is multiplied
+  !> with b. With this implementation, you get phi(r) * b
+  pure real(dp) function koren(a, b)
+    !$acc routine seq
+    real(dp), intent(in) :: a  !< Density gradient (numerator)
+    real(dp), intent(in) :: b  !< Density gradient (denominator)
+    real(dp), parameter  :: third = 1/3.0_dp
+    real(dp)             :: aa, ab
+
+    aa = a * a
+    ab = a * b
+
+    if (ab <= 0) then
+       ! a and b have different sign or one of them is zero, so r is either 0,
+       ! inf or negative (special case a == b == 0 is ignored)
+       koren = 0
+    else if (aa <= 0.25_dp * ab) then
+       ! 0 < a/b <= 1/4, limiter has value 2*a/b
+       koren = 2*a
+    else if (aa <= 2.5_dp * ab) then
+       ! 1/4 < a/b <= 2.5, limiter has value (1+2*a/b)/3
+       koren = third * (b + 2*a)
+    else
+       ! (1+2*a/b)/6 >= 1, limiter has value 2
+       koren = 2*b
+    end if
+    
+  end function koren
+  
 end module mod_finite_volume
