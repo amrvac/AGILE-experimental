@@ -91,47 +91,49 @@
   ! and it is p = RR * rho * T
   double precision, public  :: RR=1d0
   !$acc declare copyin(RR)
-  !> Index of the field-aligned heat flux scalar q_ (isotropic HTC only)
-#:if defined('HYPERTC') and not defined('HYPERTC_ANISO')
-  integer, public                         :: q_ = -1
-  !$acc declare create(q_)
-#:endif
-#:if defined('HYPERTC_ANISO')
-  !> Indices of the heat-flux vector components q_(1:ndir); this is the full
-  !> Cartesian heat-flux vector;
-  integer, allocatable, public            :: q_(:)
-  !$acc declare create(q_)
-#:endif
-
-#:if defined('HYPERTC') or defined('HYPERTC_ANISO')
-  !> sig_par = tc_kappa0_par * Te^2.5; if <= 0 and tc_kappa_par <= 0, set from Spitzer in phys_units()
-  double precision, public                :: tc_kappa0_par = -1.0d0
-  !$acc declare copyin(tc_kappa0_par)
-#:endif
-  !> sig_par = tc_kappa_par (constant, no T^2.5); takes precedence over tc_kappa0_par when > 0
-  double precision, public                :: tc_kappa_par = -1.0d0
-  !$acc declare copyin(tc_kappa_par)
-#:if defined('HYPERTC_ANISO')
-  !> Magnetisation chi prefactor: chi = htc_Cchi * B * Te^1.5 / n
-  double precision, public                :: htc_Cchi = 0.0d0
-  !$acc declare copyin(htc_Cchi)
-  !> sig_perp = tc_kappa0_perp * Te^2.5; if <= 0 and tc_kappa_perp <= 0, uses Braginskii sig_par/(1+chi^2)
-  double precision, public                :: tc_kappa0_perp = -1.0d0
-  !$acc declare copyin(tc_kappa0_perp)
-#:endif
-  !> sig_perp = tc_kappa_perp (constant, no T^2.5); takes precedence over tc_kappa0_perp when > 0
-  double precision, public                :: tc_kappa_perp = -1.0d0
-  !$acc declare copyin(tc_kappa_perp)
 
   !> Switch for hyperbolic thermal conduction
   logical, public                         :: mhd_hyperbolic_thermal_conduction = .false.
   !$acc declare copyin(mhd_hyperbolic_thermal_conduction)
 
+  !> Compile-time selector for anisotropic HTC
+  logical, public                         :: mhd_hyperbolic_thermal_conduction_anisotropic = .false.
+
   !> Freeze rho/v/B and evolve only the energy equation (compile-time MHD_ENERGY_ONLY flag)
   logical, public                         :: mhd_energy_only = .false.
 
-  !> Compile-time selector for anisotropic HTC
-  logical, public                         :: mhd_hyperbolic_thermal_conduction_anisotropic = .false.
+  !> sig_par = tc_kappa_par (constant, no T^2.5); takes precedence over tc_kappa0_par when > 0
+  double precision, public                :: tc_kappa_par = -1.0d0
+  !$acc declare copyin(tc_kappa_par)
+
+  !> sig_perp = tc_kappa_perp (constant, no T^2.5); takes precedence over tc_kappa0_perp when > 0
+  double precision, public                :: tc_kappa_perp = -1.0d0
+  !$acc declare copyin(tc_kappa_perp)
+
+  ! HYPERTC_ANISO implies HYPERTC (enforced in config_schema.toml)
+#:if defined('HYPERTC')
+  !> sig_par = tc_kappa0_par * Te^2.5; if <= 0 and tc_kappa_par <= 0, set from Spitzer in phys_units()
+  double precision, public                :: tc_kappa0_par = -1.0d0
+  !$acc declare copyin(tc_kappa0_par)
+
+#:if defined('HYPERTC_ANISO')
+  !> Indices of the heat-flux vector components q_(1:ndir); this is the full Cartesian heat-flux vector
+  integer, allocatable, public            :: q_(:)
+  !$acc declare create(q_)
+
+  !> Magnetisation chi prefactor: chi = htc_Cchi * B * Te^1.5 / n
+  double precision, public                :: htc_Cchi = 0.0d0
+  !$acc declare copyin(htc_Cchi)
+
+  !> sig_perp = tc_kappa0_perp * Te^2.5; if <= 0 and tc_kappa_perp <= 0, uses Braginskii sig_par/(1+chi^2)
+  double precision, public                :: tc_kappa0_perp = -1.0d0
+  !$acc declare copyin(tc_kappa0_perp)
+#:else
+  !> Index of the field-aligned heat flux scalar q_ (isotropic HTC only)
+  integer, public                         :: q_ = -1
+  !$acc declare create(q_)
+#:endif
+#:endif
 
   !> GLM-MHD parameter: ratio of the diffusive and advective time scales for div b
   !> taking values within [0, 1]
@@ -286,7 +288,7 @@
 
     !$acc update device(unit_density, unit_numberdensity, unit_temperature, unit_pressure, unit_velocity, unit_length, unit_time, unit_mass)
 
-#:if defined('HYPERTC') or defined('HYPERTC_ANISO')
+#:if defined('HYPERTC')
     if (tc_kappa0_par <= 0.0d0 .and. tc_kappa_par <= 0.0d0) &
       tc_kappa0_par = 8.0d-7 * unit_temperature**3.5d0 &
                     / (unit_length * unit_density * unit_velocity**3.0d0)
@@ -700,10 +702,7 @@ end subroutine addsource_compact
 #:def get_flux()
   subroutine get_flux(u, xC, flux_dim, flux)
 #:if defined('HYPERTC')
-    use mod_global_parameters, only: cmax_global
-#:endif
-#:if defined('HYPERTC') and not defined('HYPERTC_ANISO')
-    use mod_global_parameters, only: smalldouble
+    use mod_global_parameters, only: cmax_global, smalldouble
 #:endif
     !$acc routine seq
     real(dp), intent(in)  :: u(nw_phys)
