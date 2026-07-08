@@ -246,7 +246,7 @@ end subroutine finite_volume_local
   !> Returns uL(:,iface), uR(:,iface) for iface=1 (between cells 2-3) and iface=2 (between 3-4).
   pure subroutine muscl_reconstruct_prim(u, typelim, uL, uR)
     !$acc routine seq
-    use mod_limiter, only: limiter_minmod, limiter_vanleer, limiter_mc, limiter_koren
+    use mod_limiter, only: limiter_minmod, limiter_vanleer, limiter_mcbeta, limiter_koren
     real(dp), intent(in)  :: u(nw_phys,5)
     integer,  intent(in)  :: typelim
     real(dp), intent(out) :: uL(nw_phys,2), uR(nw_phys,2)
@@ -267,11 +267,11 @@ end subroutine finite_volume_local
         sig(iw,2) = vanleer(u(iw,3)-u(iw,2), u(iw,4)-u(iw,3))
         sig(iw,3) = vanleer(u(iw,4)-u(iw,3), u(iw,5)-u(iw,4))
      end do
-    case (limiter_mc)
+    case (limiter_mcbeta)
       do iw=1,nw_phys
-        sig(iw,1) = mc(u(iw,2)-u(iw,1), u(iw,3)-u(iw,2))
-        sig(iw,2) = mc(u(iw,3)-u(iw,2), u(iw,4)-u(iw,3))
-        sig(iw,3) = mc(u(iw,4)-u(iw,3), u(iw,5)-u(iw,4))
+        sig(iw,1) = mcbeta(u(iw,2)-u(iw,1), u(iw,3)-u(iw,2))
+        sig(iw,2) = mcbeta(u(iw,3)-u(iw,2), u(iw,4)-u(iw,3))
+        sig(iw,3) = mcbeta(u(iw,4)-u(iw,3), u(iw,5)-u(iw,4))
       end do
      case (limiter_koren)
       do iw=1,nw_phys
@@ -610,19 +610,21 @@ end subroutine finite_volume_local
     
   end function koren
   
-  !> Monotonised central-difference (MC) limiter (van Leer 1979)
-  pure real(dp) function mc(a, b) result(phi)
+  !> Monotonised central-difference limiter with tunable beta (AMRVAC's
+  !> mcbeta; beta=2 recovers the classic MC limiter, van Leer 1979)
+  pure real(dp) function mcbeta(a, b) result(phi)
   !$acc routine seq
   real(dp), intent(in) :: a, b
+  real(dp), parameter  :: c_mcbeta = 1.4_dp
   real(dp)             :: ab
 
   ab = a * b
   if (ab > 0) then
-    phi = sign(1.0_dp, a + b) * min(2.0_dp*abs(a), 2.0_dp*abs(b), abs(a+b)*0.5_dp)
+    phi = sign(1.0_dp, a + b) * min(c_mcbeta*abs(a), c_mcbeta*abs(b), abs(a+b)*0.5_dp)
   else
     phi = 0.0_dp
   end if
 
-  end function mc
+  end function mcbeta
 
 end module mod_finite_volume

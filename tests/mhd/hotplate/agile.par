@@ -21,7 +21,7 @@
  &methodlist
    time_stepper            = 'threestep'
    flux_scheme             = 20*'tvdlf'
-   limiter                 = 20*'mc'
+   limiter                 = 20*'mcbeta'
    phys                    = 'mhd'
    flux_adaptive_diffusion = .true.
    flux_ad_min             = 0.2d0
