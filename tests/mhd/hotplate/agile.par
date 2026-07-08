@@ -1,6 +1,6 @@
 
  &filelist
-   base_filename = 'output/hotplate'
+   base_filename = 'output/hotplate-aniso-B'
    saveprim      = T
    autoconvert   = T
    convert_type  = 'vtuBCCmpi'
@@ -15,7 +15,7 @@
  /
 
  &stoplist
-   time_max = 5.0d0
+   time_max = 1.0d0
  /
 
  &methodlist
@@ -66,6 +66,8 @@
 
  &mhd_list
    mhd_gamma                            = 1.6666667d0
-   mhd_hyperbolic_thermal_conduction    = .true.
+   mhd_hyperbolic_thermal_conduction    = .false.
+   mhd_hyperbolic_thermal_conduction_anisotropic    = .true.
    tc_kappa_par                         = 0.01d0
+   tc_kappa_perp                        = 0.0005d0
  /

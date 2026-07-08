@@ -11,7 +11,7 @@
   integer, parameter :: dp = kind(0.0d0)
   integer, parameter, public              :: nw_phys=2+2*ndim+1+${N_TRACER_}$ &
 #:if defined('HYPERTC_ANISO')
-    + 2
+    + ndim
 #:elif defined('HYPERTC')
     + 1
 #:else
@@ -20,7 +20,7 @@
 
   integer, parameter, public              :: nw_flux=2+2*ndim+1+${N_TRACER_}$ &
 #:if defined('HYPERTC_ANISO')
-    + 2
+    + ndim
 #:elif defined('HYPERTC')
     + 1
 #:else
@@ -91,24 +91,26 @@
   ! and it is p = RR * rho * T
   double precision, public  :: RR=1d0
   !$acc declare copyin(RR)
-  !> Index of field-aligned heat flux scalar q_; for HYPERTC_ANISO: qperp_ = q_+1
-#:if defined('HYPERTC')
+  !> Index of the field-aligned heat flux scalar q_ (isotropic HTC only)
+#:if defined('HYPERTC') and not defined('HYPERTC_ANISO')
   integer, public                         :: q_ = -1
   !$acc declare create(q_)
 #:endif
 #:if defined('HYPERTC_ANISO')
-  integer, public                         :: qperp_ = -1
-  !$acc declare create(qperp_)
+  !> Indices of the heat-flux vector components q_(1:ndir); this is the full
+  !> Cartesian heat-flux vector;
+  integer, allocatable, public            :: q_(:)
+  !$acc declare create(q_)
 #:endif
 
 #:if defined('HYPERTC') or defined('HYPERTC_ANISO')
   !> sig_par = tc_kappa0_par * Te^2.5; if <= 0 and tc_kappa_par <= 0, set from Spitzer in phys_units()
   double precision, public                :: tc_kappa0_par = -1.0d0
   !$acc declare copyin(tc_kappa0_par)
+#:endif
   !> sig_par = tc_kappa_par (constant, no T^2.5); takes precedence over tc_kappa0_par when > 0
   double precision, public                :: tc_kappa_par = -1.0d0
   !$acc declare copyin(tc_kappa_par)
-#:endif
 #:if defined('HYPERTC_ANISO')
   !> Magnetisation chi prefactor: chi = htc_Cchi * B * Te^1.5 / n
   double precision, public                :: htc_Cchi = 0.0d0
@@ -116,10 +118,10 @@
   !> sig_perp = tc_kappa0_perp * Te^2.5; if <= 0 and tc_kappa_perp <= 0, uses Braginskii sig_par/(1+chi^2)
   double precision, public                :: tc_kappa0_perp = -1.0d0
   !$acc declare copyin(tc_kappa0_perp)
+#:endif
   !> sig_perp = tc_kappa_perp (constant, no T^2.5); takes precedence over tc_kappa0_perp when > 0
   double precision, public                :: tc_kappa_perp = -1.0d0
   !$acc declare copyin(tc_kappa_perp)
-#:endif
 
   !> Switch for hyperbolic thermal conduction
   logical, public                         :: mhd_hyperbolic_thermal_conduction = .false.
@@ -177,12 +179,7 @@
       mhd_n_tracer, mhd_radiative_cooling, He_abundance, mhd_eta, mhd_source_usr, &
       mhd_resistivity, mhd_hyperbolic_thermal_conduction, &
       mhd_hyperbolic_thermal_conduction_anisotropic, &
-#:if defined('HYPERTC')
-      tc_kappa_par, &
-#:endif
-#:if defined('HYPERTC_ANISO')
-      tc_kappa_perp, &
-#:endif
+      tc_kappa_par, tc_kappa_perp, &
       mhd_energy_only
 
     do n = 1, size(files)
@@ -196,12 +193,7 @@
     !$acc&     mhd_gamma, mhd_glm_alpha, &
     !$acc&     mhd_gravity, mhd_n_tracer, mhd_radiative_cooling, &
     !$acc&     He_abundance, mhd_eta, mhd_source_usr, mhd_resistivity)
-#:if defined('HYPERTC')
-    !$acc update device(tc_kappa_par)
-#:endif
-#:if defined('HYPERTC_ANISO')
-    !$acc update device(tc_kappa_perp)
-#:endif
+    !$acc update device(tc_kappa_par, tc_kappa_perp)
 #endif
 
   end subroutine read_params
@@ -356,10 +348,9 @@
 
     ! Set index for heat flux variable(s)
 #:if defined('HYPERTC_ANISO')
-    q_     = var_set_q(need_bc=.false.)
+    allocate(q_(ndir))
+    q_ = var_set_qvec(ndir, need_bc=.false.)
     !$acc update device(q_)
-    qperp_ = var_set_qperp(need_bc=.false.)
-    !$acc update device(qperp_)
 #:elif defined('HYPERTC')
     q_ = var_set_q(need_bc=.false.)
     !$acc update device(q_)
@@ -521,7 +512,7 @@ subroutine addsource_compact(qdt, dtfactor, qtC, wCTprim1, wCTprim2, wCTprim3, q
      qsourcesplit)
   !$acc routine seq
 #:if defined('HYPERTC')
-  use mod_global_parameters, only: dt, cmax_global, ndir, smalldouble
+  use mod_global_parameters, only: dt, cmax_global, ndir, smalldouble, courantpar
 #:endif
 
   real(dp), intent(in)     :: qdt, dtfactor, qtC, qt
@@ -534,14 +525,15 @@ subroutine addsource_compact(qdt, dtfactor, qtC, wCTprim1, wCTprim2, wCTprim3, q
   real(dp)                 :: Jdir1,Jdir2,Jdir3
   integer                  :: idir
 #:if defined('HYPERTC')
-  real(dp)   :: Te_c, rho_c, e_c, pth_c, sig_par
+  real(dp)   :: Te_c, rho_c, pth_c, sig_par
   real(dp)   :: gradT(3), bgradT
   real(dp)   :: Bmag2, Bmag, Bmag2_safe, tau_par
-  real(dp)   :: q_sat, f_sat
+  real(dp)   :: q_sat, f_sat_par
   integer    :: k_tc
 #:endif
 #:if defined('HYPERTC_ANISO')
-  real(dp)   :: sig_perp, chi, gradTperp_mag, tau_perp
+  real(dp)   :: sig_perp, chi, gradTperp_mag, tau_perp, f_sat_perp
+  real(dp)   :: bhat(3), gradT_perp_k, Qpar_now, Qperp_now_k
 #:endif
 
   if (.not. qsourcesplit) then 
@@ -623,13 +615,10 @@ subroutine addsource_compact(qdt, dtfactor, qtC, wCTprim1, wCTprim2, wCTprim3, q
       sig_par = tc_kappa0_par * Te_c**2.5d0
     end if
 
-    e_c = pth_c / (mhd_gamma - 1.0d0) + 0.5d0 * Bmag2
-
     ! free-streaming limit: q_sat = 1.5 rho c_s^3, c_s = sqrt(p/rho)
     q_sat = 1.5d0 * rho_c * (pth_c / rho_c)**1.5d0
-    f_sat = 1.0d0 / (1.0d0 + abs(sig_par * bgradT) / q_sat)
-    tau_par = max(4.d0*dt, f_sat*sig_par*Te_c*(mhd_gamma-1.0d0) / (e_c*cmax_global**2))
-    wnew(q_) = wnew(q_) - qdt*(f_sat*sig_par*bgradT + wCTprim1(q_,2))/tau_par
+    f_sat_par = 1.0d0 / (1.0d0 + abs(sig_par * bgradT) / q_sat)
+    tau_par = max(4.d0*dt, f_sat_par*sig_par*Te_c*courantpar**2*(mhd_gamma-1.0d0) / (pth_c*cmax_global**2))
 
 #:if defined('HYPERTC_ANISO')
     gradTperp_mag = sqrt(max(gradT(1)**2 + gradT(2)**2 + gradT(3)**2 &
@@ -643,8 +632,24 @@ subroutine addsource_compact(qdt, dtfactor, qtC, wCTprim1, wCTprim2, wCTprim3, q
       sig_perp = sig_par / (1.0d0 + chi**2)
     end if
 
-    tau_perp = max(4.d0*dt, f_sat*sig_perp*Te_c*(mhd_gamma-1.0d0) / (e_c*cmax_global**2))
-    wnew(qperp_) = wnew(qperp_) - qdt*(f_sat*sig_perp*gradTperp_mag + wCTprim1(qperp_,2))/tau_perp
+    f_sat_perp = 1.0d0 / (1.0d0 + abs(sig_perp * gradTperp_mag) / q_sat)
+    tau_perp = max(4.d0*dt, f_sat_perp*sig_perp*Te_c*courantpar**2*(mhd_gamma-1.0d0) / (pth_c*cmax_global**2))
+
+    ! q_(1:ndir): decompose current vector onto local b, relax each part
+    ! with its own tau, recombine.
+    do k_tc = 1, ndir
+      bhat(k_tc) = wCTprim1(iw_mag(k_tc),2) * Bmag / Bmag2_safe
+    end do
+    Qpar_now = wCTprim1(q_(1),2)*bhat(1) + wCTprim1(q_(2),2)*bhat(2) + wCTprim1(q_(3),2)*bhat(3)
+    do k_tc = 1, ndir
+      gradT_perp_k = gradT(k_tc) - bgradT * bhat(k_tc)
+      Qperp_now_k  = wCTprim1(q_(k_tc),2) - Qpar_now * bhat(k_tc)
+      wnew(q_(k_tc)) = wnew(q_(k_tc)) &
+           - qdt*(f_sat_par*sig_par*bgradT + Qpar_now)*bhat(k_tc)/tau_par &
+           - qdt*(f_sat_perp*sig_perp*gradT_perp_k + Qperp_now_k)/tau_perp
+    end do
+#:else
+    wnew(q_) = wnew(q_) - qdt*(f_sat_par*sig_par*bgradT + wCTprim1(q_,2))/tau_par
 #:endif
 #:endif
 
@@ -695,7 +700,10 @@ end subroutine addsource_compact
 #:def get_flux()
   subroutine get_flux(u, xC, flux_dim, flux)
 #:if defined('HYPERTC')
-    use mod_global_parameters, only: cmax_global, smalldouble
+    use mod_global_parameters, only: cmax_global
+#:endif
+#:if defined('HYPERTC') and not defined('HYPERTC_ANISO')
+    use mod_global_parameters, only: smalldouble
 #:endif
     !$acc routine seq
     real(dp), intent(in)  :: u(nw_phys)
@@ -703,24 +711,20 @@ end subroutine addsource_compact
     integer, intent(in)   :: flux_dim
     real(dp), intent(out) :: flux(nw_flux)
     real(dp)              :: ptotal
-#:if defined('HYPERTC_ANISO')
-    real(dp)              :: Bmag2_tc, b_fd
-#:elif defined('HYPERTC')
-    real(dp)              :: Bmag_tc
+#:if defined('HYPERTC') and not defined('HYPERTC_ANISO')
+    real(dp)              :: Bmag2_tc, Bmag_tc
 #:endif
 
     ! Hyperbolic TC field geometry
-#:if defined('HYPERTC_ANISO')
+#:if defined('HYPERTC') and not defined('HYPERTC_ANISO')
     Bmag2_tc = u(iw_mag(1))**2 + u(iw_mag(2))**2 + u(iw_mag(3))**2
-    b_fd     = u(iw_mag(flux_dim)) * sqrt(Bmag2_tc) / max(Bmag2_tc, smalldouble**2)
-#:elif defined('HYPERTC')
-    Bmag_tc = sqrt(max(u(iw_mag(1))**2 + u(iw_mag(2))**2 + u(iw_mag(3))**2, smalldouble**2))
+    Bmag_tc  = sqrt(max(Bmag2_tc, smalldouble**2))
 #:endif
 
 #:if defined('MHD_ENERGY_ONLY')
     flux = 0.0_dp
 #:if defined('HYPERTC_ANISO')
-    flux(iw_e) = u(iw_q)*b_fd + u(iw_qperp)*sqrt(max(1.0_dp - b_fd**2, 0.0_dp))
+    flux(iw_e) = u(iw_qvec(flux_dim))
 #:elif defined('HYPERTC')
     flux(iw_e) = u(iw_q) * u(iw_mag(flux_dim)) / Bmag_tc
 #:endif
@@ -765,9 +769,10 @@ end subroutine addsource_compact
 
     ! Hyperbolic TC fluxes
 #:if defined('HYPERTC_ANISO')
-    flux(iw_e)     = flux(iw_e) + u(iw_q)*b_fd + u(iw_qperp)*sqrt(max(1.0_dp - b_fd**2, 0.0_dp))
-    flux(iw_q)     = 0.0_dp
-    flux(iw_qperp) = 0.0_dp
+    flux(iw_e)       = flux(iw_e) + u(iw_qvec(flux_dim))
+    flux(iw_qvec(1)) = 0.0_dp
+    flux(iw_qvec(2)) = 0.0_dp
+    flux(iw_qvec(3)) = 0.0_dp
 #:elif defined('HYPERTC')
     flux(iw_e) = flux(iw_e) + u(iw_q) * u(iw_mag(flux_dim)) / Bmag_tc
     flux(iw_q) = 0.0_dp

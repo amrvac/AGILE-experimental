@@ -72,13 +72,13 @@ module mod_variables
   integer :: iw_e = -1
   !$acc declare copyin(iw_e)
 
-  !> Index of the heat flux
+  !> Index of the (scalar, field-aligned-only) heat flux (isotropic HTC only)
   integer :: iw_q = -1
   !$acc declare copyin(iw_q)
 
-  !> Index of the perpendicular heat flux (anisotropic HTC only)
-  integer :: iw_qperp = -1
-  !$acc declare copyin(iw_qperp)
+  !> Indices of the heat flux vector components (anisotropic HTC only)
+  integer, allocatable, protected :: iw_qvec(:)
+  !$acc declare create(iw_qvec)
 
   !> Index of the radiation energy density
   integer :: iw_r_e = -1
@@ -282,23 +282,31 @@ contains
     !$acc update device(nwflux,nw,nwfluxbc,iw_q)
   end function var_set_q
 
-  function var_set_qperp(need_bc) result(iw)
+  !> Set heat-flux vector variables (anisotropic HTC only): the full
+  !> Cartesian heat-flux vector, decomposed into field-aligned/cross-field parts
+  function var_set_qvec(ndir, need_bc) result(iw)
+    integer, intent(in)           :: ndir
     logical, intent(in), optional :: need_bc
-    integer :: iw
-    logical :: add_bc
+    integer                       :: iw(ndir), idir
+    logical                       :: add_bc
 
     add_bc = .true.
     if (present(need_bc)) add_bc = need_bc
 
-    nwflux              = nwflux + 1
-    nw                  = nw + 1
-    if (add_bc) nwfluxbc = nwfluxbc + 1
-    iw_qperp            = nwflux
-    iw                  = nwflux
-    cons_wnames(nwflux) = 'qperp'
-    prim_wnames(nwflux) = 'qperp'
-    !$acc update device(nwflux,nw,nwfluxbc,iw_qperp)
-  end function var_set_qperp
+    if (allocated(iw_qvec)) call errormsg("Error: set_qvec was already called")
+    allocate(iw_qvec(ndir))
+
+    do idir = 1, ndir
+      nwflux              = nwflux + 1
+      nw                  = nw + 1
+      if (add_bc) nwfluxbc = nwfluxbc + 1
+      iw_qvec(idir)       = nwflux
+      iw(idir)            = nwflux
+      write(cons_wnames(nwflux),"(A4,I1)") "qvec", idir
+      write(prim_wnames(nwflux),"(A4,I1)") "qvec", idir
+    end do
+    !$acc update device(nwflux,nw,nwfluxbc,iw_qvec)
+  end function var_set_qvec
 
   function var_set_radiation_energy() result(iw)
     integer :: iw

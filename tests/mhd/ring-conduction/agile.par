@@ -1,6 +1,6 @@
 
  &filelist
-   base_filename = 'output/run-x'
+   base_filename = 'output/run-5pt'
    saveprim      = T
    autoconvert   = T
    convert_type  = 'vtuBCCmpi'
@@ -24,7 +24,7 @@
    flux_scheme              = 20*'tvdlf'
    limiter                  = 20*'mc'
    phys                     = 'mhd'
-   flux_adaptive_diffusion  = .false.
+   flux_adaptive_diffusion  = .true.
    flux_ad_min              = 0.2d0
    flux_ad_scale            = 0.5d0
  /

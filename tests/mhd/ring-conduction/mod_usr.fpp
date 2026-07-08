@@ -93,11 +93,13 @@ contains
 
     ! --- Step 4: zero-initialise auxiliary scalars ---
     w(ixmin1:ixmax1,ixmin2:ixmax2,ixmin3:ixmax3,psi_) = 0.0d0
-#:if defined('HYPERTC') or defined('HYPERTC_ANISO')
+#:if defined('HYPERTC') and not defined('HYPERTC_ANISO')
     w(ixmin1:ixmax1,ixmin2:ixmax2,ixmin3:ixmax3,q_)     = 0.0d0
 #:endif
 #:if defined('HYPERTC_ANISO')
-    w(ixmin1:ixmax1,ixmin2:ixmax2,ixmin3:ixmax3,qperp_) = 0.0d0
+    w(ixmin1:ixmax1,ixmin2:ixmax2,ixmin3:ixmax3,q_(1))  = 0.0d0
+    w(ixmin1:ixmax1,ixmin2:ixmax2,ixmin3:ixmax3,q_(2))  = 0.0d0
+    w(ixmin1:ixmax1,ixmin2:ixmax2,ixmin3:ixmax3,q_(3))  = 0.0d0
 #:endif
 
     call phys_to_conserved(ixGmin1,ixGmin2,ixGmin3,ixGmax1,ixGmax2,ixGmax3,&
@@ -347,7 +349,7 @@ contains
       dxlevel(3) = rnode(rpdx3_,igrid)
       dv = dxlevel(1) * dxlevel(2) * dxlevel(3)
 
-      ! T from conserved variables over full ghost range (stencil needs ±1 neighbour)
+      ! T from conserved variables over full ghost range
       T(ixGlo1:ixGhi1,ixGlo2:ixGhi2,ixGlo3:ixGhi3) = &
          (mhd_gamma - 1.0d0) * ( &
             ps(igrid)%w(ixGlo1:ixGhi1,ixGlo2:ixGhi2,ixGlo3:ixGhi3,p_) &
@@ -360,7 +362,7 @@ contains
                  + ps(igrid)%w(ixGlo1:ixGhi1,ixGlo2:ixGhi2,ixGlo3:ixGhi3,mag(3))**2) &
          ) / ps(igrid)%w(ixGlo1:ixGhi1,ixGlo2:ixGhi2,ixGlo3:ixGhi3,rho_)
 
-      ! 2D centred Laplacian (x, y only — no z-variation in this test)
+      ! 2D centred Laplacian (no z-variation in this test)
       lapT(ixMlo1:ixMhi1,ixMlo2:ixMhi2,ixMlo3:ixMhi3) = &
          ( T(ixMlo1+1:ixMhi1+1,ixMlo2:ixMhi2,ixMlo3:ixMhi3) &
          - 2.0d0*T(ixMlo1:ixMhi1,ixMlo2:ixMhi2,ixMlo3:ixMhi3) &

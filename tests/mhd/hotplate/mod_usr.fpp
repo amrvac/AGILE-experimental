@@ -63,7 +63,7 @@ contains
 
     select case (iB)
     case (3)  ! y-min: hotplate
-      e_plate = hp_p0 / (mhd_gamma - 1.0d0) + 0.5d0
+      e_plate = hp_p0 / (mhd_gamma - 1.0d0) + 1.0d0
 
       w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3,rho_)   = rho_bg
       w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3,mom(1)) = 0.0d0
@@ -75,15 +75,17 @@ contains
         w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3,rho_) = rho_hot
       end where
 
-      w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3,mag(1)) = dsin(hp_theta)
-      w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3,mag(2)) = dcos(hp_theta)
+      w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3,mag(1)) = 1.0d0
+      w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3,mag(2)) = 1.0d0
       w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3,mag(3)) = 0.0d0
       w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3,psi_)   = 0.0d0
-#:if defined('HYPERTC') or defined('HYPERTC_ANISO')
+#:if defined('HYPERTC') and not defined('HYPERTC_ANISO')
       w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3,q_)     = 0.0d0
 #:endif
 #:if defined('HYPERTC_ANISO')
-      w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3,qperp_) = 0.0d0
+      w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3,q_(1))  = 0.0d0
+      w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3,q_(2))  = 0.0d0
+      w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3,q_(3))  = 0.0d0
 #:endif
     end select
   end subroutine specialbound_usr
@@ -111,15 +113,17 @@ contains
       w(ixmin1:ixmax1,ixmin2:ixmax2,ixmin3:ixmax3,rho_) = rho_hot
     end where
 
-    w(ixmin1:ixmax1,ixmin2:ixmax2,ixmin3:ixmax3,mag(1)) = dsin(hp_theta)
-    w(ixmin1:ixmax1,ixmin2:ixmax2,ixmin3:ixmax3,mag(2)) = dcos(hp_theta)
+    w(ixmin1:ixmax1,ixmin2:ixmax2,ixmin3:ixmax3,mag(1)) = 1.0d0
+    w(ixmin1:ixmax1,ixmin2:ixmax2,ixmin3:ixmax3,mag(2)) = 1.0d0
     w(ixmin1:ixmax1,ixmin2:ixmax2,ixmin3:ixmax3,mag(3)) = 0.0d0
     w(ixmin1:ixmax1,ixmin2:ixmax2,ixmin3:ixmax3,psi_)   = 0.0d0
-#:if defined('HYPERTC') or defined('HYPERTC_ANISO')
+#:if defined('HYPERTC') and not defined('HYPERTC_ANISO')
     w(ixmin1:ixmax1,ixmin2:ixmax2,ixmin3:ixmax3,q_)     = 0.0d0
 #:endif
 #:if defined('HYPERTC_ANISO')
-    w(ixmin1:ixmax1,ixmin2:ixmax2,ixmin3:ixmax3,qperp_) = 0.0d0
+    w(ixmin1:ixmax1,ixmin2:ixmax2,ixmin3:ixmax3,q_(1))  = 0.0d0
+    w(ixmin1:ixmax1,ixmin2:ixmax2,ixmin3:ixmax3,q_(2))  = 0.0d0
+    w(ixmin1:ixmax1,ixmin2:ixmax2,ixmin3:ixmax3,q_(3))  = 0.0d0
 #:endif
   end subroutine set_hp_prim
 
