@@ -527,15 +527,13 @@ subroutine addsource_compact(qdt, dtfactor, qtC, wCTprim1, wCTprim2, wCTprim3, q
   real(dp)                 :: Jdir1,Jdir2,Jdir3
   integer                  :: idir
 #:if defined('HYPERTC')
-  real(dp)   :: Te_c, rho_c, pth_c, sig_par
-  real(dp)   :: gradT(3), bgradT
-  real(dp)   :: Bmag2, Bmag, Bmag2_safe, tau_par
-  real(dp)   :: q_sat, f_sat_par
-  integer    :: k_tc
-#:endif
-#:if defined('HYPERTC_ANISO')
-  real(dp)   :: sig_perp, chi, gradTperp_mag, tau_perp, f_sat_perp
-  real(dp)   :: bhat(3), gradT_perp_k, Qpar_now, Qperp_now_k
+    real(dp) :: Te_c, rho_c, pth_c
+    real(dp) :: gradT(3), Bmag2, Bmag, Bmag2_safe, bgradT
+    real(dp) :: bhat(3), gradT_perp(3), gradTperp_mag
+    real(dp) :: chi, sig_par, sig_perp
+    real(dp) :: q_sat, f_sat_par, f_sat_perp, tau_par, tau_perp
+    real(dp) :: Qpar_proj, Qperp_proj_k
+    integer  :: k_tc
 #:endif
 
   if (.not. qsourcesplit) then 
@@ -590,41 +588,44 @@ subroutine addsource_compact(qdt, dtfactor, qtC, wCTprim1, wCTprim2, wCTprim3, q
 #:endif
 
 #:if defined('HYPERTC')
+    ! ---- 1. Local thermodynamic state ----
     Te_c  = wCTprim1(iw_e,2) / wCTprim1(iw_rho,2)
     rho_c = wCTprim1(iw_rho,2)
     pth_c = wCTprim1(iw_e,2)
 
+    ! ---- 2. Temperature gradient ----
     gradT(1) = (wCTprim1(iw_e,3)/wCTprim1(iw_rho,3) - wCTprim1(iw_e,1)/wCTprim1(iw_rho,1)) / (2.d0*dx(1))
     gradT(2) = (wCTprim2(iw_e,3)/wCTprim2(iw_rho,3) - wCTprim2(iw_e,1)/wCTprim2(iw_rho,1)) / (2.d0*dx(2))
     gradT(3) = (wCTprim3(iw_e,3)/wCTprim3(iw_rho,3) - wCTprim3(iw_e,1)/wCTprim3(iw_rho,1)) / (2.d0*dx(3))
 
+    !---------------------------------
+    ! Anisotropic TC code here
+    !---------------------------------
+#:if defined('HYPERTC_ANISO')
+    ! ---- 3. Field direction ----
     Bmag2 = 0.0d0
     do k_tc = 1, ndir
       Bmag2 = Bmag2 + wCTprim1(iw_mag(k_tc),2)**2
     end do
     Bmag       = sqrt(Bmag2)
     Bmag2_safe = max(Bmag2, smalldouble**2)
-
-    bgradT = 0.0d0
     do k_tc = 1, ndir
-      bgradT = bgradT + wCTprim1(iw_mag(k_tc),2) * gradT(k_tc)
+      bhat(k_tc) = wCTprim1(iw_mag(k_tc),2) * Bmag / Bmag2_safe
     end do
-    bgradT = bgradT * Bmag / Bmag2_safe
 
+    ! ---- 4. Decompose gradT into parallel scalar + perpendicular vector ----
+    bgradT = bhat(1)*gradT(1) + bhat(2)*gradT(2) + bhat(3)*gradT(3)
+    do k_tc = 1, ndir
+      gradT_perp(k_tc) = gradT(k_tc) - bgradT * bhat(k_tc)
+    end do
+    gradTperp_mag = sqrt(gradT_perp(1)**2 + gradT_perp(2)**2 + gradT_perp(3)**2)
+
+    ! ---- 5. Conductivities ----
     if (tc_kappa_par > 0.0d0) then
       sig_par = tc_kappa_par
     else
       sig_par = tc_kappa0_par * Te_c**2.5d0
     end if
-
-    ! free-streaming limit: q_sat = 1.5 rho c_s^3, c_s = sqrt(p/rho)
-    q_sat = 1.5d0 * rho_c * (pth_c / rho_c)**1.5d0
-    f_sat_par = 1.0d0 / (1.0d0 + abs(sig_par * bgradT) / q_sat)
-    tau_par = max(4.d0*dt, f_sat_par*sig_par*Te_c*courantpar**2*(mhd_gamma-1.0d0) / (pth_c*cmax_global**2))
-
-#:if defined('HYPERTC_ANISO')
-    gradTperp_mag = sqrt(max(gradT(1)**2 + gradT(2)**2 + gradT(3)**2 &
-                           - bgradT**2, 0.0d0))
     if (tc_kappa_perp > 0.0d0) then
       sig_perp = tc_kappa_perp
     else if (tc_kappa0_perp > 0.0d0) then
@@ -634,24 +635,53 @@ subroutine addsource_compact(qdt, dtfactor, qtC, wCTprim1, wCTprim2, wCTprim3, q
       sig_perp = sig_par / (1.0d0 + chi**2)
     end if
 
+    ! ---- 6. Saturation and relaxation times (per channel) ----
+    q_sat      = 1.5d0 * rho_c * (pth_c / rho_c)**1.5d0
+    f_sat_par  = 1.0d0 / (1.0d0 + abs(sig_par  * bgradT       ) / q_sat)
     f_sat_perp = 1.0d0 / (1.0d0 + abs(sig_perp * gradTperp_mag) / q_sat)
+    tau_par  = max(4.d0*dt, f_sat_par *sig_par *Te_c*courantpar**2*(mhd_gamma-1.0d0) / (pth_c*cmax_global**2))
     tau_perp = max(4.d0*dt, f_sat_perp*sig_perp*Te_c*courantpar**2*(mhd_gamma-1.0d0) / (pth_c*cmax_global**2))
 
-    ! q_(1:ndir): decompose current vector onto local b, relax each part
-    ! with its own tau, recombine.
+    ! ---- 7. Decompose current q onto current field direction ----
+    Qpar_proj = wCTprim1(q_(1),2)*bhat(1) + wCTprim1(q_(2),2)*bhat(2) + wCTprim1(q_(3),2)*bhat(3)
+
+    ! ---- 8. Relax parallel and perpendicular parts, each at its own rate ----
     do k_tc = 1, ndir
-      bhat(k_tc) = wCTprim1(iw_mag(k_tc),2) * Bmag / Bmag2_safe
-    end do
-    Qpar_now = wCTprim1(q_(1),2)*bhat(1) + wCTprim1(q_(2),2)*bhat(2) + wCTprim1(q_(3),2)*bhat(3)
-    do k_tc = 1, ndir
-      gradT_perp_k = gradT(k_tc) - bgradT * bhat(k_tc)
-      Qperp_now_k  = wCTprim1(q_(k_tc),2) - Qpar_now * bhat(k_tc)
+      Qperp_proj_k = wCTprim1(q_(k_tc),2) - Qpar_proj * bhat(k_tc)
       wnew(q_(k_tc)) = wnew(q_(k_tc)) &
-           - qdt*(f_sat_par*sig_par*bgradT + Qpar_now)*bhat(k_tc)/tau_par &
-           - qdt*(f_sat_perp*sig_perp*gradT_perp_k + Qperp_now_k)/tau_perp
+           - qdt*(f_sat_par *sig_par *bgradT + Qpar_proj)*bhat(k_tc)/tau_par  &
+           - qdt*(f_sat_perp*sig_perp*gradT_perp(k_tc) + Qperp_proj_k)/tau_perp
     end do
+
+    !---------------------------------
+    ! Field-aligned TC code here
+    !---------------------------------
 #:else
-    wnew(q_) = wnew(q_) - qdt*(f_sat_par*sig_par*bgradT + wCTprim1(q_,2))/tau_par
+    ! ---- 3. Parallel temperature gradient ----
+    Bmag2 = 0.0d0
+    bgradT = 0.0d0
+    do k_tc = 1, ndir
+      Bmag2  = Bmag2  + wCTprim1(iw_mag(k_tc),2)**2
+      bgradT = bgradT + wCTprim1(iw_mag(k_tc),2) * gradT(k_tc)
+    end do
+    Bmag       = sqrt(Bmag2)
+    Bmag2_safe = max(Bmag2, smalldouble**2)
+    bgradT     = bgradT * Bmag / Bmag2_safe
+
+    ! ---- 4. Conductivity ----
+    if (tc_kappa_par > 0.0d0) then
+      sig_par = tc_kappa_par
+    else
+      sig_par = tc_kappa0_par * Te_c**2.5d0
+    end if
+
+    ! ---- 5. Saturation and relaxation time ----
+    q_sat     = 1.5d0 * rho_c * (pth_c / rho_c)**1.5d0
+    f_sat_par = 1.0d0 / (1.0d0 + abs(sig_par * bgradT) / q_sat)
+    tau_par   = max(4.d0*dt, f_sat_par*sig_par*Te_c*courantpar**2*(mhd_gamma-1.0d0) / (pth_c*cmax_global**2))
+
+    ! ---- 6. Relax scalar q_par towards saturated Spitzer target ----
+    wnew(iw_q) = wnew(iw_q) - qdt*(f_sat_par*sig_par*bgradT + wCTprim1(iw_q,2))/tau_par
 #:endif
 #:endif
 
