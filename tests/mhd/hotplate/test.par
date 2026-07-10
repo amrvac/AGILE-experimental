@@ -1,21 +1,18 @@
 
  &filelist
-   base_filename = 'output/hotplate'
-   saveprim      = T
-   autoconvert   = T
-   convert_type  = 'vtuBCCmpi'
+   base_filename = 'test'
+   autoconvert   = F
+   typefilelog      = 'regression_test'
    nwauxio       = 1
  /
 
  &savelist
-   itsave(1,1)  = 0
-   itsave(1,2)  = 0
-   ditsave_log  = 200
-   dtsave_dat   = 0.5d0
+   dtsave_log      = 1e10
+   dtsave_dat      = 1e10
  /
 
  &stoplist
-   time_max = 1.0d0
+   time_max = 0.1d0
  /
 
  &methodlist

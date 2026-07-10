@@ -1,6 +1,6 @@
 
  &filelist
-   base_filename = 'output/run-5pt'
+   base_filename = 'output/rc'
    saveprim      = T
    autoconvert   = T
    convert_type  = 'vtuBCCmpi'
