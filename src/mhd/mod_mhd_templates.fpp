@@ -724,8 +724,9 @@ end subroutine addsource_compact
 
 #:def get_flux()
   subroutine get_flux(u, xC, flux_dim, flux)
+    use mod_global_parameters, only: cmax_global
 #:if defined('HYPERTC')
-    use mod_global_parameters, only: cmax_global, smalldouble
+    use mod_global_parameters, only: smalldouble
 #:endif
     !$acc routine seq
     real(dp), intent(in)  :: u(nw_phys)
