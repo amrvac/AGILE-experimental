@@ -106,7 +106,7 @@
   double precision, public                :: tc_kappa_par = -1.0d0
   !$acc declare copyin(tc_kappa_par)
 
-  !> sig_perp = tc_kappa_perp (constant, no T^2.5); takes precedence over tc_kappa0_perp when > 0
+  !> sig_perp = tc_kappa_perp (constant, no T^2.5); takes precedence over the Braginskii closure when > 0
   double precision, public                :: tc_kappa_perp = -1.0d0
   !$acc declare copyin(tc_kappa_perp)
 
@@ -124,10 +124,6 @@
   !> Magnetisation chi prefactor: chi = htc_Cchi * B * Te^1.5 / n
   double precision, public                :: htc_Cchi = 0.0d0
   !$acc declare copyin(htc_Cchi)
-
-  !> sig_perp = tc_kappa0_perp * Te^2.5; if <= 0 and tc_kappa_perp <= 0, uses Braginskii sig_par/(1+chi^2)
-  double precision, public                :: tc_kappa0_perp = -1.0d0
-  !$acc declare copyin(tc_kappa0_perp)
 #:else
   !> Index of the field-aligned heat flux scalar q_ (isotropic HTC only)
   integer, public                         :: q_ = -1
@@ -299,7 +295,6 @@
     htc_Cchi = 0.823d0 * (4.753567596681522d6 / 20.0d0) &
              * unit_magneticfield * unit_temperature**1.5d0 / unit_numberdensity
     !$acc update device(htc_Cchi)
-    !$acc update device(tc_kappa0_perp)
     !$acc update device(tc_kappa_perp)
 #:endif
   end subroutine phys_units
@@ -628,8 +623,6 @@ subroutine addsource_compact(qdt, dtfactor, qtC, wCTprim1, wCTprim2, wCTprim3, q
     end if
     if (tc_kappa_perp > 0.0d0) then
       sig_perp = tc_kappa_perp
-    else if (tc_kappa0_perp > 0.0d0) then
-      sig_perp = tc_kappa0_perp * Te_c**2.5d0
     else
       chi      = htc_Cchi * Bmag * Te_c**1.5d0 / rho_c
       sig_perp = sig_par / (1.0d0 + chi**2)
