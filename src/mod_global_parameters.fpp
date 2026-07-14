@@ -180,14 +180,14 @@ module mod_global_parameters
   integer, parameter :: nsavehi=100
 
   !> Number of output methods
-  integer, parameter :: nfile = 5
+  integer, parameter :: nfile = 6
 
   !> index number of the latest existing data file
   integer :: index_latest_data
 
   !> Names of the output methods
   character(len=40), parameter  :: output_names(nfile) = ['log      ',&
-      'normal   ', 'slice    ', 'collapsed', 'analysis ']
+      'normal   ', 'slice    ', 'collapsed', 'analysis ', 'snapshot ']
 
   !> User parameter file
   character(len=std_len)   :: usr_filename
@@ -239,6 +239,9 @@ module mod_global_parameters
   !> IO: slice output numbers/labels
   integer :: slicenext
 
+  !> IO: single precision snapshot output number/label
+  integer :: snapnext
+
   !> Constant indicating log output
   integer, parameter :: filelog_      = 1
 
@@ -253,6 +256,10 @@ module mod_global_parameters
 
   !> Constant indicating analysis output (see @ref analysis.md)
   integer, parameter :: fileanalysis_ = 5
+
+  !> Constant indicating single precision snapshot output (v6 format,
+  !> for analysis; use the normal output for restarts)
+  integer, parameter :: filesnap_ = 6
 
   !> Unit for standard input
   integer, parameter :: unitstdin=5

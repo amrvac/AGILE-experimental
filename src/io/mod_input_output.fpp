@@ -80,6 +80,7 @@ contains
     snapshotnext=-1
     slicenext=-1
     collapsenext=-1
+    snapnext=-1
     help=.false.
     convert=.false.
     resume_previous_run=.false.
@@ -237,13 +238,13 @@ contains
     character(len=std_len) :: typecourant
 
     double precision, dimension(nsavehi) :: tsave_log, tsave_dat, tsave_slice,&
-        tsave_collapsed, tsave_custom
+        tsave_collapsed, tsave_custom, tsave_snap
     double precision :: dtsave_log, dtsave_dat, dtsave_slice, dtsave_collapsed,&
-        dtsave_custom
+        dtsave_custom, dtsave_snap
     integer :: ditsave_log, ditsave_dat, ditsave_slice, ditsave_collapsed,&
-        ditsave_custom
+        ditsave_custom, ditsave_snap
     double precision :: tsavestart_log, tsavestart_dat, tsavestart_slice,&
-        tsavestart_collapsed, tsavestart_custom
+        tsavestart_collapsed, tsavestart_custom, tsavestart_snap
     integer :: windex, ipower
     double precision :: sizeuniformpart1,sizeuniformpart2,sizeuniformpart3
     double precision :: im_delta,im_nu,rka54,rka51,rkb54,rka55
@@ -253,7 +254,7 @@ contains
        usr_filename,nwauxio,nocartesian, w_write,writelevel,writespshift,&
        length_convert_factor, w_convert_factor, time_convert_factor,level_io,&
        level_io_min, level_io_max, autoconvert,slice_type,slicenext,&
-       collapsenext,collapse_type, type_endian
+       collapsenext,collapse_type, type_endian, snapnext
 
     namelist /savelist/ tsave,itsave,dtsave,ditsave,nslices,slicedir,&
         slicecoord,collapse,collapseLevel, time_between_print,tsave_log,&
@@ -261,7 +262,8 @@ contains
         dtsave_dat, dtsave_slice, dtsave_collapsed, dtsave_custom, ditsave_log,&
         ditsave_dat, ditsave_slice, ditsave_collapsed, ditsave_custom,&
        tsavestart_log, tsavestart_dat, tsavestart_slice, tsavestart_collapsed,&
-       tsavestart_custom, tsavestart
+       tsavestart_custom, tsavestart, tsave_snap, dtsave_snap,&
+       ditsave_snap, tsavestart_snap
 
     namelist /stoplist/ it_init,time_init,it_max,time_max,dtmin,reset_it,&
        reset_time,wall_time_max,final_dt_reduction
@@ -454,24 +456,28 @@ contains
     tsave_slice     = bigdouble
     tsave_collapsed = bigdouble
     tsave_custom    = bigdouble
+    tsave_snap      = bigdouble
 
     dtsave_log       = bigdouble
     dtsave_dat       = bigdouble
     dtsave_slice     = bigdouble
     dtsave_collapsed = bigdouble
     dtsave_custom    = bigdouble
+    dtsave_snap      = bigdouble
 
     ditsave_log       = biginteger
     ditsave_dat       = biginteger
     ditsave_slice     = biginteger
     ditsave_collapsed = biginteger
     ditsave_custom    = biginteger
+    ditsave_snap      = biginteger
 
     tsavestart_log       = bigdouble
     tsavestart_dat       = bigdouble
     tsavestart_slice     = bigdouble
     tsavestart_collapsed = bigdouble
     tsavestart_custom    = bigdouble
+    tsavestart_snap      = bigdouble
 
     typefilelog = 'default'
 
@@ -696,9 +702,18 @@ contains
       snapshotnext = 0
       slicenext    = 0
       collapsenext = 0
+      snapnext     = 0
       if (firstprocess) call mpistop&
          ("Please restart from a snapshot when firstprocess=T")
       if (convert) call mpistop('Change convert to .false. for a new run!')
+    else if (snapnext == -1) then
+      ! the header has no counter for single precision snapshots, so infer
+      ! it from the file name when restarting from one (<base>_snapNNNN.dat)
+      if (index(restart_from_file, '_snap') > 0) then
+        snapnext = get_snapshot_index(trim(restart_from_file)) + 1
+      else
+        snapnext = 0
+      end if
     end if
 
     if (small_pressure < 0.d0) call mpistop(&
@@ -715,24 +730,28 @@ contains
     where (tsave_slice < bigdouble) tsave(:, 3) = tsave_slice
     where (tsave_collapsed < bigdouble) tsave(:, 4) = tsave_collapsed
     where (tsave_custom < bigdouble) tsave(:, 5) = tsave_custom
+    where (tsave_snap < bigdouble) tsave(:, 6) = tsave_snap
 
     if (dtsave_log < bigdouble) dtsave(1) = dtsave_log
     if (dtsave_dat < bigdouble) dtsave(2) = dtsave_dat
     if (dtsave_slice < bigdouble) dtsave(3) = dtsave_slice
     if (dtsave_collapsed < bigdouble) dtsave(4) = dtsave_collapsed
     if (dtsave_custom < bigdouble) dtsave(5) = dtsave_custom
+    if (dtsave_snap < bigdouble) dtsave(6) = dtsave_snap
 
     if (tsavestart_log < bigdouble) tsavestart(1) = tsavestart_log
     if (tsavestart_dat < bigdouble) tsavestart(2) = tsavestart_dat
     if (tsavestart_slice < bigdouble) tsavestart(3) = tsavestart_slice
     if (tsavestart_collapsed < bigdouble) tsavestart(4) = tsavestart_collapsed
     if (tsavestart_custom < bigdouble) tsavestart(5) = tsavestart_custom
+    if (tsavestart_snap < bigdouble) tsavestart(6) = tsavestart_snap
 
     if (ditsave_log < bigdouble) ditsave(1) = ditsave_log
     if (ditsave_dat < bigdouble) ditsave(2) = ditsave_dat
     if (ditsave_slice < bigdouble) ditsave(3) = ditsave_slice
     if (ditsave_collapsed < bigdouble) ditsave(4) = ditsave_collapsed
     if (ditsave_custom < bigdouble) ditsave(5) = ditsave_custom
+    if (ditsave_snap < bigdouble) ditsave(6) = ditsave_snap
     ! convert hours to seconds for ending wall time
     if (wall_time_max < bigdouble) wall_time_max=wall_time_max*3600.d0
 
@@ -2127,6 +2146,11 @@ contains
        if(use_particles) call write_particles_snapshot()
 
        snapshotnext = snapshotnext + 1
+    case (filesnap_)
+       ! Write single precision (v6) snapshot for analysis
+       call write_snapshot(is_snap=.true.)
+
+       snapnext = snapnext + 1
     case (fileslice_)
        call write_slice
     case (filecollapse_)
@@ -2186,7 +2210,8 @@ contains
   !>
   !> If you edit the header, don't forget to update: snapshot_write_header(),
   !> snapshot_read_header(), doc/fileformat.md, tools/python/dat_reader.py
-  subroutine snapshot_write_header(fh, offset_tree, offset_block)
+  subroutine snapshot_write_header(fh, offset_tree, offset_block, version,&
+      is_snap)
     use mod_forest
     use mod_physics
     use mod_global_parameters
@@ -2194,8 +2219,10 @@ contains
     integer, intent(in)                       :: fh           !< File handle
     integer(kind=MPI_OFFSET_KIND), intent(in) :: offset_tree !< Offset of tree info
     integer(kind=MPI_OFFSET_KIND), intent(in) :: offset_block !< Offset of block data
+    integer, intent(in), optional             :: version !< File format version
+    logical, intent(in), optional             :: is_snap
     call snapshot_write_header1(fh, offset_tree, offset_block, cons_wnames,&
-        nw)
+        nw, version, is_snap)
   end subroutine snapshot_write_header
 
   !> Read header for a snapshot
@@ -2382,13 +2409,18 @@ contains
 
 
 
-  subroutine write_snapshot
+  subroutine write_snapshot(is_snap)
     use mod_forest
     use mod_global_parameters
     use mod_physics
     use mod_input_output_helper, only: count_ix,block_shape_io,&
        create_output_file
     use mod_functions_forest, only: write_forest
+
+    !> Write a single precision (v6 format) snapshot for analysis, named
+    !> <base_filename>_snapNNNN.dat and counted by snapnext. The default
+    !> is the established double precision v5 snapshot.
+    logical, intent(in), optional :: is_snap
 
     integer                       :: file_handle, igrid, Morton_no, iwrite
     integer                       :: ipe, ix_buffer(2*ndim+1), n_values
@@ -2405,10 +2437,28 @@ contains
     integer(kind=MPI_OFFSET_KIND) :: offset_block_data
     integer(kind=MPI_OFFSET_KIND) :: offset_offsets
     double precision, allocatable :: w_buffer(:)
+    real(kind=4), allocatable     :: w_buffer_sp(:)
 
     integer, allocatable                       :: block_ig(:, :)
     integer, allocatable                       :: block_lvl(:)
     integer(kind=MPI_OFFSET_KIND), allocatable :: block_offset(:)
+
+    logical :: snap_mode, write_sp
+    integer :: file_version, size_real_out
+
+    snap_mode = .false.
+    if (present(is_snap)) snap_mode = is_snap
+
+    ! single precision snapshots use the v6 format, normal output the
+    ! established double precision v5 format
+    if (snap_mode) then
+      file_version = 6
+      size_real_out = 4
+    else
+      file_version = 5
+      size_real_out = size_double
+    end if
+    write_sp = snap_mode
 
     call MPI_BARRIER(icomm, ierrmpi)
 
@@ -2419,6 +2469,7 @@ contains
          ixGshi3) * nws
     end if
     allocate(w_buffer(n_values))
+    if (write_sp) allocate(w_buffer_sp(n_values))
 
     ! Allocate arrays with information about grid blocks
     allocate(block_ig(ndim, nleafs))
@@ -2427,13 +2478,17 @@ contains
 
     ! master processor
     if (mype==0) then
-      call create_output_file(file_handle, snapshotnext, ".dat")
+      if (snap_mode) then
+        call create_output_file(file_handle, snapnext, ".dat", "_snap")
+      else
+        call create_output_file(file_handle, snapshotnext, ".dat")
+      end if
 
       ! Don't know offsets yet, we will write header again later
       offset_tree_info = -1
       offset_block_data = -1
       call snapshot_write_header(file_handle, offset_tree_info,&
-          offset_block_data)
+          offset_block_data, file_version, snap_mode)
 
       call MPI_File_get_position(file_handle, offset_tree_info, ierrmpi)
 
@@ -2505,21 +2560,33 @@ contains
       ix_buffer(1) = n_values
       ix_buffer(2:) = n_ghost
 
+      if (write_sp) w_buffer_sp(1:n_values) = real(w_buffer(1:n_values), 4)
+
       if (mype /= 0) then
         call mpi_send_wrapper(ix_buffer, 2*ndim+1, MPI_INTEGER, 0, itag, icomm,&
             ierrmpi)
-        call mpi_send_wrapper(w_buffer, n_values, MPI_DOUBLE_PRECISION, 0, itag, icomm,&
-            ierrmpi)
+        if (write_sp) then
+          call mpi_send_wrapper(w_buffer_sp, n_values, MPI_REAL4, 0, itag, icomm,&
+              ierrmpi)
+        else
+          call mpi_send_wrapper(w_buffer, n_values, MPI_DOUBLE_PRECISION, 0, itag, icomm,&
+              ierrmpi)
+        end if
       else
         iwrite = iwrite+1
         call mpi_file_write_wrapper(file_handle, ix_buffer(2:), 2*ndim, MPI_INTEGER,&
             istatus, ierrmpi)
-        call mpi_file_write_wrapper(file_handle, w_buffer, n_values,&
-            MPI_DOUBLE_PRECISION, istatus, ierrmpi)
+        if (write_sp) then
+          call mpi_file_write_wrapper(file_handle, w_buffer_sp, n_values,&
+              MPI_REAL4, istatus, ierrmpi)
+        else
+          call mpi_file_write_wrapper(file_handle, w_buffer, n_values,&
+              MPI_DOUBLE_PRECISION, istatus, ierrmpi)
+        end if
 
         ! Set offset of next block
         block_offset(iwrite+1) = block_offset(iwrite) + int(n_values,&
-            MPI_OFFSET_KIND) * size_double + 2 * ndim * size_int
+            MPI_OFFSET_KIND) * size_real_out + 2 * ndim * size_int
       end if
     end do
 
@@ -2534,17 +2601,27 @@ contains
              igrecvstatus, ierrmpi)
           n_values = ix_buffer(1)
 
-          call mpi_recv_wrapper(w_buffer, n_values, MPI_DOUBLE_PRECISION,ipe, itag,&
-              icomm, iorecvstatus, ierrmpi)
+          if (write_sp) then
+            call mpi_recv_wrapper(w_buffer_sp, n_values, MPI_REAL4, ipe, itag,&
+                icomm, iorecvstatus, ierrmpi)
+          else
+            call mpi_recv_wrapper(w_buffer, n_values, MPI_DOUBLE_PRECISION,ipe, itag,&
+                icomm, iorecvstatus, ierrmpi)
+          end if
 
           call mpi_file_write_wrapper(file_handle, ix_buffer(2:), 2*ndim, MPI_INTEGER,&
               istatus, ierrmpi)
-          call mpi_file_write_wrapper(file_handle, w_buffer, n_values,&
-              MPI_DOUBLE_PRECISION, istatus, ierrmpi)
+          if (write_sp) then
+            call mpi_file_write_wrapper(file_handle, w_buffer_sp, n_values,&
+                MPI_REAL4, istatus, ierrmpi)
+          else
+            call mpi_file_write_wrapper(file_handle, w_buffer, n_values,&
+                MPI_DOUBLE_PRECISION, istatus, ierrmpi)
+          end if
 
           ! Set offset of next block
           block_offset(iwrite+1) = block_offset(iwrite) + int(n_values,&
-              MPI_OFFSET_KIND) * size_double + 2 * ndim * size_int
+              MPI_OFFSET_KIND) * size_real_out + 2 * ndim * size_int
         end do
       end do
 
@@ -2557,7 +2634,7 @@ contains
       call MPI_FILE_SEEK(file_handle, 0_MPI_OFFSET_KIND, MPI_SEEK_SET,&
           ierrmpi)
       call snapshot_write_header(file_handle, offset_tree_info,&
-          offset_block_data)
+          offset_block_data, file_version, snap_mode)
 
       call MPI_FILE_CLOSE(file_handle, ierrmpi)
     end if
