@@ -1,0 +1,79 @@
+
+ &filelist
+   base_filename = 'output/rcm'
+   saveprim      = T
+   autoconvert   = T
+   convert_type  = 'vtuBCCmpi'
+   nwauxio       = 2
+ /
+
+ ! Time in code units: unit_time = unit_length/unit_velocity ~ 85.87 s for
+ ! unit_length=1e9 cm, unit_temperature=1e6 K, unit_numberdensity=1e9 cm^-3.
+ !   1 hr   -> 41.92 code units
+ !   25 hr  -> 1048.05
+ !   200 hr -> 8384.4
+ ! dat snapshots every 25 hr (captures t=0,25,50,...,200 hr for Fig. 2 panels),
+ ! L-error CSV every 5 hr for a smooth time series.
+ &savelist
+   itsave(1,1)   = 0
+   itsave(1,2)   = 0
+   ditsave_log   = 200
+   dtsave_dat      = 1048.05d0
+   dtsave_custom   = 209.61d0
+ /
+
+ &stoplist
+   time_max = 8384.4d0
+ /
+
+ &methodlist
+   time_stepper             = 'threestep'
+   flux_scheme              = 20*'tvdlf'
+   limiter                  = 20*'mcbeta'
+   phys                     = 'mhd'
+   flux_adaptive_diffusion  = .true.
+   flux_ad_min              = 0.2d0
+   flux_ad_scale            = 0.5d0
+ /
+
+ &boundlist
+   typeboundary_min1 = 8*'periodic'
+   typeboundary_max1 = 8*'periodic'
+   typeboundary_min2 = 8*'periodic'
+   typeboundary_max2 = 8*'periodic'
+   typeboundary_min3 = 8*'periodic'
+   typeboundary_max3 = 8*'periodic'
+ /
+
+ &meshlist
+   max_blocks       = 100
+   refine_max_level = 1
+   block_nx1        = 20
+   block_nx2        = 20
+   block_nx3        = 4
+   domain_nx1       = 200
+   domain_nx2       = 200
+   domain_nx3       = 4
+   xprobmin1        = -1.0d0
+   xprobmax1        =  1.0d0
+   xprobmin2        = -1.0d0
+   xprobmax2        =  1.0d0
+   xprobmin3        = -0.02d0
+   xprobmax3        =  0.02d0
+ /
+
+ &paramlist
+   slowsteps   = 10
+   courantpar  = 0.7d0
+   typecourant = 'maxsum'
+ /
+
+ ! Temperature-dependent (Spitzer) parallel conductivity: tc_kappa_par is left
+ ! unset (<0), so sig_par = tc_kappa0_par*Te^2.5 with tc_kappa0_par derived from
+ ! the physical units in phys_units(). This is Run RB2 (hyperbolic TC); the
+ ! parabolic Run RB1 reference is produced with AMRVAC.
+ &mhd_list
+   mhd_gamma                         = 1.6666667d0
+   mhd_hyperbolic_thermal_conduction = .true.
+   mhd_energy_only                   = .true.
+ /
