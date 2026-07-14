@@ -187,7 +187,7 @@ module mod_global_parameters
 
   !> Names of the output methods
   character(len=40), parameter  :: output_names(nfile) = ['log      ',&
-      'normal   ', 'slice    ', 'collapsed', 'analysis ', 'snapshot ']
+      'datfile  ', 'slice    ', 'collapsed', 'analysis ', 'snapshot ']
 
   !> User parameter file
   character(len=std_len)   :: usr_filename
@@ -234,7 +234,7 @@ module mod_global_parameters
   double precision :: time_bc
 
   !> IO: snapshot and collapsed views output numbers/labels
-  integer :: snapshotnext, collapsenext
+  integer :: datfilenext, collapsenext
 
   !> IO: slice output numbers/labels
   integer :: slicenext
@@ -274,7 +274,7 @@ module mod_global_parameters
   integer, parameter :: unitpar=9
   integer, parameter :: unitconvert=10
   integer, parameter :: unitslice=11
-  integer, parameter :: unitsnapshot=12
+  integer, parameter :: unitdatfile=12
   integer, parameter :: unitcollapse=13
   integer, parameter :: unitanalysis=14
 
@@ -301,7 +301,7 @@ module mod_global_parameters
   character(len=std_len) :: typefilelog
 
   !> Resume from the snapshot with this index
-  integer :: snapshotini
+  integer :: datfileini
 
   !> If true, restart a previous run from the latest snapshot
   logical :: resume_previous_run
@@ -570,7 +570,7 @@ module mod_global_parameters
   !> If true, call initonegrid_usr upon restarting
   logical :: firstprocess
 
-  !> If true, wall time is up, modify snapshotnext for later overwrite
+  !> If true, wall time is up, modify datfilenext for later overwrite
   logical :: pass_wall_time
 
   !> If true, do H-correction to fix the carbuncle problem at grid-aligned shocks

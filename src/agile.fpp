@@ -89,17 +89,17 @@ contains
        ! get input data from previous AMRVAC run
 
        ! read in dat file
-       call read_snapshot()
+       call read_datfile()
 
-       ! rewrite it=0 snapshot when restart from it=0 state
-       if(it==0.and.itsave(1,2)==0) snapshotnext=snapshotnext-1
+       ! rewrite it=0 datfile when restart from it=0 state
+       if(it==0.and.itsave(1,2)==0) datfilenext=datfilenext-1
 
        if (reset_time) then
          ! reset it and global time to original value
          it           = it_init
          global_time  = time_init
-         ! reset snapshot number
-         snapshotnext=0
+         ! reset datfile number
+         datfilenext=0
        end if
 
        if (reset_it) then
@@ -165,8 +165,8 @@ contains
             then
             call process(it,global_time)
          end if
-         !here requires -1 snapshot
-         if (autoconvert .or. snapshotnext>0) snapshotnext = snapshotnext - 1
+         !here requires -1 datfile
+         if (autoconvert .or. datfilenext>0) datfilenext = datfilenext - 1
 
          if(associated(phys_special_advance)) then
            ! e.g. calculate MF velocity from magnetic field
@@ -256,7 +256,7 @@ contains
     time_last_print = -bigdouble
     fixcount=1
 
-    n_saves(filelog_:fileout_) = snapshotini
+    n_saves(filelog_:fileout_) = datfileini
 
     do ifile=nfile,1,-1
        if(resume_previous_run) then
@@ -345,14 +345,14 @@ contains
        end if
 
 
-       ! output a snapshot when user write a file named 'savenow' in the same
+       ! output a datfile when user write a file named 'savenow' in the same
        ! folder as the executable amrvac
        if (mype==0) inquire(file='savenow',exist=save_now)
        if (npe>1) call MPI_BCAST(save_now,1,MPI_LOGICAL,0,icomm,ierrmpi)
 
        if (save_now) then
-          if(mype==0) write(*,'(a,i7,a,i7,a,es12.4)') ' save a snapshot No.',&
-             snapshotnext,' at it=',it,' global_time=',global_time
+          if(mype==0) write(*,'(a,i7,a,i7,a,es12.4)') ' save a datfile No.',&
+             datfilenext,' at it=',it,' global_time=',global_time
           call saveamrfile(1)
           call saveamrfile(2)
           call MPI_FILE_DELETE('savenow',MPI_INFO_NULL,ierrmpi)

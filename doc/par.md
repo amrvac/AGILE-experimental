@@ -82,14 +82,14 @@ or extra words in strings.
 name | type | default | description
 ---|---|---|---
 base_filename | string | 'data' | Base file name for simulation output, which will be followed by a 4-digit number
-restart_from_file | string | - | Resume from the snapshot data with this file name. 
+restart_from_file | string | - | Resume from the datfile with this file name. 
 typefilelog | string | 'default' | Use 'regression_test' to do regression test and use the value 'special' to enable user-defined log output
-snapshotnext | integer | 0 | Start index for writing snapshots
+datfilenext | integer | 0 | Start index for writing datfiles (was `snapshotnext` before the datfile/snapshot split)
 slicenext | integer | 0 | Start index for writing slices
 snapnext | integer | 0 | Start index for writing single precision snapshots (inferred from the file name when restarting from one)
 firstprocess | logical | F | If true, call `initonegrid_usr` upon restarting
 reset_grid | logical | F | If true, rebuild the AMR grid upon restarting
-convert | logical | F | If true and filenameini and snapshotini are given, convert snapshots to other file formats
+convert | logical | F | If true and filenameini and datfileini are given, convert datfiles to other file formats
 convert_type | string | vtuBCCmpi | Which format to use when converting, options are: tecplot, tecplotCC, vtu, vtuCC, vtuB, vtuBCC, tecplotmpi, tecplotCCmpi, vtuBmpi, vtuBCCmpi, vtumpi,  vtuCCmpi, pvtumpi, pvtuCCmpi, tecline, teclinempi, onegrid, EIvtiCCmpi, ESvtiCCmpi, SIvtiCCmpi, EIvtuCCmpi, ESvtuCCmpi, SIvtuCCmpi
 slice_type | string | vtu | Which format to use when slicing, options are: csv, dat, vtu, vtuCC
 collapse_type | string | vti | Which format to use when slicing, options are: csv, vti
@@ -268,11 +268,11 @@ Here FILEINDEX has the following meaning:
 index | meaning
 ---|---
 1 | Log output
-2 | Normal output
+2 | Datfile output (double precision, for restarts)
 3 | Slice output, see @ref slices.md
 4 | Collapsed output, see @ref collapsed.md
 5 | Call user custom analysis subroutine, see @ref analysis.md
-6 | Single precision snapshot output (v6 format, for analysis; restart from the normal output)
+6 | Snapshot output (single precision v6 format, for analysis; restart from the datfile output)
 
 One may want to save snapshots
 more frequently at the beginning of the simulation. E.g. `tsave(1,2)=0.1
