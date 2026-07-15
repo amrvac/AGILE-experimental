@@ -509,7 +509,7 @@ subroutine addsource_compact(qdt, dtfactor, qtC, wCTprim1, wCTprim2, wCTprim3, q
      qsourcesplit)
   !$acc routine seq
 #:if defined('HYPERTC')
-  use mod_global_parameters, only: dt, cmax_global, ndir, smalldouble, courantpar
+  use mod_global_parameters, only: dt, ndir, smalldouble, courantpar
 #:endif
 
   real(dp), intent(in)     :: qdt, dtfactor, qtC, qt
@@ -527,6 +527,7 @@ subroutine addsource_compact(qdt, dtfactor, qtC, wCTprim1, wCTprim2, wCTprim3, q
     real(dp) :: bhat(3), gradT_perp(3), gradTperp_mag
     real(dp) :: chi, sig_par, sig_perp
     real(dp) :: q_sat, f_sat_par, f_sat_perp, tau_par, tau_perp
+    real(dp) :: cf2_tc, cmax2_tc
     real(dp) :: Qpar_proj, Qperp_proj_k
     integer  :: k_tc
 #:endif
@@ -629,11 +630,17 @@ subroutine addsource_compact(qdt, dtfactor, qtC, wCTprim1, wCTprim2, wCTprim3, q
     end if
 
     ! ---- 6. Saturation and relaxation times (per channel) ----
+    cf2_tc   = (Bmag2 + mhd_gamma*pth_c) / rho_c
+    cmax2_tc = 0.0d0
+    do k_tc = 1, ndim
+      cmax2_tc = max(cmax2_tc, 0.5d0*(cf2_tc + sqrt(abs( &
+           cf2_tc**2 - 4.0d0*mhd_gamma*pth_c*wCTprim1(iw_mag(k_tc),2)**2/rho_c**2))))
+    end do
     q_sat      = 1.5d0 * rho_c * (pth_c / rho_c)**1.5d0
     f_sat_par  = 1.0d0 / (1.0d0 + abs(sig_par  * bgradT       ) / q_sat)
     f_sat_perp = 1.0d0 / (1.0d0 + abs(sig_perp * gradTperp_mag) / q_sat)
-    tau_par  = max(4.d0*dt, f_sat_par *sig_par *Te_c*courantpar**2*(mhd_gamma-1.0d0) / (pth_c*cmax_global**2))
-    tau_perp = max(4.d0*dt, f_sat_perp*sig_perp*Te_c*courantpar**2*(mhd_gamma-1.0d0) / (pth_c*cmax_global**2))
+    tau_par  = max(4.d0*dt, f_sat_par *sig_par *Te_c*courantpar**2*(mhd_gamma-1.0d0) / (pth_c*cmax2_tc))
+    tau_perp = max(4.d0*dt, f_sat_perp*sig_perp*Te_c*courantpar**2*(mhd_gamma-1.0d0) / (pth_c*cmax2_tc))
 
     ! ---- 7. Decompose current q onto current field direction ----
     Qpar_proj = wCTprim1(q_(1),2)*bhat(1) + wCTprim1(q_(2),2)*bhat(2) + wCTprim1(q_(3),2)*bhat(3)
@@ -669,9 +676,15 @@ subroutine addsource_compact(qdt, dtfactor, qtC, wCTprim1, wCTprim2, wCTprim3, q
     end if
 
     ! ---- 5. Saturation and relaxation time ----
+    cf2_tc   = (Bmag2 + mhd_gamma*pth_c) / rho_c
+    cmax2_tc = 0.0d0
+    do k_tc = 1, ndim
+      cmax2_tc = max(cmax2_tc, 0.5d0*(cf2_tc + sqrt(abs( &
+           cf2_tc**2 - 4.0d0*mhd_gamma*pth_c*wCTprim1(iw_mag(k_tc),2)**2/rho_c**2))))
+    end do
     q_sat     = 1.5d0 * rho_c * (pth_c / rho_c)**1.5d0
     f_sat_par = 1.0d0 / (1.0d0 + abs(sig_par * bgradT) / q_sat)
-    tau_par   = max(4.d0*dt, f_sat_par*sig_par*Te_c*courantpar**2*(mhd_gamma-1.0d0) / (pth_c*cmax_global**2))
+    tau_par   = max(4.d0*dt, f_sat_par*sig_par*Te_c*courantpar**2*(mhd_gamma-1.0d0) / (pth_c*cmax2_tc))
 
     ! ---- 6. Relax scalar q_par towards saturated Spitzer target ----
     wnew(iw_q) = wnew(iw_q) - qdt*(f_sat_par*sig_par*bgradT + wCTprim1(iw_q,2))/tau_par
