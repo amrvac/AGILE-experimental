@@ -603,7 +603,7 @@ module mod_global_parameters
   !> Adaptive LLF diffusion (Rempel et al. 2009): phi in [flux_ad_min, 1] per face per variable
   logical  :: flux_adaptive_diffusion = .false.
   !$acc declare create(flux_adaptive_diffusion)
-  double precision :: flux_ad_min             = 0.2d0
+  double precision :: flux_ad_min             = 0.0d0
   !$acc declare create(flux_ad_min)
   double precision :: flux_ad_scale           = 1.0d0
   !$acc declare create(flux_ad_scale)
