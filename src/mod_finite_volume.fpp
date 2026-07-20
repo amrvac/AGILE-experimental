@@ -129,7 +129,9 @@ end subroutine finite_volume_local
     nxCo2=nx2/2
     nxCo3=nx3/2
 
-!!    !$acc enter data copyin(nxCo1,nxCo2,nxCo3)
+    !this was commented out in an earlier version ...
+    !JESSE TODO DEBUG!
+    !$acc enter data copyin(nxCo1,nxCo2,nxCo3)
 
     ! batch-launch the kernels (oom issue when many ~30000 blocks):
     nbatches = (igridstail_active + max_batch - 1) / max_batch ! ceiling division
@@ -175,7 +177,7 @@ end subroutine finite_volume_local
                    ! Store fluxes for flux fixing in direction 1
                    select case (neighbor_type(-1,0,0,n))
                    case (neighbor_fine)
-                       if (ix1.eq.ixOmin1) pflux(1,1)%flux(1,ix2-nghostcells,ix3-nghostcells,1:nw_flux,n) &
+                       if (ix1.eq.ixOmin1) pflux(1,1)%flux(1,ix2-nghostcells,ix3-nghostcells,n,1:nw_flux) &
                                = qdt * inv_dr(1) * f(:,1)
                    case (neighbor_coarse)
                        if (ix1.eq.ixOmin1) fC1(1,ix2,ix3,1:nw_flux) = - qdt * inv_dr(1) * f(:,1)
@@ -183,7 +185,7 @@ end subroutine finite_volume_local
 
                    select case (neighbor_type(1,0,0,n))
                    case (neighbor_fine)
-                       if (ix1.eq.ixOmax1) pflux(2,1)%flux(1,ix2-nghostcells,ix3-nghostcells,1:nw_flux,n) =  &
+                       if (ix1.eq.ixOmax1) pflux(2,1)%flux(1,ix2-nghostcells,ix3-nghostcells,n,1:nw_flux) =  &
                                - qdt * inv_dr(1) * f(:,2)
                    case (neighbor_coarse)
                        if (ix1.eq.ixOmax1) fC1(2,ix2,ix3,1:nw_flux) = qdt * inv_dr(1) * f(:,2)
@@ -201,7 +203,7 @@ end subroutine finite_volume_local
                    ! Store fluxes for flux fixing in direction 2
                    select case (neighbor_type(0,-1,0,n))
                    case (neighbor_fine)
-                       if (ix2.eq.ixOmin2) pflux(1,2)%flux(ix1-nghostcells,1,ix3-nghostcells,1:nw_flux,n) &
+                       if (ix2.eq.ixOmin2) pflux(1,2)%flux(ix1-nghostcells,1,ix3-nghostcells,n,1:nw_flux) &
                                 = qdt * inv_dr(2) * f(:,1)
                    case (neighbor_coarse)
                        if (ix2.eq.ixOmin2) fC2(1,ix1,ix3,1:nw_flux) = - qdt * inv_dr(2) * f(:,1)
@@ -209,7 +211,7 @@ end subroutine finite_volume_local
 
                    select case (neighbor_type(0,1,0,n))
                    case (neighbor_fine)
-                       if (ix2.eq.ixOmax2) pflux(2,2)%flux(ix1-nghostcells,1,ix3-nghostcells,1:nw_flux,n) &
+                       if (ix2.eq.ixOmax2) pflux(2,2)%flux(ix1-nghostcells,1,ix3-nghostcells,n,1:nw_flux) &
                                = - qdt * inv_dr(2) * f(:,2)
                    case (neighbor_coarse)
                        if (ix2.eq.ixOmax2) fC2(2,ix1,ix3,1:nw_flux) = qdt * inv_dr(2) * f(:,2)
@@ -227,7 +229,7 @@ end subroutine finite_volume_local
                    ! Store fluxes for flux fixing in direction 3               
                    select case (neighbor_type(0,0,-1,n))
                    case (neighbor_fine)
-                       if (ix3.eq.ixOmin3) pflux(1,3)%flux(ix1-nghostcells,ix2-nghostcells,1,1:nw_flux,n) &
+                       if (ix3.eq.ixOmin3) pflux(1,3)%flux(ix1-nghostcells,ix2-nghostcells,1,n,1:nw_flux) &
                                = qdt * inv_dr(3) * f(:,1)
                    case (neighbor_coarse)
                        if (ix3.eq.ixOmin3) fC3(1,ix1,ix2,1:nw_flux) = - qdt * inv_dr(3) * f(:,1)
@@ -235,11 +237,35 @@ end subroutine finite_volume_local
 
                    select case (neighbor_type(0,0,1,n))
                    case (neighbor_fine)
-                       if (ix3.eq.ixOmax3) pflux(2,3)%flux(ix1-nghostcells,ix2-nghostcells,1,1:nw_flux,n) &
+                       if (ix3.eq.ixOmax3) pflux(2,3)%flux(ix1-nghostcells,ix2-nghostcells,1,n,1:nw_flux) &
                                = - qdt * inv_dr(3) * f(:,2)
                    case (neighbor_coarse)
                        if (ix3.eq.ixOmax3) fC3(2,ix1,ix2,1:nw_flux) = qdt * inv_dr(3) * f(:,2)
                    end select
+
+!#ifdef DEBUG_NAN
+                   !!THIS DOES NOT TRIGGER
+                   ! Check scalar quantities
+                   if (qdt /= qdt) then
+                      print *, "========================================"
+                      print *, "NaN detected in qdt"
+                      print *, "block      =", n
+                      print *, "ix         =", ix1, ix2, ix3
+!!                      print *, "side,dir   =", iside,idr
+!!                      error stop
+                   endif
+
+                   if (inv_dr(2) /= inv_dr(2)) then
+                      print *, "========================================"
+                      print *, "NaN detected in inv_dr(2)"
+                      print *, "block      =", n
+                      print *, "ix         =", ix1, ix2, ix3
+!!                      print *, "side,dir   =", 2, 2
+!!                      error stop
+                   endif
+!#endif
+
+
 
 #:if defined('SOURCE_LOCAL')
                    ! Add local source terms:
@@ -299,7 +325,7 @@ end subroutine finite_volume_local
                   !$acc loop vector collapse(ndim-1) 
                   do ix3=1,nxCo3 
                     do ix2=1,nxCo2 
-                  pflux(1,1)%flux(1,ix2,ix3,1:nw_flux,n) = &
+                  pflux(1,1)%flux(1,ix2,ix3,n,1:nw_flux) = &
                     fC1(1,1+2*(ix2-1)+nghostcells,1+2*(ix3-1)+nghostcells,1:nw_flux) &
                    +fC1(1,2+2*(ix2-1)+nghostcells,1+2*(ix3-1)+nghostcells,1:nw_flux) &
                    +fC1(1,1+2*(ix2-1)+nghostcells,2+2*(ix3-1)+nghostcells,1:nw_flux) &
@@ -313,7 +339,7 @@ end subroutine finite_volume_local
                   !$acc loop vector collapse(ndim-1)
                   do ix3=1,nxCo3 
                      do ix2=1,nxCo2 
-                  pflux(2,1)%flux(1,ix2,ix3,1:nw_flux,n) = &
+                  pflux(2,1)%flux(1,ix2,ix3,n,1:nw_flux) = &
                     fC1(2,1+2*(ix2-1)+nghostcells,1+2*(ix3-1)+nghostcells,1:nw_flux) &
                    +fC1(2,2+2*(ix2-1)+nghostcells,1+2*(ix3-1)+nghostcells,1:nw_flux) &
                    +fC1(2,1+2*(ix2-1)+nghostcells,2+2*(ix3-1)+nghostcells,1:nw_flux) &
@@ -328,7 +354,7 @@ end subroutine finite_volume_local
                   !$acc loop vector collapse(ndim-1) 
                   do ix3=1,nxCo3 
                     do ix1=1,nxCo1 
-                  pflux(1,2)%flux(ix1,1,ix3,1:nw_flux,n) = &
+                  pflux(1,2)%flux(ix1,1,ix3,n,1:nw_flux) = &
                     fC2(1,1+2*(ix1-1)+nghostcells,1+2*(ix3-1)+nghostcells,1:nw_flux) &
                    +fC2(1,2+2*(ix1-1)+nghostcells,1+2*(ix3-1)+nghostcells,1:nw_flux) &
                    +fC2(1,1+2*(ix1-1)+nghostcells,2+2*(ix3-1)+nghostcells,1:nw_flux) &
@@ -342,7 +368,7 @@ end subroutine finite_volume_local
                   !$acc loop vector collapse(ndim-1)
                   do ix3=1,nxCo3 
                      do ix1=1,nxCo1 
-                  pflux(2,2)%flux(ix1,1,ix3,1:nw_flux,n) = &
+                  pflux(2,2)%flux(ix1,1,ix3,n,1:nw_flux) = &
                     fC2(2,1+2*(ix1-1)+nghostcells,1+2*(ix3-1)+nghostcells,1:nw_flux) &
                    +fC2(2,2+2*(ix1-1)+nghostcells,1+2*(ix3-1)+nghostcells,1:nw_flux) &
                    +fC2(2,1+2*(ix1-1)+nghostcells,2+2*(ix3-1)+nghostcells,1:nw_flux) &
@@ -357,7 +383,7 @@ end subroutine finite_volume_local
                   !$acc loop vector collapse(ndim-1) 
                   do ix2=1,nxCo2 
                     do ix1=1,nxCo1 
-                  pflux(1,3)%flux(ix1,ix2,1,1:nw_flux,n) = &
+                  pflux(1,3)%flux(ix1,ix2,1,n,1:nw_flux) = &
                     fC3(1,1+2*(ix1-1)+nghostcells,1+2*(ix2-1)+nghostcells,1:nw_flux) &
                    +fC3(1,2+2*(ix1-1)+nghostcells,1+2*(ix2-1)+nghostcells,1:nw_flux) &
                    +fC3(1,1+2*(ix1-1)+nghostcells,2+2*(ix2-1)+nghostcells,1:nw_flux) &
@@ -371,7 +397,7 @@ end subroutine finite_volume_local
                   !$acc loop vector collapse(ndim-1)
                   do ix2=1,nxCo2 
                      do ix1=1,nxCo1 
-                  pflux(2,3)%flux(ix1,ix2,1,1:nw_flux,n) = &
+                  pflux(2,3)%flux(ix1,ix2,1,n,1:nw_flux) = &
                     fC3(2,1+2*(ix1-1)+nghostcells,1+2*(ix2-1)+nghostcells,1:nw_flux) &
                    +fC3(2,2+2*(ix1-1)+nghostcells,1+2*(ix2-1)+nghostcells,1:nw_flux) &
                    +fC3(2,1+2*(ix1-1)+nghostcells,2+2*(ix2-1)+nghostcells,1:nw_flux) &
@@ -382,7 +408,7 @@ end subroutine finite_volume_local
 
           if (n == 1 .or. n == 100) then
             print *, "FINITE_VOLUME WRITE: n=", n, "pflux(2,2)=",&
-pflux(2,2)%flux(1,1,1,1,n)
+pflux(2,2)%flux(1,1,1,n,1)
           endif
 
        end do

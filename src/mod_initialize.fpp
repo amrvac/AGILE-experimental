@@ -94,28 +94,28 @@ contains
     allocate(pflux(2,3))
     !$acc enter data create(pflux)
 
-    allocate(pflux(1,1)%flux(1,1:nx2,1:nx3,1:nwflux,1:max_blocks))
+    allocate(pflux(1,1)%flux(1,1:nx2,1:nx3,1:max_blocks,1:nwflux))
     pflux(1,1)%flux = 0.0d0
     !$acc enter data copyin(pflux(1,1)%flux)
 !!    allocate(pflux(2,1)%flux(nx1,1:nx2,1:nx3,1:nwflux,1:max_blocks))
-    allocate(pflux(2,1)%flux(1,1:nx2,1:nx3,1:nwflux,1:max_blocks))
+    allocate(pflux(2,1)%flux(1,1:nx2,1:nx3,1:max_blocks,1:nwflux))
     pflux(2,1)%flux = 0.0d0
     !$acc enter data copyin(pflux(2,1)%flux)
     !!allocate(pflux(2,1)%flux(nx1,1:nx2,1:nx3,1:nwflux,1:max_blocks)
 
-    allocate(pflux(1,2)%flux(1:nx1,1,1:nx3,1:nwflux,1:max_blocks))
+    allocate(pflux(1,2)%flux(1:nx1,1,1:nx3,1:max_blocks,1:nwflux))
     pflux(1,2)%flux = 0.0d0
     !$acc enter data copyin(pflux(1,2)%flux)
 !!    allocate(pflux(2,2)%flux(1:nx1,nx2,1:nx3,1:nwflux,1:max_blocks))
-    allocate(pflux(2,2)%flux(1:nx1,1,1:nx3,1:nwflux,1:max_blocks))
+    allocate(pflux(2,2)%flux(1:nx1,1,1:nx3,1:max_blocks,1:nwflux))
     pflux(2,2)%flux = 0.0d0
     !$acc enter data copyin(pflux(2,2)%flux)
 
-    allocate(pflux(1,3)%flux(1:nx1,1:nx2,1,1:nwflux,1:max_blocks))
+    allocate(pflux(1,3)%flux(1:nx1,1:nx2,1,1:max_blocks,1:nwflux))
     pflux(1,3)%flux = 0.0d0
     !$acc enter data copyin(pflux(1,3)%flux)
 !!    allocate(pflux(2,3)%flux(1:nx1,1:nx2,nx3,1:nwflux,1:max_blocks))
-    allocate(pflux(2,3)%flux(1:nx1,1:nx2,1,1:nwflux,1:max_blocks))
+    allocate(pflux(2,3)%flux(1:nx1,1:nx2,1,1:max_blocks,1:nwflux))
     pflux(2,3)%flux = 0.0d0
     !$acc enter data copyin(pflux(2,3)%flux)
 

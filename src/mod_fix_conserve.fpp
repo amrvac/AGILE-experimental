@@ -892,6 +892,7 @@ module mod_fix_conserve
      integer :: nxCo1,nxCo2,nxCo3, iw, ix, ipe_neighbor, ineighbor, nbuf,&
          ibufnext, nw1
      double precision :: CoFiratio
+     logical :: error_flag
 
      nw1=nw0-1+nwfluxin
      if (slab_uniform) then
@@ -908,6 +909,10 @@ module mod_fix_conserve
      nxCo1=(ixMhi1-ixMlo1+1)/2
      nxCo2=(ixMhi2-ixMlo2+1)/2
      nxCo3=(ixMhi3-ixMlo3+1)/2
+
+    !this was commented out in an earlier version ...
+    !JESSE TODO DEBUG!
+    !$acc enter data copyin(nxCo1,nxCo2,nxCo3)
 
 !!    !$acc parallel
 !!    if (acc_on_device(acc_device_nvidia)) then
@@ -927,7 +932,7 @@ module mod_fix_conserve
 
        if (igrid == 1 .or. igrid == 100) then
          print *, "FIX_CONSERVE   READ: n=", igrid, "pflux(2,2)=",&
-pflux(2,2)%flux(1,1,1,1,igrid)
+pflux(2,2)%flux(1,1,1,igrid,1)
        endif
 
        do idims=idimmin,idimmax
@@ -979,7 +984,7 @@ pflux(2,2)%flux(1,1,1,1,igrid)
                   do ix2=ixMlo2,ixMhi2 
                     psb(igrid)%w(ix,ix2,ix3,nw0:nw1) = &
                       psb(igrid)%w(ix,ix2,ix3,nw0:nw1) - &
-                      pflux(iside,1)%flux(1,ix2-nghostcells,ix3-nghostcells,1:nwfluxin,igrid)
+                      pflux(iside,1)%flux(1,ix2-nghostcells,ix3-nghostcells,igrid,1:nwfluxin)
                       !old version
                       !pflux(iside,1,igrid)%flux(1,ix2-nghostcells,ix3-nghostcells,1:nwfluxin)
                   end do
@@ -999,7 +1004,6 @@ pflux(2,2)%flux(1,1,1,1,igrid)
 
 
              ! add fine flux
-
              do ic3=1+int((1-i3)/2),2-int((1+i3)/2)
                inc3=2*i3+ic3
              do ic2=1+int((1-i2)/2),2-int((1+i2)/2)
@@ -1024,7 +1028,7 @@ pflux(2,2)%flux(1,1,1,1,igrid)
                            psb(igrid)%w(ix,ixmin2+ix2-1,ixmin3+ix3-1,nw0:nw1) = &
                             psb(igrid)%w(ix,ixmin2+ix2-1,ixmin3+ix3-1,nw0:nw1) + &
                             pflux(iotherside,1&
-                            )%flux(1,ix2,ix3,1:nwfluxin,ineighbor)&
+                            )%flux(1,ix2,ix3,ineighbor,1:nwfluxin)&
                             * CoFiratio
                           !!OLD VERSION JESSE
                           !  pflux(iotherside,1,ineighbor&
@@ -1128,7 +1132,7 @@ pflux(2,2)%flux(1,1,1,1,igrid)
                   do ix1=ixMlo1,ixMhi1 
                     psb(igrid)%w(ix1,ix,ix3,nw0:nw1) = &
                      psb(igrid)%w(ix1,ix,ix3,nw0:nw1) - &
-                     pflux(iside,2)%flux(ix1-nghostcells,1,ix3-nghostcells,1:nwfluxin,igrid)
+                     pflux(iside,2)%flux(ix1-nghostcells,1,ix3-nghostcells,igrid,1:nwfluxin)
                      !!OLD VERSION JESSE
                      !pflux(iside,2,igrid)%flux(ix1-nghostcells,1,ix3-nghostcells,1:nwfluxin)
                   end do
@@ -1172,11 +1176,31 @@ pflux(2,2)%flux(1,1,1,1,igrid)
                      do ix1=1,nxCo1 
                        psb(igrid)%w(ixmin1+ix1-1,ix,ixmin3+ix3-1,nw0:nw1) = &
                          psb(igrid)%w(ixmin1+ix1-1,ix,ixmin3+ix3-1,nw0:nw1) + &
-                         pflux(iotherside,2)%flux(ix1,1,ix3,1:nwfluxin,ineighbor) * CoFiratio
+                         pflux(iotherside,2)%flux(ix1,1,ix3,ineighbor,1:nwfluxin)&
+                          * CoFiratio
                          !!OLD VERSION JESSE
                          !pflux(iotherside,2,ineighbor)%flux(ix1,1,ix3,1:nwfluxin) * CoFiratio
                      end do
                    end do
+
+                   !!error_flag = .false.
+                   do iw = 1, nwfluxin
+                      if (pflux(iotherside,2)%flux(ix1,1,ix3,ineighbor,iw) /= &
+                          pflux(iotherside,2)%flux(ix1,1,ix3,ineighbor,iw)) then
+                          error_flag = .true.
+                          print *, "NaN in component", iw
+                          print *, "ineighbor =", ineighbor
+                          print *, "ix =", ix1, ix3
+                          print *, "ix1, ixmin1, ixmax1, nxCo1 =", ix1,&
+                                 ixmin1, ixmax1, nxCo1 
+                          print *, "ix3, ixmin3, ixmax3, nxCo3 =", ix3,&
+                                 ixmin3, ixmax3, nxCo3 
+                          print *, "pflux =", pflux(iotherside,2)%flux(ix1,1,ix3,ineighbor,iw)
+                          stop
+                      endif
+                   enddo
+
+                   !!if (error_flag) stop
 
                  !  psb(igrid)%w(ixmin1:ixmax1,ixmin2:ixmax2,ixmin3:ixmax3,&
                  !     nw0:nw1) = psb(igrid)%w(ixmin1:ixmax1,ixmin2:ixmax2,&
@@ -1273,7 +1297,7 @@ pflux(2,2)%flux(1,1,1,1,igrid)
                  do ix1=ixMlo1,ixMhi1 
                    psb(igrid)%w(ix1,ix2,ix,nw0:nw1) = &
                      psb(igrid)%w(ix1,ix2,ix,nw0:nw1) - &
-                     pflux(iside,3)%flux(ix1-nghostcells,ix2-nghostcells,1,1:nwfluxin,igrid)
+                     pflux(iside,3)%flux(ix1-nghostcells,ix2-nghostcells,1,igrid,1:nwfluxin)
                      !!OLD JESSE
                      !pflux(iside,3,igrid)%flux(ix1-nghostcells,ix2-nghostcells,1,1:nwfluxin)
                  end do
@@ -1315,8 +1339,8 @@ pflux(2,2)%flux(1,1,1,1,igrid)
                      do ix1=1,nxCo1 
                        psb(igrid)%w(ixmin1+ix1-1,ixmin2+ix2-1,ix,nw0:nw1) = &
                          psb(igrid)%w(ixmin1+ix1-1,ixmin2+ix2-1,ix,nw0:nw1) + &
-                         pflux(iotherside,3)%flux(ix1,ix2,1,1:nwfluxin,&
-                          ineighbor)* CoFiratio
+                         pflux(iotherside,3)%flux(ix1,ix2,1,&
+                          ineighbor,1:nwfluxin)* CoFiratio
                          !!OLD JESSE
                          !pflux(iotherside,3,ineighbor&
                          !)%flux(ix1,ix2,1,1:nwfluxin)* CoFiratio
