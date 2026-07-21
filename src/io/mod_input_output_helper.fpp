@@ -5,14 +5,16 @@ module mod_input_output_helper
   ! public methods
   public :: count_ix
   public :: create_output_file
-  public :: snapshot_write_header1
+  public :: datfile_write_header1
   public :: block_shape_io
   public :: get_names_from_string
 
-  !> whether a manually inserted snapshot is saved
+  !> whether a manually inserted datfile is saved
   logical :: save_now
   !> Version number of the .dat file output
   integer, parameter :: version_number = 5
+  !> Bytes per real in the block data of version 6 (single precision) snapshots
+  integer, parameter :: size_real_v6 = 4
   contains
 
    function get_names_from_string(aux_variable_names,nwc) result(names) 
@@ -114,8 +116,8 @@ module mod_input_output_helper
     end if
 
     ! MPI cannot easily replace existing files
-    open(unit=unitsnapshot,file=filename,status='replace')
-    close(unitsnapshot, status='delete')
+    open(unit=unitdatfile,file=filename,status='replace')
+    close(unitdatfile, status='delete')
 
     amode = ior(MPI_MODE_CREATE, MPI_MODE_WRONLY)
     call MPI_FILE_OPEN(MPI_COMM_SELF,filename,amode, MPI_INFO_NULL, fh,&
@@ -128,12 +130,12 @@ module mod_input_output_helper
 
   end subroutine create_output_file
 
-  !> Write header for a snapshot, generalize cons_wnames and nw
+  !> Write header for a datfile, generalize cons_wnames and nw
   !>
-  !> If you edit the header, don't forget to update: snapshot_write_header(),
-  !> snapshot_read_header(), doc/fileformat.md, tools/python/dat_reader.py
-  subroutine snapshot_write_header1(fh, offset_tree, offset_block,&
-      dataset_names, nw_vars)
+  !> If you edit the header, don't forget to update: datfile_write_header(),
+  !> datfile_read_header(), doc/fileformat.md, tools/python/dat_reader.py
+  subroutine datfile_write_header1(fh, offset_tree, offset_block,&
+      dataset_names, nw_vars, version, is_snap)
     use mod_forest
     use mod_physics
     use mod_global_parameters
@@ -142,12 +144,24 @@ module mod_input_output_helper
     integer(kind=MPI_OFFSET_KIND), intent(in) :: offset_block !< Offset of block data
     character(len=*), intent(in) :: dataset_names(:)
     integer, intent(in) :: nw_vars
+    !> File format version to write (defaults to the v5 format)
+    integer, intent(in), optional :: version
+    !> Single precision snapshots do not advance the datfile counter, so
+    !> their header must store datfilenext as is
+    logical, intent(in), optional :: is_snap
     integer, dimension(MPI_STATUS_SIZE)       :: st
     integer                                   :: iw, er
 
     character(len=name_len) :: dname
+    integer                 :: file_version
+    logical                 :: snap_mode
 
-    call MPI_FILE_WRITE(fh, version_number, 1, MPI_INTEGER, st, er)
+    file_version = version_number
+    if (present(version)) file_version = version
+    snap_mode = .false.
+    if (present(is_snap)) snap_mode = is_snap
+
+    call MPI_FILE_WRITE(fh, file_version, 1, MPI_INTEGER, st, er)
     call MPI_FILE_WRITE(fh, int(offset_tree), 1, MPI_INTEGER, st, er)
     call MPI_FILE_WRITE(fh, int(offset_block), 1, MPI_INTEGER, st, er)
     call MPI_FILE_WRITE(fh, nw_vars, 1, MPI_INTEGER, st, er)
@@ -180,6 +194,12 @@ module mod_input_output_helper
     ! Write stagger grid mark
     call MPI_FILE_WRITE(fh, stagger_grid, 1, MPI_LOGICAL, st, er)
 
+    ! From version 6: bytes per real in the block data (self-describing
+    ! precision, so readers need not map version number to precision)
+    if (file_version > 5) then
+      call MPI_FILE_WRITE(fh, size_real_v6, 1, MPI_INTEGER, st, er)
+    end if
+
     do iw = 1, nw_vars
       ! using directly trim(adjustl((dataset_names(iw)))) in MPI_FILE_WRITE call 
       ! does not work, there will be trailing characters
@@ -196,16 +216,18 @@ module mod_input_output_helper
     ! character(n_par * name_len) :: names
     call phys_write_info(fh)
 
-    ! Write snapshotnext etc., which is useful for restarting.
-    ! Note we add one, since snapshotnext is updated *after* this procedure
-    if(pass_wall_time.or.save_now) then
-      call MPI_FILE_WRITE(fh, snapshotnext, 1, MPI_INTEGER, st, er)
+    ! Write datfilenext etc., which is useful for restarting.
+    ! Note we add one, since datfilenext is updated *after* this procedure.
+    ! Single precision snapshots do not advance the datfile counter, so
+    ! they store datfilenext unchanged.
+    if(pass_wall_time.or.save_now.or.snap_mode) then
+      call MPI_FILE_WRITE(fh, datfilenext, 1, MPI_INTEGER, st, er)
     else
-      call MPI_FILE_WRITE(fh, snapshotnext+1, 1, MPI_INTEGER, st, er)
+      call MPI_FILE_WRITE(fh, datfilenext+1, 1, MPI_INTEGER, st, er)
     end if
     call MPI_FILE_WRITE(fh, slicenext, 1, MPI_INTEGER, st, er)
     call MPI_FILE_WRITE(fh, collapsenext, 1, MPI_INTEGER, st, er)
 
-  end subroutine snapshot_write_header1
+  end subroutine datfile_write_header1
 
 end module mod_input_output_helper

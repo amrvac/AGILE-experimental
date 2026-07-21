@@ -154,7 +154,7 @@ class load_datfile():
         varmax = -1e99
         varmin = 1e99
         for offset in self.block_offsets:
-            block = datfile_utilities.get_single_block_data(self.file, offset, self.block_shape)
+            block = datfile_utilities.get_single_block_data(self.file, offset, self.block_shape, self.header.get("size_real", 8))
             block = process_data.create_data_dict(block, self.header)
             varmax = np.maximum(varmax, np.max(block[var]))
             varmin = np.minimum(varmin, np.min(block[var]))

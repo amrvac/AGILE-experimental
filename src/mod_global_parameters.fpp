@@ -180,14 +180,14 @@ module mod_global_parameters
   integer, parameter :: nsavehi=100
 
   !> Number of output methods
-  integer, parameter :: nfile = 5
+  integer, parameter :: nfile = 6
 
   !> index number of the latest existing data file
   integer :: index_latest_data
 
   !> Names of the output methods
   character(len=40), parameter  :: output_names(nfile) = ['log      ',&
-      'normal   ', 'slice    ', 'collapsed', 'analysis ']
+      'datfile  ', 'slice    ', 'collapsed', 'analysis ', 'snapshot ']
 
   !> User parameter file
   character(len=std_len)   :: usr_filename
@@ -234,10 +234,13 @@ module mod_global_parameters
   double precision :: time_bc
 
   !> IO: snapshot and collapsed views output numbers/labels
-  integer :: snapshotnext, collapsenext
+  integer :: datfilenext, collapsenext
 
   !> IO: slice output numbers/labels
   integer :: slicenext
+
+  !> IO: single precision snapshot output number/label
+  integer :: snapnext
 
   !> Constant indicating log output
   integer, parameter :: filelog_      = 1
@@ -254,6 +257,10 @@ module mod_global_parameters
   !> Constant indicating analysis output (see @ref analysis.md)
   integer, parameter :: fileanalysis_ = 5
 
+  !> Constant indicating single precision snapshot output (v6 format,
+  !> for analysis; use the normal output for restarts)
+  integer, parameter :: filesnap_ = 6
+
   !> Unit for standard input
   integer, parameter :: unitstdin=5
 
@@ -267,7 +274,7 @@ module mod_global_parameters
   integer, parameter :: unitpar=9
   integer, parameter :: unitconvert=10
   integer, parameter :: unitslice=11
-  integer, parameter :: unitsnapshot=12
+  integer, parameter :: unitdatfile=12
   integer, parameter :: unitcollapse=13
   integer, parameter :: unitanalysis=14
 
@@ -294,7 +301,7 @@ module mod_global_parameters
   character(len=std_len) :: typefilelog
 
   !> Resume from the snapshot with this index
-  integer :: snapshotini
+  integer :: datfileini
 
   !> If true, restart a previous run from the latest snapshot
   logical :: resume_previous_run
@@ -563,7 +570,7 @@ module mod_global_parameters
   !> If true, call initonegrid_usr upon restarting
   logical :: firstprocess
 
-  !> If true, wall time is up, modify snapshotnext for later overwrite
+  !> If true, wall time is up, modify datfilenext for later overwrite
   logical :: pass_wall_time
 
   !> If true, do H-correction to fix the carbuncle problem at grid-aligned shocks

@@ -31,6 +31,10 @@ def get_header(istream):
     if h['datfile_version'] < 3:
         raise IOError("Unsupported AMRVAC .datfiles file version: %d", h['datfile_version'])
 
+    # Block data is double precision unless the header says otherwise. From
+    # version 6 the precision is read from the header (see below).
+    h['size_real'] = SIZE_DOUBLE
+
     # Read scalar data at beginning of file
     fmt = ALIGN + 9 * 'i' + 'd'
     hdr = struct.unpack(fmt, istream.read(struct.calcsize(fmt)))
@@ -67,6 +71,11 @@ def get_header(istream):
         fmt = ALIGN + 'i' # Fortran logical is 4 byte int
         h['staggered'] = bool(
             struct.unpack(fmt, istream.read(struct.calcsize(fmt)))[0])
+
+        if h['datfile_version'] >= 6:
+            # Bytes per real in the block data (4 for single precision)
+            fmt = ALIGN + 'i'
+            [h['size_real']] = struct.unpack(fmt, istream.read(struct.calcsize(fmt)))
 
     # Read w_names
     w_names = []
@@ -135,17 +144,18 @@ def get_tree_info(istream):
     return block_lvls, block_ixs, block_offsets
 
 
-def get_single_block_data(istream, byte_offset, block_shape):
+def get_single_block_data(istream, byte_offset, block_shape, size_real=SIZE_DOUBLE):
     """"
     Retrieve a specific block from the datfile
     :param: istream       open datfile buffer in 'rb' mode
     :param: byte_offset   offset of the given block in the datfile
     :param: block_shape   the shape of the block (list containing dimensions + number of variables)
+    :param: size_real     bytes per real in the block data (header['size_real'], 4 or 8)
     :return: block_data   numpy array containing the block data, with dimensions equal to block_shape
     """
     istream.seek(byte_offset)
     # Read actual data
-    fmt = ALIGN + np.prod(block_shape) * 'd'
+    fmt = ALIGN + int(np.prod(block_shape)) * ('f' if size_real == 4 else 'd')
     d = struct.unpack(fmt, istream.read(struct.calcsize(fmt)))
     # Fortran ordering
     block_data = np.reshape(d, block_shape, order='F')
@@ -158,9 +168,10 @@ def get_blocks(dataset):
     :param dataset   instance of 'amrvac_reader.load_file' class
     :return list containing block data as dictionaries with level, morton index and data.
     """
+    size_real = dataset.header.get('size_real', SIZE_DOUBLE)
     blocks = []
     for ileaf, offset in enumerate(dataset.block_offsets):
-        block = get_single_block_data(dataset.file, offset, dataset.block_shape)
+        block = get_single_block_data(dataset.file, offset, dataset.block_shape, size_real)
         lvl = dataset.block_lvls[ileaf]
         ix = dataset.block_ixs[ileaf]
         b = {'lvl': lvl, 'ix': ix, 'w': block}
