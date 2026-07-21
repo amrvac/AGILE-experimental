@@ -263,10 +263,11 @@ contains
     character(len=1024) :: line
 
     double precision :: dvolume, domain_volume
-    double precision :: local_ME, local_IE, local_heating
-    double precision :: local_maxJ, local_maxv
-    double precision :: local_sums(3), global_sums(3)
-    double precision :: local_maxs(2), global_maxs(2)
+    double precision :: local_KE(3), local_ME(3)
+    double precision :: local_IE, local_TE, local_PhiPar, local_heating
+    double precision :: local_maxJ, local_maxv, local_maxBz, local_maxvz
+    double precision :: local_sums(10), global_sums(10)
+    double precision :: local_maxs(4), global_maxs(4)
     double precision :: current&
       (ixGlo1:ixGhi1,ixGlo2:ixGhi2,ixGlo3:ixGhi3,7-2*ndir:3)
 
@@ -274,11 +275,16 @@ contains
     double precision :: time, dtTimeLast, cellupdatesPerSecond
     double precision :: wctPerCodeTime, timeToFinish
 
+    local_KE      = 0d0
     local_ME      = 0d0
     local_IE      = 0d0
+    local_TE      = 0d0
+    local_PhiPar  = 0d0
     local_heating = 0d0
     local_maxJ    = 0d0
     local_maxv    = 0d0
+    local_maxBz   = 0d0
+    local_maxvz   = 0d0
     domain_volume = (xprobmax1-xprobmin1)*&
                     (xprobmax2-xprobmin2)*&
                     (xprobmax3-xprobmin3)
@@ -290,11 +296,14 @@ contains
        call get_current(ps(igrid)%w, ixGlo1,ixGlo2,ixGlo3,ixGhi1,ixGhi2,ixGhi3,&
           ixMlo1,ixMlo2,ixMlo3,ixMhi1,ixMhi2,ixMhi3, idirmin, current)
        call compute_block_stats(ps(igrid)%w, current, dvolume,&
-          local_ME, local_IE, local_heating, local_maxJ, local_maxv)
+          local_KE, local_ME, local_IE, local_TE, local_PhiPar, local_heating,&
+          local_maxJ, local_maxv, local_maxBz, local_maxvz)
     end do
 
-    local_sums = (/ local_ME, local_IE, local_heating /)
-    local_maxs = (/ local_maxJ, local_maxv /)
+    local_sums = (/ local_KE(1), local_KE(2), local_KE(3),&
+                     local_ME(1), local_ME(2), local_ME(3),&
+                     local_IE, local_TE, local_PhiPar, local_heating /)
+    local_maxs = (/ local_maxJ, local_maxv, local_maxBz, local_maxvz /)
     call MPI_ALLREDUCE(local_sums, global_sums, size(local_sums),&
        MPI_DOUBLE_PRECISION, MPI_SUM, icomm, ierrmpi)
     call MPI_ALLREDUCE(local_maxs, global_maxs, size(local_maxs),&
@@ -340,7 +349,8 @@ contains
                 i = len_trim(line)+2
                 write(line(i:), '(a,i0)') 'n', level
              end do
-             line = trim(line)//' ME IE maxJ maxv heating'//&
+             line = trim(line)//' KE1 KE2 KE3 ME1 ME2 ME3 IE TE PhiPar'//&
+                ' maxJ maxv maxBz maxvz heating'//&
                 " 'cell updates/s/rank' 'time to finish [hrs]'"
              call MPI_FILE_WRITE(log_fh, trim(line)//new_line('a'),&
                 len_trim(line)+1, MPI_CHARACTER, istatus, ierrmpi)
@@ -352,10 +362,13 @@ contains
        write(fmt_string, '(a,i0,a)') '(', refine_max_level, 'i10)'
        write(line(i:), fmt_string) nleafs_level(1:refine_max_level)
        i = len_trim(line)+2
-       write(line(i:), '(7ES13.4)')&
-          global_sums(1), global_sums(2),& ! ME, IE
+       write(line(i:), '(16ES13.4)')&
+          global_sums(1), global_sums(2), global_sums(3),& ! KE1, KE2, KE3
+          global_sums(4), global_sums(5), global_sums(6),& ! ME1, ME2, ME3
+          global_sums(7), global_sums(8), global_sums(9),& ! IE, TE, PhiPar
           global_maxs(1), global_maxs(2),& ! maxJ, maxv
-          global_sums(3)/domain_volume,&   ! heating
+          global_maxs(3), global_maxs(4),& ! maxBz, maxvz
+          global_sums(10)/domain_volume,&  ! heating
           cellupdatesPerSecond, timeToFinish
 
        call MPI_FILE_WRITE(log_fh, trim(line)//new_line('a'),&
@@ -365,15 +378,17 @@ contains
   contains
 
     subroutine compute_block_stats(w, current, dvolume,&
-        bME, bIE, bheating, bmaxJ, bmaxv)
+        bKE, bME, bIE, bTE, bPhiPar, bheating, bmaxJ, bmaxv, bmaxBz, bmaxvz)
       double precision, intent(in)    :: w&
         (ixGlo1:ixGhi1,ixGlo2:ixGhi2,ixGlo3:ixGhi3,1:nw)
       double precision, intent(in)    :: current&
         (ixGlo1:ixGhi1,ixGlo2:ixGhi2,ixGlo3:ixGhi3,7-2*ndir:3)
       double precision, intent(in)    :: dvolume
-      double precision, intent(inout) :: bME, bIE, bheating, bmaxJ, bmaxv
-      integer :: i1, i2, i3
-      double precision :: v2, B2, pth, J2
+      double precision, intent(inout) :: bKE(3), bME(3)
+      double precision, intent(inout) :: bIE, bTE, bPhiPar, bheating
+      double precision, intent(inout) :: bmaxJ, bmaxv, bmaxBz, bmaxvz
+      integer :: i1, i2, i3, idir
+      double precision :: v2, B2, Bmag, pth, J2, JdotB
 
       do i3 = ixMlo3, ixMhi3
       do i2 = ixMlo2, ixMhi2
@@ -381,13 +396,22 @@ contains
          associate(rho => w(i1,i2,i3,rho_))
          v2 = sum(w(i1,i2,i3,mom(:))**2)/rho**2
          B2 = sum(w(i1,i2,i3,mag(:))**2)
+         Bmag = sqrt(B2)
          pth   = (mhd_gamma-1d0)*(w(i1,i2,i3,e_)-0.5d0*rho*v2-0.5d0*B2)
          J2 = sum(current(i1,i2,i3,:)**2)
-         bME    = bME+0.5d0*B2*dvolume
+         JdotB = sum(current(i1,i2,i3,:)*w(i1,i2,i3,mag(:)))
+         do idir = 1, 3
+           bKE(idir) = bKE(idir)+0.5d0*w(i1,i2,i3,mom(idir))**2/rho*dvolume
+           bME(idir) = bME(idir)+0.5d0*w(i1,i2,i3,mag(idir))**2*dvolume
+         end do
          bIE    = bIE+pth/(mhd_gamma-1d0)*dvolume
+         bTE    = bTE+w(i1,i2,i3,e_)*dvolume
+         bPhiPar = bPhiPar+mhd_eta*JdotB/max(Bmag, smalldouble)*dvolume
          bheating = bheating+mhd_eta*J2*dvolume
          bmaxJ = max(bmaxJ, sqrt(J2))
          bmaxv = max(bmaxv, sqrt(v2))
+         bmaxBz = max(bmaxBz, abs(w(i1,i2,i3,mag(3))))
+         bmaxvz = max(bmaxvz, abs(w(i1,i2,i3,mom(3))/rho))
          end associate
       end do
       end do

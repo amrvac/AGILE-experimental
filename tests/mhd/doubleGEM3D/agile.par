@@ -10,20 +10,26 @@
  &savelist
    itsave(1,1)      = 0
    itsave(1,2)      = 0
-   dtsave_log       = 0.01d0
-   dtsave_dat       = 0.5d0
-   dtsave_slice     = 0.1d0
-   nslices          = 3
+   itsave(1,6)      = 0
+   dtsave_log       = 0.1d0
+   dtsave_dat       = 50.d0
+   dtsave_snap      = 5.0d0
+   dtsave_slice     = 1.0d0
+   nslices          = 5
    slicedir(1)      = 1
    slicecoord(1)    = 0.0d0
    slicedir(2)      = 2
    slicecoord(2)    = 0.0d0
-   slicedir(3)      = 3
-   slicecoord(3)    = 0.0d0
+   slicedir(3)      = 2
+   slicecoord(3)    = -7.5d0
+   slicedir(4)      = 2
+   slicecoord(4)    = 7.5d0
+   slicedir(5)      = 3
+   slicecoord(5)    = 0.0d0
  /
 
  &stoplist
-   time_max = 50.0
+   time_max = 350.0
  /
 
  &methodlist
@@ -43,20 +49,20 @@
  /
 
  &meshlist
-   max_blocks         = 4096
+   max_blocks         = 600
    refine_max_level   = 1
    block_nx1          = 16
    block_nx2          = 16
    block_nx3          = 16
-   domain_nx1         = 256
-   domain_nx2         = 256
-   domain_nx3         = 256
+   domain_nx1         = 480
+   domain_nx2         = 480
+   domain_nx3         = 160
    xprobmin1       = -15.0d0
    xprobmax1       = 15.0d0
    xprobmin2       = -15.0d0
    xprobmax2       = 15.0d0
-   xprobmin3       = -15.0d0
-   xprobmax3       = 15.0d0
+   xprobmin3       = -5.0d0
+   xprobmax3       = 5.0d0
  /
 
  &paramlist
