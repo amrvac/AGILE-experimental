@@ -74,6 +74,10 @@ integer :: n_ghost_hi(ndim) ! number of ghost cells on upper boundaries
 double precision :: w(block_shape, nw)
 ```
 
+Ghost cells are nonzero for physical-boundary blocks when `save_physical_boundary=T`,
+and (v6 snapshots only) on every block face when `snap_nghost>0`. This provides a uniform halo for
+seamless gradients in postprocessing. See `doc/snapshot_ghostcells_design.md`.
+
 # Version history
 
 ## Version 1

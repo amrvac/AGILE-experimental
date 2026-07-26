@@ -56,7 +56,7 @@ module mod_input_output_helper
   !> Determine the shape of a block for output (whether to include ghost cells,
   !> and on which sides)
   subroutine block_shape_io(igrid, n_ghost, ixOmin1,ixOmin2,ixOmin3,ixOmax1,&
-     ixOmax2,ixOmax3, n_values)
+     ixOmax2,ixOmax3, n_values, nghost_uniform)
     use mod_global_parameters
 
     integer, intent(in) :: igrid
@@ -67,12 +67,18 @@ module mod_input_output_helper
     integer, intent(out) :: ixOmin1,ixOmin2,ixOmin3,ixOmax1,ixOmax2,ixOmax3
     !> Number of cells/values in output
     integer, intent(out) :: n_values
+    !> If present (snapshot mode), include this many ghost-cell layers on every
+    !> block face (capped at nghostcells)
+    integer, intent(in), optional :: nghost_uniform
 
-    integer            :: idim
+    integer            :: idim, ng
 
     n_ghost(:) = 0
 
-    if(save_physical_boundary) then
+    if(present(nghost_uniform)) then
+      ng = max(0, min(nghost_uniform, nghostcells))
+      n_ghost(:) = ng
+    else if(save_physical_boundary) then
       do idim=1,ndim
         ! Include ghost cells on lower boundary
         if(ps(igrid)%is_physical_boundary(2*idim-1)) n_ghost(idim)=nghostcells

@@ -242,6 +242,10 @@ module mod_global_parameters
   !> IO: single precision snapshot output number/label
   integer :: snapnext
 
+  !> IO: number of ghost-cell layers to include on every block face in v6
+  !> snapshot files (0 = none, default; capped at nghostcells)
+  integer :: snap_nghost
+
   !> Constant indicating log output
   integer, parameter :: filelog_      = 1
 

@@ -61,7 +61,8 @@ class load_datfile():
         self.adiab_constant = 1
 
         # load blocktree information
-        self.block_lvls, self.block_ixs, self.block_offsets = datfile_utilities.get_tree_info(file)
+        self.block_lvls, self.block_ixs, self.block_offsets, self.block_nghost = \
+            datfile_utilities.get_tree_info(file)
         self.block_shape = np.append(self.header["block_nx"], self.header["nw"])
         self.domain_width = self.header["xmax"] - self.header["xmin"]
 
@@ -153,8 +154,12 @@ class load_datfile():
             raise KeyError("variable not known: {}".format(var))
         varmax = -1e99
         varmin = 1e99
-        for offset in self.block_offsets:
-            block = datfile_utilities.get_single_block_data(self.file, offset, self.block_shape, self.header.get("size_real", 8))
+        size_real = self.header.get("size_real", 8)
+        for ileaf, offset in enumerate(self.block_offsets):
+            nghost = self.block_nghost[ileaf]
+            shape = datfile_utilities.block_shape_with_ghost(self.header, nghost)
+            block = datfile_utilities.get_single_block_data(self.file, offset, shape, size_real)
+            block = datfile_utilities.strip_ghost(block, self.header, nghost)
             block = process_data.create_data_dict(block, self.header)
             varmax = np.maximum(varmax, np.max(block[var]))
             varmin = np.minimum(varmin, np.min(block[var]))

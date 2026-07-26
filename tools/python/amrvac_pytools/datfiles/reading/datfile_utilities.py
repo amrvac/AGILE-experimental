@@ -116,12 +116,16 @@ def get_tree_info(istream):
     :param: istream         open datfile buffer with 'rb' mode
     :return: block_lvls     numpy array with block levels
              block_ixs      numpy array with block morton-curve indices
-             block_offsets  numpy array with block offset in the datfile
+             block_offsets  numpy array with block (data) offset in the datfile
+             block_nghost   numpy array (nleafs, 2*ndim) of per-block ghost-cell
+                            counts: [n_ghost_lo(ndim), n_ghost_hi(ndim)]. Zero for
+                            files written without a ghost halo.
     """
     istream.seek(0)
     header = get_header(istream)
     nleafs = header['nleafs']
     nparents = header['nparents']
+    ndim = header['ndim']
 
     # Read tree info. Skip 'leaf' array
     istream.seek(header['offset_tree'] + (nleafs+nparents) * SIZE_LOGICAL)
@@ -135,13 +139,38 @@ def get_tree_info(istream):
     block_ixs = np.reshape(struct.unpack(fmt, istream.read(struct.calcsize(fmt))),
                            [nleafs, header['ndim']])
 
-    # Read block offsets (skip ghost cells !)
-    bcfmt = ALIGN + header['ndim'] * 'i'
-    bcsize = struct.calcsize(bcfmt) * 2
+    # Read block offsets. Each stored offset points at that block's ghost-count
+    # header (2*ndim ints, always present); the block data follows it.
+    gfmt = ALIGN + (2 * ndim) * 'i'
+    bcsize = struct.calcsize(gfmt)
 
     fmt = ALIGN + nleafs * 'q'
-    block_offsets = np.array(struct.unpack(fmt, istream.read(struct.calcsize(fmt)))) + bcsize
-    return block_lvls, block_ixs, block_offsets
+    raw_offsets = np.array(struct.unpack(fmt, istream.read(struct.calcsize(fmt))))
+    block_offsets = raw_offsets + bcsize          # start of block data
+
+    # Per-block ghost-cell counts, read from each block's header.
+    block_nghost = np.zeros((nleafs, 2 * ndim), dtype=int)
+    for i, raw in enumerate(raw_offsets):
+        istream.seek(int(raw))
+        block_nghost[i] = struct.unpack(gfmt, istream.read(bcsize))
+    return block_lvls, block_ixs, block_offsets, block_nghost
+
+
+def block_shape_with_ghost(header, nghost):
+    """Per-block array shape including its ghost halo: (block_nx + lo + hi, ..., nw)."""
+    ndim = header['ndim']
+    lo = np.asarray(nghost[:ndim])
+    hi = np.asarray(nghost[ndim:])
+    return np.append(np.asarray(header['block_nx']) + lo + hi, header['nw'])
+
+
+def strip_ghost(block, header, nghost):
+    """Return the interior (block_nx) part of a ghosted block, dropping the halo."""
+    ndim = header['ndim']
+    lo = np.asarray(nghost[:ndim])
+    hi = np.asarray(nghost[ndim:])
+    sl = tuple(slice(int(lo[k]), block.shape[k] - int(hi[k])) for k in range(ndim))
+    return block[sl + (slice(None),)]
 
 
 def get_single_block_data(istream, byte_offset, block_shape, size_real=SIZE_DOUBLE):
@@ -162,19 +191,40 @@ def get_single_block_data(istream, byte_offset, block_shape, size_real=SIZE_DOUB
     return block_data
 
 
-def get_blocks(dataset):
+def read_block(dataset, ileaf, keep_ghost=False):
+    """Read leaf block `ileaf` at its true (ghosted) shape, stripping the halo
+    unless keep_ghost=True. Handles both ghosted and ghost-free files."""
+    nghost = dataset.block_nghost[ileaf]
+    shape = block_shape_with_ghost(dataset.header, nghost)
+    size_real = dataset.header.get('size_real', SIZE_DOUBLE)
+    block = get_single_block_data(dataset.file, dataset.block_offsets[ileaf], shape, size_real)
+    if not keep_ghost:
+        block = strip_ghost(block, dataset.header, nghost)
+    return block
+
+
+def get_blocks(dataset, keep_ghost=False):
     """
     Reads all block data from an MPI-AMRVAC 2.0 snapshot.
-    :param dataset   instance of 'amrvac_reader.load_file' class
-    :return list containing block data as dictionaries with level, morton index and data.
+    :param dataset      instance of 'amrvac_reader.load_file' class
+    :param keep_ghost   if True, return each block with its ghost halo (for
+                        per-block gradients / periodic-edge stencils); if False
+                        (default) strip the halo so blocks tile the domain.
+    :return list containing block data as dictionaries with level, morton index,
+            data ('w') and ghost counts ('nghost').
     """
     size_real = dataset.header.get('size_real', SIZE_DOUBLE)
+    hdr = dataset.header
     blocks = []
     for ileaf, offset in enumerate(dataset.block_offsets):
-        block = get_single_block_data(dataset.file, offset, dataset.block_shape, size_real)
+        nghost = dataset.block_nghost[ileaf]
+        shape = block_shape_with_ghost(hdr, nghost)
+        block = get_single_block_data(dataset.file, offset, shape, size_real)
+        if not keep_ghost:
+            block = strip_ghost(block, hdr, nghost)
         lvl = dataset.block_lvls[ileaf]
         ix = dataset.block_ixs[ileaf]
-        b = {'lvl': lvl, 'ix': ix, 'w': block}
+        b = {'lvl': lvl, 'ix': ix, 'w': block, 'nghost': nghost}
         blocks.append(b)
 
     return blocks

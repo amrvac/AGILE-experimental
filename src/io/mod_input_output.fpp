@@ -254,7 +254,7 @@ contains
        usr_filename,nwauxio,nocartesian, w_write,writelevel,writespshift,&
        length_convert_factor, w_convert_factor, time_convert_factor,level_io,&
        level_io_min, level_io_max, autoconvert,slice_type,slicenext,&
-       collapsenext,collapse_type, type_endian, snapnext
+       collapsenext,collapse_type, type_endian, snapnext, snap_nghost
 
     namelist /savelist/ tsave,itsave,dtsave,ditsave,nslices,slicedir,&
         slicecoord,collapse,collapseLevel, time_between_print,tsave_log,&
@@ -371,6 +371,7 @@ contains
     nwauxio                  = 0
     nocartesian              = .false.
     saveprim                 = .false.
+    snap_nghost              = 0
     autoconvert              = .false.
     convert_type             = 'vtuBCCmpi'
     slice_type               = 'vtuCC'
@@ -2536,8 +2537,14 @@ contains
       igrid  = sfc_to_igrid(Morton_no)
       itag   = Morton_no
 
-      call block_shape_io(igrid, n_ghost, ixOmin1,ixOmin2,ixOmin3,ixOmax1,&
-         ixOmax2,ixOmax3, n_values)
+      if(snap_mode .and. snap_nghost > 0) then
+        ! v6 snapshot: include a uniform ghost-cell halo
+        call block_shape_io(igrid, n_ghost, ixOmin1,ixOmin2,ixOmin3,ixOmax1,&
+           ixOmax2,ixOmax3, n_values, snap_nghost)
+      else
+        call block_shape_io(igrid, n_ghost, ixOmin1,ixOmin2,ixOmin3,ixOmax1,&
+           ixOmax2,ixOmax3, n_values)
+      end if
       if(stagger_grid) then
         w_buffer(1:n_values) = pack(ps(igrid)%w(ixOmin1:ixOmax1,&
            ixOmin2:ixOmax2,ixOmin3:ixOmax3, 1:nw), .true.)
