@@ -248,6 +248,59 @@ contains
   end subroutine initonegrid_usr
 
 
+  !> Force full refinement in a band around each current sheet.
+  subroutine usr_refine_grid(igrid,level,ixGmin1,ixGmin2,ixGmin3,&
+    ixGmax1,ixGmax2,ixGmax3,ixmin1,ixmin2,ixmin3,ixmax1,ixmax2,ixmax3,&
+    qt,w,x,refine,coarsen)
+#ifdef _CRAYFTN
+#ifdef _OPENACC
+    !dir$ inlinenever usr_refine_grid
+#endif
+#endif
+    !$acc routine vector
+    use mod_global_parameters
+
+    integer, intent(in)             :: igrid, level, ixGmin1,ixGmin2,&
+        ixGmin3,ixGmax1,ixGmax2,ixGmax3, ixmin1,ixmin2,ixmin3,ixmax1,&
+        ixmax2,ixmax3
+    double precision, intent(in)    :: qt
+    double precision, intent(in)    :: x(ixGmin1:ixGmax1,&
+         ixGmin2:ixGmax2,ixGmin3:ixGmax3,1:ndim)
+    double precision, intent(in)    :: w(ixGmin1:ixGmax1,&
+         ixGmin2:ixGmax2,ixGmin3:ixGmax3,1:nw)
+    integer, intent(inout)          :: refine, coarsen
+
+    ! half-width of the forced-refinement band around each sheet (sheetl = 1)
+    double precision, parameter :: sheet_hw = 2.0d0
+
+    integer          :: ix1, ix2, ix3
+    double precision :: yc
+    logical          :: in_sheet
+
+    in_sheet = .false.
+    !$acc loop vector collapse(3) reduction(.or.:in_sheet)
+    do ix3 = ixmin3, ixmax3
+       do ix2 = ixmin2, ixmax2
+          do ix1 = ixmin1, ixmax1
+             yc = x(ix1,ix2,ix3,2)
+             if (abs(yc-ysh1) < sheet_hw .or. abs(yc-ysh2) < sheet_hw) then
+                in_sheet = .true.
+             end if
+          end do
+       end do
+    end do
+
+    if (in_sheet) then
+       refine  =  1     ! force refinement up to refine_max_level
+       coarsen = -1     ! and never coarsen the sheet bands
+    else
+       refine  =  0     ! leave everything else to Lohner
+       coarsen =  0
+    end if
+
+  end subroutine usr_refine_grid
+
+
   subroutine log_usr()
     use mod_timing, only: itTimeLast, timeLast
     use mod_forest, only: nleafs_active, nleafs_level
