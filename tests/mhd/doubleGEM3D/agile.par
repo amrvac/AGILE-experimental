@@ -15,17 +15,17 @@
    dtsave_dat       = 50.d0
    dtsave_snap      = 5.0d0
    dtsave_slice     = 1.0d0
-   nslices          = 5
-   slicedir(1)      = 1
-   slicecoord(1)    = 0.0d0
+   nslices          = 2
+   slicedir(1)      = 2
+   slicecoord(1)    = -7.5d0
    slicedir(2)      = 2
-   slicecoord(2)    = 0.0d0
-   slicedir(3)      = 2
-   slicecoord(3)    = -7.5d0
-   slicedir(4)      = 2
-   slicecoord(4)    = 7.5d0
-   slicedir(5)      = 3
-   slicecoord(5)    = 0.0d0
+   slicecoord(2)    = 7.5d0
+   ! slicedir(3)      = 1
+   ! slicecoord(3)    = 0.0d0
+   ! slicedir(4)      = 2
+   ! slicecoord(4)    = 0.0d0
+   ! slicedir(5)      = 3
+   ! slicecoord(5)    = 0.0d0
  /
 
  &stoplist
@@ -35,7 +35,7 @@
  &methodlist
    time_stepper    = 'threestep'
    flux_scheme     = 20*'hll'
-   limiter         = 20*'vanleer'
+   limiter         = 20*'koren'
    phys            = 'mhd'
  /
 
@@ -49,26 +49,26 @@
  /
 
  &meshlist
-   max_blocks         = 1000
-   refine_max_level   = 4
-   refine_usr         = .true.       ! adds forced full refinement of both sheet bands
-   refine_criterion   = 3            ! 3 = Lohner error estimator
+   max_blocks         = 400
+   refine_max_level   = 1
+   ! refine_usr         = .false.       ! adds forced full refinement of both sheet bands
+   ! refine_criterion   = 3            ! 3 = Lohner error estimator
    ! Lohner equally weighted on rho (1), Bx (mag(1)=6), By (mag(2)=7)
-   w_refine_weight(1) = 0.33d0
-   w_refine_weight(6) = 0.33d0
-   w_refine_weight(7) = 0.33d0
+   ! w_refine_weight(1) = 0.34d0
+   ! w_refine_weight(6) = 0.33d0
+   ! w_refine_weight(7) = 0.33d0
    block_nx1          = 16
    block_nx2          = 16
    block_nx3          = 16
-   domain_nx1         = 96
-   domain_nx2         = 96
-   domain_nx3         = 32
+   domain_nx1         = 960
+   domain_nx2         = 960
+   domain_nx3         = 16
    xprobmin1       = -15.0d0
    xprobmax1       = 15.0d0
    xprobmin2       = -15.0d0
    xprobmax2       = 15.0d0
-   xprobmin3       = -5.0d0
-   xprobmax3       = 5.0d0
+   xprobmin3       = -0.25d0
+   xprobmax3       = 0.25d0
  /
 
  &paramlist
@@ -86,14 +86,11 @@
  /
 
  &usr_list
-   psi0bot=0.05d0
+   psi0bot=0.1d0
    psi0top=0.1d0
-   seed     = 20360812    
-   v_per(2) =0.001d0
-   v_per(3) =0.001d0
-   sig_z    =2d-1
-   f_til(2) =2d-2
-   f_til(3) =2d-2
-   mode_root =1
-   n_modes   =10
+   seed     = 20360812
+   pert_amp = 0.0d0       ! RMS amplitude of v_y' in each sheet plane
+   pert_wid = 1.0d0        ! sech^2 localisation width a (= sheetl)
+   mode_root = 1           ! lowest (n,m) wavenumber
+   n_modes   = 10          ! number of x- and z-modes
  /

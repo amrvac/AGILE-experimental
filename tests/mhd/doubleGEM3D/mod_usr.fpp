@@ -10,22 +10,20 @@ module mod_usr
   double precision :: llz,xmid,ymid,ysh1,ysh2,fkx,fky
 
   double precision, dimension(3) :: L
-  double precision, dimension(2:3) :: v_per
-  double precision, dimension(2:3) :: f_til
-  double precision :: zmid,sig_z
+  double precision :: pert_amp, pert_wid
   integer :: mode_root
   integer :: n_modes
   integer :: seed
 
-! Precomputed random numbers.
-! (4, n_modes, n_modes, 2:3)
-  double precision, dimension(:,:,:,:), allocatable :: rand_1
+! Precomputed random phases phi^s_nm (x) and psi^s_nm (z), drawn
+! independently for each sheet s=1,2.  Shape (2, n_modes, n_modes) = (s, n, m).
+  double precision, dimension(:,:,:), allocatable :: phi_rand, psi_rand
 
 !$acc declare create(sheetl,rhorat,BB0,llx,lly,psi0bot,psi0top)
 !$acc declare create(llz,xmid,ymid,ysh1,ysh2,fkx,fky)
-!$acc declare create(zmid, sig_z, mode_root, n_modes)
-!$acc declare create(L, v_per, f_til)
-!$acc declare create(rand_1)
+!$acc declare create(mode_root, n_modes, pert_amp, pert_wid)
+!$acc declare create(L)
+!$acc declare create(phi_rand, psi_rand)
 
 contains
 
@@ -46,15 +44,21 @@ contains
     implicit none
     character(len=*), dimension(:), intent(in) :: files
     integer :: n
-    namelist /usr_list/ seed, v_per, sig_z,&
-      f_til, mode_root, n_modes, psi0bot, psi0top
+    namelist /usr_list/ seed, pert_amp, pert_wid,&
+      mode_root, n_modes, psi0bot, psi0top, ysh1, ysh2
+
+    ! sentinel: if left unset, set_parameters_usr falls back to the
+    ! geometric default (1/4 and 3/4 of the y-domain).
+    ysh1 = -1.0d99
+    ysh2 = -1.0d99
+
     do n = 1, size(files)
       open(unitpar, file=trim(files(n)), status='old')
       read(unitpar, usr_list, end=111)
-111   close(unitpar) 
+111   close(unitpar)
     end do
 
-!$acc update device(v_per,sig_z,f_til,mode_root,n_modes)
+!$acc update device(pert_amp,pert_wid,mode_root,n_modes)
 !$acc update device(psi0bot,psi0top)
 
   end subroutine params_read_usr
@@ -64,7 +68,7 @@ contains
     use mod_physics
     use mod_random
     implicit none
-    integer :: i1, i2, i3, i4
+    integer :: i1, i2, i3
     integer, parameter :: i8 = selected_int_kind(18) ! as in mod_random
     type(rng_t) :: rng
 
@@ -76,35 +80,36 @@ contains
     llz=xprobmax3-xprobmin3
     xmid=xprobmin1+0.5d0*llx
     ymid=xprobmin2+0.5d0*lly
-    zmid=xprobmin3+0.5d0*llz
-    ysh1=xprobmin2+0.25d0*lly
-    ysh2=xprobmin2+0.75d0*lly
+    ! sheet locations: namelist values if given, else geometric default
+    if (ysh1 < -1.0d90) ysh1=xprobmin2+0.25d0*lly
+    if (ysh2 < -1.0d90) ysh2=xprobmin2+0.75d0*lly
     fkx=2.0_dp*pi/llx
     fky=2.0_dp*pi/lly
 
     L = [llx,lly,llz]
 
-    allocate(rand_1(4,n_modes,n_modes,2:3))
+    allocate(phi_rand(2,n_modes,n_modes), psi_rand(2,n_modes,n_modes))
 
+    ! Random phases in [0, 2 pi), independent for each sheet, mode and axis.
     if (mype == 0) then
       call rng%set_seed([int(seed, i8), 123456789_i8])
-      do i4 = 2, 3
-      do i3 = 1, n_modes
-      do i2 = 1, n_modes
-      do i1 = 1, 4
-        rand_1(i1,i2,i3,i4) = rng%normal()
-      end do
+      do i3 = 1, n_modes      ! m  (z-mode)
+      do i2 = 1, n_modes      ! n  (x-mode)
+      do i1 = 1, 2            ! s  (sheet)
+        phi_rand(i1,i2,i3) = 2.0_dp*pi*rng%unif_01()
+        psi_rand(i1,i2,i3) = 2.0_dp*pi*rng%unif_01()
       end do
       end do
       end do
     end if
     if (npe > 0) then
-      call MPI_BCAST(rand_1, size(rand_1), MPI_DOUBLE_PRECISION, 0, icomm, ierrmpi)
+      call MPI_BCAST(phi_rand, size(phi_rand), MPI_DOUBLE_PRECISION, 0, icomm, ierrmpi)
+      call MPI_BCAST(psi_rand, size(psi_rand), MPI_DOUBLE_PRECISION, 0, icomm, ierrmpi)
     end if
 
-!$acc update device(sheetl,rhorat,BB0,llx,lly,llz,xmid,ymid,zmid,ysh1,ysh2,fkx,fky)
+!$acc update device(sheetl,rhorat,BB0,llx,lly,llz,xmid,ymid,ysh1,ysh2,fkx,fky)
 !$acc update device(L)
-!$acc update device(rand_1)
+!$acc update device(phi_rand, psi_rand)
 
     if (mype == 0) call print_params()
   end subroutine set_parameters_usr
@@ -128,19 +133,17 @@ contains
     print fmti, 'seed',         seed
     print fmti, 'mode_root',    mode_root
     print fmti, 'n_modes',      n_modes
-    print fmt,  'v_per(2)',     v_per(2)
-    print fmt,  'v_per(3)',     v_per(3)
-    print fmt,  'zmid',         zmid
-    print fmt,  'sig_z',        sig_z
-    print fmt,  'f_til(2)',     f_til(2)
-    print fmt,  'f_til(3)',     f_til(3)
+    print fmt,  'pert_amp',     pert_amp
+    print fmt,  'pert_wid',     pert_wid
+    print fmt,  'ysh1',         ysh1
+    print fmt,  'ysh2',         ysh2
     print fmt,  'L(1)',         L(1)
     print fmt,  'L(2)',         L(2)
     print fmt,  'L(3)',         L(3)
     print *, '------------------------------------------------'
-    ! NOTE: See if these are roughly 0 and 1, verifies random number generation
-    print fmt, 'normal mean', sum(rand_1)/(8*n_modes**2)
-    print fmt, 'normal var ', sum(rand_1**2)/(8*n_modes**2)-(sum(rand_1)/(8*n_modes**2))**2
+    ! NOTE: phase means should be ~ pi, verifies random number generation
+    print fmt, 'phi mean', sum(phi_rand)/(2*n_modes**2)
+    print fmt, 'psi mean', sum(psi_rand)/(2*n_modes**2)
     print *, '------------------------------------------------'
   end subroutine print_params
 
@@ -153,56 +156,48 @@ contains
     double precision, intent(inout) :: w(ixGmin1:ixGmax1,ixGmin2:ixGmax2,&
        ixGmin3:ixGmax3,1:nw)
 
-    integer :: ix, iy, nx, ny
+    integer          :: i1, i2, i3, s, in, im, nwx, mwz
+    double precision :: vy, Es, Sxz, ys, norm
 
+    ! Only v_y is perturbed; v_x = v_z = 0.
     w(ixmin1:ixmax1,ixmin2:ixmax2,ixmin3:ixmax3,mom(1)) = 0.0_dp
-    w(ixmin1:ixmax1,ixmin2:ixmax2,ixmin3:ixmax3,mom(2)) = 0.0_dp
     w(ixmin1:ixmax1,ixmin2:ixmax2,ixmin3:ixmax3,mom(3)) = 0.0_dp
 
-    associate(&
-      w_ => w(ixGmin1:ixGmax1, ixGmin2:ixGmax2, ixGmin3:ixGmax3, :),&
-      x_ => x(ixGmin1:ixGmax1, ixGmin2:ixGmax2, ixGmin3:ixGmax3, :))
-      w_(:,:,:,iw_mom(2)) = 0
-      w_(:,:,:,iw_mom(3)) = 0
-      do iy = 1, n_modes-1
-      do ix = 1, n_modes-1
-        nx = mode_root+ix
-        ny = mode_root+iy
-        w_(:,:,:,iw_mom(2)) = w_(:,:,:,iw_mom(2))+&
-          (rand_1(1,ix,iy,2)*sin(2*pi*x_(:,:,:,1)/L(1)*nx)+&
-           rand_1(2,ix,iy,2)*cos(2*pi*x_(:,:,:,1)/L(1)*nx))*&
-          (rand_1(3,ix,iy,2)*sin(2*pi*x_(:,:,:,2)/L(2)*ny)+&
-           rand_1(4,ix,iy,2)*cos(2*pi*x_(:,:,:,2)/L(2)*ny))
+    ! v_y'(x,y,z) = pert_amp * SUM_{s=1,2} sech^2((y-y_s)/pert_wid)
+    !                        * SUM_{n,m} sin(2 pi n x/Lx + phi^s_nm)
+    !                                  * sin(2 pi m z/Lz + psi^s_nm)
+    ! norm makes the (x,z)-plane RMS of the modal sum unity, so the RMS
+    ! amplitude of v_y' in each sheet plane is exactly pert_amp.
+    norm = 2.0_dp/sqrt(dble(n_modes)*dble(n_modes))
+    do i3 = ixmin3, ixmax3
+    do i2 = ixmin2, ixmax2
+    do i1 = ixmin1, ixmax1
+      vy = 0.0_dp
+      do s = 1, 2
+        if (s == 1) then
+          ys = ysh1
+        else
+          ys = ysh2
+        end if
+        Es  = 1.0_dp/cosh((x(i1,i2,i3,2)-ys)/pert_wid)**2
+        Sxz = 0.0_dp
+        do im = 1, n_modes
+        do in = 1, n_modes
+          nwx = mode_root + in - 1
+          mwz = mode_root + im - 1
+          Sxz = Sxz &
+            + sin(2.0_dp*pi*dble(nwx)*x(i1,i2,i3,1)/L(1) + phi_rand(s,in,im)) &
+            * sin(2.0_dp*pi*dble(mwz)*x(i1,i2,i3,3)/L(3) + psi_rand(s,in,im))
+        end do
+        end do
+        vy = vy + Es*Sxz
       end do
-      end do
-      do iy = 1, n_modes-1
-      do ix = 1, n_modes-1
-        nx = mode_root+ix
-        ny = mode_root+iy
-        w_(:,:,:,iw_mom(3)) = w_(:,:,:,iw_mom(3))+&
-          (rand_1(1,ix,iy,3)*sin(2*pi*x_(:,:,:,1)/L(1)*nx)+&
-           rand_1(2,ix,iy,3)*cos(2*pi*x_(:,:,:,1)/L(1)*nx))*&
-          (rand_1(3,ix,iy,3)*sin(2*pi*x_(:,:,:,2)/L(2)*ny)+&
-           rand_1(4,ix,iy,3)*cos(2*pi*x_(:,:,:,2)/L(2)*ny))
-      end do
-      end do
-      w_(:,:,:,iw_mom(2)) = w_(:,:,:,iw_mom(2))*f_til(2)/(n_modes-1)
-      w_(:,:,:,iw_mom(3)) = w_(:,:,:,iw_mom(3))*f_til(3)/(n_modes-1)
+      w(i1,i2,i3,mom(2)) = pert_amp*norm*vy
+    end do
+    end do
+    end do
 
-      w_(:,:,:,iw_mom(2)) = v_per(2)*(&
-        sin(2*pi*x_(:,:,:,1)/L(1)*mode_root)/2+&
-        sin(2*pi*x_(:,:,:,2)/L(2)*mode_root)/2+&
-        w_(:,:,:,iw_mom(2)))*&
-        exp(-((x_(:,:,:,3)-zmid)/sig_z)**2)
-      w_(:,:,:,iw_mom(3)) = v_per(3)*(&
-        sin(2*pi*x_(:,:,:,1)/L(1)*mode_root)/2+&
-        sin(2*pi*x_(:,:,:,2)/L(2)*mode_root)/2+&
-        w_(:,:,:,iw_mom(3)))*&
-        exp(-((x_(:,:,:,3)-zmid)/sig_z)**2)
 
-    end associate
-
-   
     w(ixmin1:ixmax1,ixmin2:ixmax2,ixmin3:ixmax3,mag(1))= &
        BB0*(-1.0_dp+dtanh((x(ixmin1:ixmax1,ixmin2:ixmax2,ixmin3:ixmax3,2)-ysh1)/sheetl) &
                    +dtanh((ysh2-x(ixmin1:ixmax1,ixmin2:ixmax2,ixmin3:ixmax3,2))/sheetl)) &
@@ -318,8 +313,9 @@ contains
     double precision :: dvolume, domain_volume
     double precision :: local_KE(3), local_ME(3)
     double precision :: local_IE, local_TE, local_PhiPar, local_heating
+    double precision :: local_absEpar
     double precision :: local_maxJ, local_maxv, local_maxBz, local_maxvz
-    double precision :: local_sums(10), global_sums(10)
+    double precision :: local_sums(11), global_sums(11)
     double precision :: local_maxs(4), global_maxs(4)
     double precision :: current&
       (ixGlo1:ixGhi1,ixGlo2:ixGhi2,ixGlo3:ixGhi3,7-2*ndir:3)
@@ -333,6 +329,7 @@ contains
     local_IE      = 0d0
     local_TE      = 0d0
     local_PhiPar  = 0d0
+    local_absEpar = 0d0
     local_heating = 0d0
     local_maxJ    = 0d0
     local_maxv    = 0d0
@@ -349,13 +346,15 @@ contains
        call get_current(ps(igrid)%w, ixGlo1,ixGlo2,ixGlo3,ixGhi1,ixGhi2,ixGhi3,&
           ixMlo1,ixMlo2,ixMlo3,ixMhi1,ixMhi2,ixMhi3, idirmin, current)
        call compute_block_stats(ps(igrid)%w, current, dvolume,&
-          local_KE, local_ME, local_IE, local_TE, local_PhiPar, local_heating,&
+          local_KE, local_ME, local_IE, local_TE, local_PhiPar, local_absEpar,&
+          local_heating,&
           local_maxJ, local_maxv, local_maxBz, local_maxvz)
     end do
 
     local_sums = (/ local_KE(1), local_KE(2), local_KE(3),&
                      local_ME(1), local_ME(2), local_ME(3),&
-                     local_IE, local_TE, local_PhiPar, local_heating /)
+                     local_IE, local_TE, local_PhiPar, local_heating,&
+                     local_absEpar /)
     local_maxs = (/ local_maxJ, local_maxv, local_maxBz, local_maxvz /)
     call MPI_ALLREDUCE(local_sums, global_sums, size(local_sums),&
        MPI_DOUBLE_PRECISION, MPI_SUM, icomm, ierrmpi)
@@ -402,7 +401,7 @@ contains
                 i = len_trim(line)+2
                 write(line(i:), '(a,i0)') 'n', level
              end do
-             line = trim(line)//' KE1 KE2 KE3 ME1 ME2 ME3 IE TE PhiPar'//&
+             line = trim(line)//' KE1 KE2 KE3 ME1 ME2 ME3 IE TE PhiPar absEpar'//&
                 ' maxJ maxv maxBz maxvz heating'//&
                 " 'cell updates/s/rank' 'time to finish [hrs]'"
              call MPI_FILE_WRITE(log_fh, trim(line)//new_line('a'),&
@@ -415,10 +414,11 @@ contains
        write(fmt_string, '(a,i0,a)') '(', refine_max_level, 'i10)'
        write(line(i:), fmt_string) nleafs_level(1:refine_max_level)
        i = len_trim(line)+2
-       write(line(i:), '(16ES13.4)')&
+       write(line(i:), '(17ES13.4)')&
           global_sums(1), global_sums(2), global_sums(3),& ! KE1, KE2, KE3
           global_sums(4), global_sums(5), global_sums(6),& ! ME1, ME2, ME3
           global_sums(7), global_sums(8), global_sums(9),& ! IE, TE, PhiPar
+          global_sums(11),&                                ! Int |E_par| dV
           global_maxs(1), global_maxs(2),& ! maxJ, maxv
           global_maxs(3), global_maxs(4),& ! maxBz, maxvz
           global_sums(10)/domain_volume,&  ! heating
@@ -431,14 +431,15 @@ contains
   contains
 
     subroutine compute_block_stats(w, current, dvolume,&
-        bKE, bME, bIE, bTE, bPhiPar, bheating, bmaxJ, bmaxv, bmaxBz, bmaxvz)
+        bKE, bME, bIE, bTE, bPhiPar, bAbsEpar, bheating,&
+        bmaxJ, bmaxv, bmaxBz, bmaxvz)
       double precision, intent(in)    :: w&
         (ixGlo1:ixGhi1,ixGlo2:ixGhi2,ixGlo3:ixGhi3,1:nw)
       double precision, intent(in)    :: current&
         (ixGlo1:ixGhi1,ixGlo2:ixGhi2,ixGlo3:ixGhi3,7-2*ndir:3)
       double precision, intent(in)    :: dvolume
       double precision, intent(inout) :: bKE(3), bME(3)
-      double precision, intent(inout) :: bIE, bTE, bPhiPar, bheating
+      double precision, intent(inout) :: bIE, bTE, bPhiPar, bAbsEpar, bheating
       double precision, intent(inout) :: bmaxJ, bmaxv, bmaxBz, bmaxvz
       integer :: i1, i2, i3, idir
       double precision :: v2, B2, Bmag, pth, J2, JdotB
@@ -460,6 +461,7 @@ contains
          bIE    = bIE+pth/(mhd_gamma-1d0)*dvolume
          bTE    = bTE+w(i1,i2,i3,e_)*dvolume
          bPhiPar = bPhiPar+mhd_eta*JdotB/max(Bmag, smalldouble)*dvolume
+         bAbsEpar = bAbsEpar+mhd_eta*abs(JdotB)/max(Bmag, smalldouble)*dvolume
          bheating = bheating+mhd_eta*J2*dvolume
          bmaxJ = max(bmaxJ, sqrt(J2))
          bmaxv = max(bmaxv, sqrt(v2))
