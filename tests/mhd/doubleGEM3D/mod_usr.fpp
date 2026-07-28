@@ -8,6 +8,12 @@ module mod_usr
 
   double precision :: sheetl, rhorat, BB0, llx, lly, psi0bot, psi0top
   double precision :: llz,xmid,ymid,ysh1,ysh2,fkx,fky
+  !> forced sheet-band refinement is applied only while qt < t_force_sheet;
+  !> after that the bands are handed back to Lohner and may coarsen
+  double precision :: t_force_sheet
+  !> half-width in y of that forced band around each sheet, in code units
+  !> (the sheet itself has width sheetl = 1)
+  double precision :: sheet_hw
 
   double precision, dimension(3) :: L
   double precision :: pert_amp, pert_wid
@@ -21,6 +27,7 @@ module mod_usr
 
 !$acc declare create(sheetl,rhorat,BB0,llx,lly,psi0bot,psi0top)
 !$acc declare create(llz,xmid,ymid,ysh1,ysh2,fkx,fky)
+!$acc declare create(t_force_sheet, sheet_hw)
 !$acc declare create(mode_root, n_modes, pert_amp, pert_wid)
 !$acc declare create(L)
 !$acc declare create(phi_rand, psi_rand)
@@ -45,12 +52,19 @@ contains
     character(len=*), dimension(:), intent(in) :: files
     integer :: n
     namelist /usr_list/ seed, pert_amp, pert_wid,&
-      mode_root, n_modes, psi0bot, psi0top, ysh1, ysh2
+      mode_root, n_modes, psi0bot, psi0top, ysh1, ysh2, t_force_sheet, sheet_hw
 
     ! sentinel: if left unset, set_parameters_usr falls back to the
     ! geometric default (1/4 and 3/4 of the y-domain).
     ysh1 = -1.0d99
     ysh2 = -1.0d99
+
+    ! long enough to carry the initial sheets through startup, after which
+    ! Lohner tracks them on its own; set to 0 to disable the forcing entirely
+    t_force_sheet = 20.0d0
+    ! +-1 sheetl covers the tanh/sech^2 profile; the band is only insurance for
+    ! the initial condition, so it does not need to be generous
+    sheet_hw      = 1.0d0
 
     do n = 1, size(files)
       open(unitpar, file=trim(files(n)), status='old')
@@ -60,6 +74,7 @@ contains
 
 !$acc update device(pert_amp,pert_wid,mode_root,n_modes)
 !$acc update device(psi0bot,psi0top)
+!$acc update device(t_force_sheet, sheet_hw)
 
   end subroutine params_read_usr
 
@@ -137,6 +152,8 @@ contains
     print fmt,  'pert_wid',     pert_wid
     print fmt,  'ysh1',         ysh1
     print fmt,  'ysh2',         ysh2
+    print fmt,  't_force_sheet', t_force_sheet
+    print fmt,  'sheet_hw',     sheet_hw
     print fmt,  'L(1)',         L(1)
     print fmt,  'L(2)',         L(2)
     print fmt,  'L(3)',         L(3)
@@ -265,8 +282,8 @@ contains
          ixGmin2:ixGmax2,ixGmin3:ixGmax3,1:nw)
     integer, intent(inout)          :: refine, coarsen
 
-    ! half-width of the forced-refinement band around each sheet (sheetl = 1)
-    double precision, parameter :: sheet_hw = 2.0d0
+    ! sheet_hw (half-width of the forced band) is a module variable set from
+    ! the usr_list namelist -- see the declaration at the top of the module
 
     integer          :: ix1, ix2, ix3
     double precision :: yc
@@ -285,9 +302,13 @@ contains
        end do
     end do
 
-    if (in_sheet) then
+    ! Force the bands only during startup. After t_force_sheet the initial
+    ! sheets have either torn or been advected away, so pinning refinement to
+    ! their t=0 positions just holds max level on a region that is no longer
+    ! special -- hand it back to Lohner and let it coarsen if it wants.
+    if (in_sheet .and. qt < t_force_sheet) then
        refine  =  1     ! force refinement up to refine_max_level
-       coarsen = -1     ! and never coarsen the sheet bands
+       coarsen = -1     ! and do not coarsen the sheet bands yet
     else
        refine  =  0     ! leave everything else to Lohner
        coarsen =  0

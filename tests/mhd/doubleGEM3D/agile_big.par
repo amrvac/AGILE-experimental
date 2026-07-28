@@ -1,4 +1,5 @@
 
+! doubleGEM3D -- cubic 3D AMR run, sized for 6 nodes (48 GCDs) on LUMI.
  &filelist
    base_filename    = 'output/doublegem3d'
    autoconvert      = F
@@ -12,20 +13,8 @@
    itsave(1,2)      = 0
    itsave(1,6)      = 0
    dtsave_log       = 0.1d0
-   dtsave_dat       = 50.d0
-   dtsave_snap      = 10.0d0
-   ! dtsave_slice     = 1.0d0
-   ! nslices          = 6
-   ! slicedir(1)      = 1
-   ! slicecoord(1)    = 0.0d0
-   ! slicedir(2)      = 2
-   ! slicecoord(2)    = -7.5d0
-   ! slicedir(3)      = 2
-   ! slicecoord(3)    = 7.5d0
-   ! slicedir(4)      = 2
-   ! slicecoord(4)    = 0.0d0
-   ! slicedir(5)      = 3
-   ! slicecoord(5)    = 0.0d0
+   dtsave_dat       = 100.d0     ! restart dumps; ~6 GB each at 63% fill
+   dtsave_snap      = 20.0d0     ! 18 snapshots, ~6 GB each => ~110 GB total
  /
 
  &stoplist
@@ -49,18 +38,17 @@
  /
 
  &meshlist
-   max_blocks         = 512
+   ! full refinement = 32768 blocks. At the 63% fill of run 20350385 that is
+   ! ~20600 blocks = ~430/rank over 48 ranks
+   max_blocks         = 800
    refine_max_level   = 4
-   refine_usr         = .true.       ! forced sheet bands, but only while t < t_force_sheet
+   refine_usr         = .true.       ! forced sheet bands, only while t < t_force_sheet
    refine_criterion   = 3            ! 3 = Lohner error estimator
-   ! Lohner weighted on rho (1), Bx (mag(1)=6), By (mag(2)=7). rho is down-weighted:
-   ! it spans ~0.01-1.7 by late time and the normalised estimator over-triggers on
-   ! small absolute wiggles in the rarefied regions.
+   ! Lohner weighted on rho (1), Bx (mag(1)=6), By (mag(2)=7)
    w_refine_weight(1) = 0.25d0
    w_refine_weight(6) = 0.375d0
    w_refine_weight(7) = 0.375d0
-   ! default is 0.1 at every level; make the deeper levels progressively harder
-   ! to reach so max level is spent on features, not on smooth low-density gas
+   ! default is 0.1 at every level
    refine_threshold(1) = 0.10d0
    refine_threshold(2) = 0.15d0
    refine_threshold(3) = 0.20d0
@@ -68,15 +56,15 @@
    block_nx1          = 16
    block_nx2          = 16
    block_nx3          = 16
-   domain_nx1         = 64
+   domain_nx1         = 64           ! level-1 dx = 0.469 in all three dims
    domain_nx2         = 64
-   domain_nx3         = 16
+   domain_nx3         = 64
    xprobmin1       = -15.0d0
    xprobmax1       = 15.0d0
    xprobmin2       = -15.0d0
    xprobmax2       = 15.0d0
-   xprobmin3       = -3.75d0
-   xprobmax3       = 3.75d0
+   xprobmin3       = -15.0d0
+   xprobmax3       = 15.0d0
  /
 
  &paramlist
@@ -97,10 +85,13 @@
    psi0bot=0.1d0
    psi0top=0.1d0
    seed     = 20360812
-   pert_amp = 0.0d0       ! RMS amplitude of v_y' in each sheet plane
+   ! RMS of v_y' in each sheet plane.
+   pert_amp = 1.0d-3
    pert_wid = 1.0d0        ! sech^2 localisation width a (= sheetl)
    mode_root = 1           ! lowest (n,m) wavenumber
-   n_modes   = 10          ! number of x- and z-modes
-   sheet_hw      = 1.0d0   ! half-width of the forced band (was hardcoded 2.0)
-   t_force_sheet = 20.0d0  ! force sheet-band refinement only up to this time
+   n_modes   = 10          ! z-wavelengths L(3)/m = 30 down to 3, all well resolved
+   ysh1      = -5.0d0
+   ysh2      = 5.0d0
+   sheet_hw      = 1.0d0
+   t_force_sheet = 20.0d0  ! and only enforced up to this time
  /
