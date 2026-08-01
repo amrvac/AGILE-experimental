@@ -2437,15 +2437,17 @@ contains
     integer(kind=MPI_OFFSET_KIND) :: offset_tree_info
     integer(kind=MPI_OFFSET_KIND) :: offset_block_data
     integer(kind=MPI_OFFSET_KIND) :: offset_offsets
+    integer(kind=MPI_OFFSET_KIND) :: offset_nghost
     double precision, allocatable :: w_buffer(:)
     real(kind=4), allocatable     :: w_buffer_sp(:)
 
     integer, allocatable                       :: block_ig(:, :)
     integer, allocatable                       :: block_lvl(:)
+    integer, allocatable                       :: block_nghost(:, :, :)
     integer(kind=MPI_OFFSET_KIND), allocatable :: block_offset(:)
 
     logical :: snap_mode, write_sp
-    integer :: file_version, size_real_out
+    integer :: file_version, size_real_out, size_block_prefix
 
     snap_mode = .false.
     if (present(is_snap)) snap_mode = is_snap
@@ -2455,9 +2457,11 @@ contains
     if (snap_mode) then
       file_version = 6
       size_real_out = 4
+      size_block_prefix = 0
     else
       file_version = 5
       size_real_out = size_double
+      size_block_prefix = 2 * ndim * size_int
     end if
     write_sp = snap_mode
 
@@ -2476,6 +2480,10 @@ contains
     allocate(block_ig(ndim, nleafs))
     allocate(block_lvl(nleafs))
     allocate(block_offset(nleafs+1))
+    if (snap_mode) then
+      allocate(block_nghost(ndim, 2, nleafs))
+      block_nghost = 0
+    end if
 
     ! master processor
     if (mype==0) then
@@ -2513,6 +2521,14 @@ contains
       call MPI_FILE_WRITE(file_handle, block_ig, size(block_ig), MPI_INTEGER,&
           istatus, ierrmpi)
 
+      if (snap_mode) then
+        ! Per-block ghost cells are currently unknown, but will overwritten
+        ! later
+        call MPI_File_get_position(file_handle, offset_nghost, ierrmpi)
+        call mpi_file_write_wrapper(file_handle, block_nghost,&
+               size(block_nghost), MPI_INTEGER, istatus, ierrmpi)
+      end if
+
       ! Block offsets are currently unknown, but will be overwritten later
       call MPI_File_get_position(file_handle, offset_offsets, ierrmpi)
       call mpi_file_write_wrapper(file_handle, block_offset(1:nleafs), nleafs,&
@@ -2522,7 +2538,8 @@ contains
 
       ! Check whether data was written as expected
       if (offset_block_data - offset_tree_info /= (nleafs + nparents) * &
-         size_logical + nleafs * ((1+ndim) * size_int + 2 * size_int)) then
+         size_logical + nleafs * ((1+ndim) * size_int + 2 * size_int) + &
+         merge(nleafs * 2 * ndim * size_int, 0, snap_mode)) then
         if (mype == 0) then
           print *, "Warning: MPI_OFFSET type /= 8 bytes"
           print *, "This *could* cause problems when reading .dat files"
@@ -2581,8 +2598,15 @@ contains
         end if
       else
         iwrite = iwrite+1
-        call mpi_file_write_wrapper(file_handle, ix_buffer(2:), 2*ndim, MPI_INTEGER,&
-            istatus, ierrmpi)
+        if (snap_mode) then
+          ! Ghost-cell counts go in the tree, moved in mype == 0 below.
+          block_nghost(:, 1, Morton_no) = n_ghost(1:ndim)
+          block_nghost(:, 2, Morton_no) = n_ghost(ndim+1:2*ndim)
+        else
+          ! Ghost-cell counts go in the block.
+          call mpi_file_write_wrapper(file_handle, ix_buffer(2:), 2*ndim, MPI_INTEGER,&
+              istatus, ierrmpi)
+        end if
         if (write_sp) then
           call mpi_file_write_wrapper(file_handle, w_buffer_sp, n_values,&
               MPI_REAL4, istatus, ierrmpi)
@@ -2593,7 +2617,7 @@ contains
 
         ! Set offset of next block
         block_offset(iwrite+1) = block_offset(iwrite) + int(n_values,&
-            MPI_OFFSET_KIND) * size_real_out + 2 * ndim * size_int
+            MPI_OFFSET_KIND) * size_real_out + size_block_prefix
       end if
     end do
 
@@ -2616,8 +2640,13 @@ contains
                 icomm, iorecvstatus, ierrmpi)
           end if
 
-          call mpi_file_write_wrapper(file_handle, ix_buffer(2:), 2*ndim, MPI_INTEGER,&
-              istatus, ierrmpi)
+          if (snap_mode) then
+            block_nghost(:, 1, Morton_no) = ix_buffer(2:ndim+1)
+            block_nghost(:, 2, Morton_no) = ix_buffer(ndim+2:2*ndim+1)
+          else
+            call mpi_file_write_wrapper(file_handle, ix_buffer(2:), 2*ndim, MPI_INTEGER,&
+                istatus, ierrmpi)
+          end if
           if (write_sp) then
             call mpi_file_write_wrapper(file_handle, w_buffer_sp, n_values,&
                 MPI_REAL4, istatus, ierrmpi)
@@ -2628,11 +2657,18 @@ contains
 
           ! Set offset of next block
           block_offset(iwrite+1) = block_offset(iwrite) + int(n_values,&
-              MPI_OFFSET_KIND) * size_real_out + 2 * ndim * size_int
+              MPI_OFFSET_KIND) * size_real_out + size_block_prefix
         end do
       end do
 
-      ! Write block offsets (now we know them)
+      if (snap_mode) then
+        ! Write ghost-cell counts (now we know them).
+        call MPI_FILE_SEEK(file_handle, offset_nghost, MPI_SEEK_SET, ierrmpi)
+        call mpi_file_write_wrapper(file_handle, block_nghost,&
+            size(block_nghost), MPI_INTEGER, istatus, ierrmpi)
+      end if
+
+      ! Write block offsets (now we know them).
       call MPI_FILE_SEEK(file_handle, offset_offsets, MPI_SEEK_SET, ierrmpi)
       call mpi_file_write_wrapper(file_handle, block_offset(1:nleafs), nleafs,&
           MPI_OFFSET, istatus, ierrmpi)

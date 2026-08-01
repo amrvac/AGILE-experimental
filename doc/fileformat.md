@@ -42,7 +42,7 @@ integer           :: block_nx(ndim)
 logical           :: periodic(ndim)
 character(len=16) :: geometry
 logical           :: staggered
-integer           :: size_real         ! from version 6: bytes per real in block data (4 or 8)
+integer           :: size_real ! verion >=6: size 4 or 8 reals
 character(len=16) :: w_names(nw)
 character(len=16) :: physics_type
 ! The physics parameters, such as gamma
@@ -61,14 +61,15 @@ integer           :: collapsenext
 logical :: leaf(nleafs+nparents)
 integer :: refinement_level(nleafs)
 integer :: spatial_index(ndim, nleafs)
+integer :: n_ghost(ndim, 2, nleafs) ! version >=6
 integer(kind=MPI_OFFSET_KIND) :: offset_block(nleafs)
 ```
 
 # Block 1 to nleafs
 
 ```{fortran}
-integer :: n_ghost_lo(ndim) ! number of ghost cells on lower boundaries
-integer :: n_ghost_hi(ndim) ! number of ghost cells on upper boundaries
+integer :: n_ghost_lo(ndim) ! version <= 5, number of ghost cells on lower boundaries
+integer :: n_ghost_hi(ndim) ! version <= 5, number of ghost cells on upper boundaries
 ! block_shape = 1-n_ghost_lo:block_nx+n_ghost_hi
 ! double precision up to version 5, single precision from version 6
 double precision :: w(block_shape, nw)
@@ -76,7 +77,7 @@ double precision :: w(block_shape, nw)
 
 Ghost cells are nonzero for physical-boundary blocks when `save_physical_boundary=T`,
 and (v6 snapshots only) on every block face when `snap_nghost>0`. This provides a uniform halo for
-seamless gradients in postprocessing. See `doc/snapshot_ghostcells_design.md`.
+seamless gradients in postprocessing.
 
 # Version history
 
@@ -107,7 +108,7 @@ order used for the leaf/parent logical array.
 Version 2 had the same information as version 1, but changes were made to the
 Morton order on the coarse grid, causing incompatibility.
 
-## Version 5
+## Version 5 (current)
 
 Version 5 introduced the `geometry` parameter (e.g. "polar_2D",
 "cartesian_1.75D"... ), as well as a `periodic` and a `staggered` flags.
@@ -120,11 +121,20 @@ staggered grid for constrained transport MHD.
 
 ## Version 6 (current)
 
-Version 6 has the same header and layout as version 5, but stores the block
+Version 6 is written by the snapshot output stream (file type 6,
+`<base_filename>_snapNNNN.dat`) and is intended for analysis; use datfiles
+(always v5, double precision) for restarts.
+
+Version 6 has the same header as version 5, but stores the block
 data (including any staggered-field data) in single precision, roughly halving
 the file size. A single `size_real` integer (bytes per real, = 4) is added to
 the header after the `staggered` flag, so that readers decode the block data
-from this field rather than mapping the version number to a precision. It is
-written by the snapshot output stream (file type 6,
-`<base_filename>_snapNNNN.dat`) and is intended for analysis; use datfiles
-(always v5, double precision) for restarts.
+from this field rather than mapping the version number to a precision.
+
+Version 6 stores the per-block ghost-cell counts in the tree section as
+`integer :: n_ghost(ndim, 2, nleafs)` between `spatial_index` and
+`offset_block`, as opposed to in the blocks.
+
+Version 6 supports storing ghost cells per block more generally, so that they
+don't have to be reconstructed and reshaped during further analysis.
+

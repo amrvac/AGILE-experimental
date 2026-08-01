@@ -139,7 +139,8 @@ module mod_input_output_helper
   !> Write header for a datfile, generalize cons_wnames and nw
   !>
   !> If you edit the header, don't forget to update: datfile_write_header(),
-  !> datfile_read_header(), doc/fileformat.md, tools/python/dat_reader.py
+  !> datfile_read_header(), doc/fileformat.md, and
+  !> tools/python/amrvac_pytools/datfiles/reading/datfile_utilities.py
   subroutine datfile_write_header1(fh, offset_tree, offset_block,&
       dataset_names, nw_vars, version, is_snap)
     use mod_forest

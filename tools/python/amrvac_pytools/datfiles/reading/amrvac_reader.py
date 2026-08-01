@@ -2,14 +2,22 @@
 Main class to load in MPI-AMRVAC native .dat files.
 
 @author: Niels Claes    (niels.claes@kuleuven.be)
-@author: Clément Robert (clement.robert@oca.eu)
-
-         Last edit: 13 October 2019
+         Clément Robert (clement.robert@oca.eu)
+         Adrian Kelly
+         Olaf Willocx
+Last edit: 1 August 2026
 """
+
 import sys, os
 import numpy as np
 import copy
 import matplotlib.pyplot as plt
+
+# Allow this file to return directly, for convenience. See main function at the
+# bottom.
+if __name__ == "__main__":
+    sys.path.insert(0, os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "..", "..", "..")))
 
 from amrvac_pytools.datfiles.reading import datfile_utilities
 from amrvac_pytools.datfiles.processing import regridding, process_data
@@ -78,18 +86,19 @@ class load_datfile():
         else:
             info_isothermal = ''
         print("")
-        print("[INFO] Current file      : {}".format(self._filename))
-        print("[INFO] Datfile version   : {}".format(self.header["datfile_version"]))
-        print("[INFO] Current time      : {}".format(self.header["time"]))
-        print("[INFO] Physics type      : {}".format(self.header["physics_type"] + info_isothermal))
-        print("[INFO] Boundaries        : {} -> {}".format(self.header["xmin"],
-                                                           self.header["xmax"]))
-        print("[INFO] Max AMR level     : {}".format(self.header["levmax"]))
-        print("[INFO] Uniform mesh      : {}".format(self._uniform))
-        print("[INFO] Block size        : {}".format(self.header["block_nx"]))
-        print("[INFO] Number of blocks  : {}".format(len(self.block_offsets)))
+        print(f"[INFO] Current file      : {self._filename}")
+        print(f"[INFO] Datfile version   : {self.header["datfile_version"]}")
+        print(f"[INFO] Current time      : {format(self.header["time"])}")
+        print(f"[INFO] Current iteration : {self.header["it"]}")
+        print(f"[INFO] Physics type      : {self.header["physics_type"] + info_isothermal}")
+        print(f"[INFO] Boundaries        : {self.header['xmin']} -> {self.header['xmax']}")
+        print(f"[INFO] Max AMR level     : {self.header["levmax"]}")
+        print(f"[INFO] Uniform mesh      : {self._uniform}")
+        print(f"[INFO] Block size        : {self.header["block_nx"]}")
+        print(f"[INFO] Number of blocks  : {len(self.block_offsets)}")
+        print(f"[INFO] Real kind         : {self.header.get("size_real", 8)}")
         print("-" * 40)
-        print("Known variables: {}".format(self.known_fields))
+        print(f"Known variables: {self.known_fields}")
 
     def get_bounds(self):
         """
@@ -285,3 +294,34 @@ class load_datfile():
             if 'e' in fields:
                 fields += ['T']
         return fields
+
+
+if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser(
+        description="Read .dat file info: the header, and summary of given blocks.")
+    parser.add_argument("datfile",
+        help=".dat file path.")
+    parser.add_argument("-l", "--leaves", type=int, nargs="+", default=[],
+        help="Leaf indices to summarize, e.g. -l 0 1")
+    parser.add_argument("-g", "--keep-ghost", action="store_true",
+        help="Keep ghost cells in the leaf summaries")
+    args = parser.parse_args()
+
+    ds = load_datfile(args.datfile)
+    ds.get_info()
+
+    ndim = ds.header["ndim"]
+    for ileaf in args.leaves:
+        if not 0 <= ileaf < ds.header["nleafs"]:
+            print("[ERROR] leaf index {} out of range 0..{}".format(ileaf, ds.header["nleafs"]-1))
+            continue
+        nghost = ds.block_nghost[ileaf]
+        block = datfile_utilities.read_block(ds, ileaf, keep_ghost=args.keep_ghost)
+        print("-" * 40)
+        print(f"leaf {ileaf} | level {ds.block_lvls[ileaf]} | spatial index {ds.block_ixs[ileaf]}")
+        print(f"  byte offset {ds.block_offsets[ileaf]} | nghost lo {nghost[:ndim]} hi {nghost[ndim:]} | shape {block.shape}")
+        for iw, name in enumerate(ds.header["w_names"]):
+            w = block[..., iw]
+            print("  {:<16s} min {: .4e}   med {: .4e}   max {: .4e}".format(
+                name, np.min(w), np.median(w), np.max(w)))

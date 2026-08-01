@@ -3,7 +3,11 @@ Module containing reading and processing methods for an MPI-AMRVAC .datfiles fil
 
 @author: Jannis Theunissen (original)
          Clément Robert (extensions, modifications)
+         Adrian Kelly (v6)
+         Olaf Willocx (v6)
+Last edit: 1 August 2026
 """
+
 import struct
 import numpy as np
 
@@ -31,10 +35,6 @@ def get_header(istream):
     if h['datfile_version'] < 3:
         raise IOError("Unsupported AMRVAC .datfiles file version: %d", h['datfile_version'])
 
-    # Block data is double precision unless the header says otherwise. From
-    # version 6 the precision is read from the header (see below).
-    h['size_real'] = SIZE_DOUBLE
-
     # Read scalar data at beginning of file
     fmt = ALIGN + 9 * 'i' + 'd'
     hdr = struct.unpack(fmt, istream.read(struct.calcsize(fmt)))
@@ -55,6 +55,9 @@ def get_header(istream):
         struct.unpack(fmt, istream.read(struct.calcsize(fmt))))
     h['block_nx'] = np.array(
         struct.unpack(fmt, istream.read(struct.calcsize(fmt))))
+
+    if h['datfile_version'] < 5:
+        h['size_real'] = SIZE_DOUBLE
 
     if h['datfile_version'] >= 5:
         # Read periodicity
@@ -139,20 +142,32 @@ def get_tree_info(istream):
     block_ixs = np.reshape(struct.unpack(fmt, istream.read(struct.calcsize(fmt))),
                            [nleafs, header['ndim']])
 
-    # Read block offsets. Each stored offset points at that block's ghost-count
-    # header (2*ndim ints, always present); the block data follows it.
     gfmt = ALIGN + (2 * ndim) * 'i'
     bcsize = struct.calcsize(gfmt)
 
-    fmt = ALIGN + nleafs * 'q'
-    raw_offsets = np.array(struct.unpack(fmt, istream.read(struct.calcsize(fmt))))
-    block_offsets = raw_offsets + bcsize          # start of block data
+    if header['datfile_version'] >= 6:
+        # From version 6, the per-block ghost-cell counts are stored in the tree
+        # as Fortran n_ghost(ndim, 2, nleafs).
+        fmt = ALIGN + nleafs * 2 * ndim * 'i'
+        block_nghost = np.reshape(
+            struct.unpack(fmt, istream.read(struct.calcsize(fmt))),
+            [nleafs, 2 * ndim])
 
-    # Per-block ghost-cell counts, read from each block's header.
-    block_nghost = np.zeros((nleafs, 2 * ndim), dtype=int)
-    for i, raw in enumerate(raw_offsets):
-        istream.seek(int(raw))
-        block_nghost[i] = struct.unpack(gfmt, istream.read(bcsize))
+        # Offsets point directly at the block data.
+        fmt = ALIGN + nleafs * 'q'
+        block_offsets = np.array(struct.unpack(fmt, istream.read(struct.calcsize(fmt))))
+    else:
+        # Up to version 5, each stored offset points at that block's ghost-count,
+        # `2*ndim` ints.
+        fmt = ALIGN + nleafs * 'q'
+        raw_offsets = np.array(struct.unpack(fmt, istream.read(struct.calcsize(fmt))))
+        block_offsets = raw_offsets + bcsize          # start of block data
+
+        # Per-block ghost-cell counts, read from each block's header.
+        block_nghost = np.zeros((nleafs, 2 * ndim), dtype=int)
+        for i, raw in enumerate(raw_offsets):
+            istream.seek(int(raw))
+            block_nghost[i] = struct.unpack(gfmt, istream.read(bcsize))
     return block_lvls, block_ixs, block_offsets, block_nghost
 
 
