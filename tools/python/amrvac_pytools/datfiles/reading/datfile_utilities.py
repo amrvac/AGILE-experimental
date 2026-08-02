@@ -56,7 +56,7 @@ def get_header(istream):
     h['block_nx'] = np.array(
         struct.unpack(fmt, istream.read(struct.calcsize(fmt))))
 
-    if h['datfile_version'] < 5:
+    if h['datfile_version'] <= 5:
         h['size_real'] = SIZE_DOUBLE
 
     if h['datfile_version'] >= 5:

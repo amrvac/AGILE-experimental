@@ -13,7 +13,7 @@ import numpy as np
 import copy
 import matplotlib.pyplot as plt
 
-# Allow this file to return directly, for convenience. See main function at the
+# Allow this file to run directly, for convenience. See main function at the
 # bottom.
 if __name__ == "__main__":
     sys.path.insert(0, os.path.abspath(
