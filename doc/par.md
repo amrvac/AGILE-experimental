@@ -87,6 +87,8 @@ typefilelog | string | 'default' | Use 'regression_test' to do regression test a
 datfilenext | integer | 0 | Start index for writing datfiles (was `snapshotnext` before the datfile/snapshot split)
 slicenext | integer | 0 | Start index for writing slices
 snapnext | integer | 0 | Start index for writing single precision snapshots (inferred from the file name when restarting from one)
+snap_nghost | integer | 0 | Number of ghost-cell layers to include on every block face in snapshot files (capped at nghostcells)
+snap_size_real | integer | 4 | Bytes per real in snapshot block data: 4 (single precision) or 8 (double precision)
 firstprocess | logical | F | If true, call `initonegrid_usr` upon restarting
 reset_grid | logical | F | If true, rebuild the AMR grid upon restarting
 convert | logical | F | If true and filenameini and datfileini are given, convert datfiles to other file formats

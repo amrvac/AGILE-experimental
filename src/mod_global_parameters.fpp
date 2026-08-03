@@ -246,6 +246,10 @@ module mod_global_parameters
   !> snapshot files (0 = none, default; capped at nghostcells)
   integer :: snap_nghost
 
+  !> IO: bytes per real in snapshot block data,
+  !> 4 (single precision, default) or 8 (double precision)
+  integer :: snap_size_real
+
   !> Constant indicating log output
   integer, parameter :: filelog_      = 1
 

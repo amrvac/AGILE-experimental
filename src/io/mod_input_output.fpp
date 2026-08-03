@@ -254,7 +254,8 @@ contains
        usr_filename,nwauxio,nocartesian, w_write,writelevel,writespshift,&
        length_convert_factor, w_convert_factor, time_convert_factor,level_io,&
        level_io_min, level_io_max, autoconvert,slice_type,slicenext,&
-       collapsenext,collapse_type, type_endian, snapnext, snap_nghost
+       collapsenext,collapse_type, type_endian, snapnext, snap_nghost,&
+       snap_size_real
 
     namelist /savelist/ tsave,itsave,dtsave,ditsave,nslices,slicedir,&
         slicecoord,collapse,collapseLevel, time_between_print,tsave_log,&
@@ -372,6 +373,7 @@ contains
     nocartesian              = .false.
     saveprim                 = .false.
     snap_nghost              = 0
+    snap_size_real           = 4
     autoconvert              = .false.
     convert_type             = 'vtuBCCmpi'
     slice_type               = 'vtuCC'
@@ -716,6 +718,9 @@ contains
         snapnext = 0
       end if
     end if
+
+    if (snap_size_real /= 4 .and. snap_size_real /= 8) call mpistop(&
+       "snap_size_real should be 4 (single precision) or 8 (double precision).")
 
     if (small_pressure < 0.d0) call mpistop(&
        "small_pressure should be positive.")
@@ -2452,18 +2457,20 @@ contains
     snap_mode = .false.
     if (present(is_snap)) snap_mode = is_snap
 
-    ! single precision snapshots use the v6 format, datfiles the
-    ! established double precision v5 format
+    ! dat files use the v5 format.
+    ! Snapshots use the v6 format, with precision given by snap_size_real, and
+    ! storing ghost cell counts in the tree instead of the leaf.
     if (snap_mode) then
       file_version = 6
-      size_real_out = 4
+      size_real_out = snap_size_real
       size_block_prefix = 0
     else
       file_version = 5
       size_real_out = size_double
       size_block_prefix = 2 * ndim * size_int
     end if
-    write_sp = snap_mode
+    ! Whether we cast w_buffer into w_buffer_sp before writing.
+    write_sp = (size_real_out == 4)
 
     call MPI_BARRIER(icomm, ierrmpi)
 

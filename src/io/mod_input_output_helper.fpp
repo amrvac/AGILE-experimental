@@ -13,8 +13,6 @@ module mod_input_output_helper
   logical :: save_now
   !> Version number of the .dat file output
   integer, parameter :: version_number = 5
-  !> Bytes per real in the block data of version 6 (single precision) snapshots
-  integer, parameter :: size_real_v6 = 4
   contains
 
    function get_names_from_string(aux_variable_names,nwc) result(names) 
@@ -204,7 +202,7 @@ module mod_input_output_helper
     ! From version 6: bytes per real in the block data (self-describing
     ! precision, so readers need not map version number to precision)
     if (file_version > 5) then
-      call MPI_FILE_WRITE(fh, size_real_v6, 1, MPI_INTEGER, st, er)
+      call MPI_FILE_WRITE(fh, snap_size_real, 1, MPI_INTEGER, st, er)
     end if
 
     do iw = 1, nw_vars

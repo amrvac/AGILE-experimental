@@ -7,7 +7,8 @@ AGILE writes two kinds of `.dat` file, which share the layout described below:
   always written in double precision, version 5. They are the full-fidelity
   output and the files to restart from.
 * **snapshots** (`<base_filename>_snapNNNN.dat`, file type 6, `dtsave_snap`)
-  are written in single precision, version 6, and are roughly half the size.
+  are written in version 6, by default in single precision (roughly half the
+  file size, and see `snap_size_real`).
   They are intended for analysis; you cannot restart from them.
 
 Each file holds a single time level, and can be converted to other data formats
@@ -42,7 +43,7 @@ integer           :: block_nx(ndim)
 logical           :: periodic(ndim)
 character(len=16) :: geometry
 logical           :: staggered
-integer           :: size_real ! verion >=6: size 4 or 8 reals
+integer           :: size_real ! version >=6: size 4 or 8 reals
 character(len=16) :: w_names(nw)
 character(len=16) :: physics_type
 ! The physics parameters, such as gamma
@@ -123,17 +124,16 @@ staggered grid for constrained transport MHD.
 
 Version 6 is written by the snapshot output stream (file type 6,
 `<base_filename>_snapNNNN.dat`) and is intended for analysis; use datfiles
-(always v5, double precision) for restarts.
+(always v5, and always double precision) for restarts.
 
-Version 6 has the same header as version 5, but stores the block
-data (including any staggered-field data) in single precision, roughly halving
-the file size. A single `size_real` integer (bytes per real, = 4) is added to
-the header after the `staggered` flag, so that readers decode the block data
-from this field rather than mapping the version number to a precision.
+Version 6 has the same header as version 5, but stores the block data in
+single precision by default, roughly halving the file size.
+(`snap_size_real=8` in `filelist` keeps double precision.)
+A `size_real` integer (bytes per real: 4 or 8) is added to
+the header, so this defines the actual block real kind for version 6 files.
 
 Version 6 stores the per-block ghost-cell counts in the tree section as
-`integer :: n_ghost(ndim, 2, nleafs)` between `spatial_index` and
-`offset_block`, as opposed to in the blocks.
+`integer :: n_ghost(ndim, 2, nleafs)`, as opposed to in the blocks.
 
 Version 6 supports storing ghost cells per block more generally, so that they
 don't have to be reconstructed and reshaped during further analysis.
