@@ -247,8 +247,15 @@ module mod_global_parameters
   integer :: snap_nghost
 
   !> IO: bytes per real in snapshot block data,
-  !> 4 (single precision, default) or 8 (double precision)
+  !>     4 (single precision, default) or 8 (double precision)
   integer :: snap_size_real
+
+  !> IO: compress v6 snapshot block data with ZFP in fixed-precision mode
+  logical :: snap_compress_zfp
+
+  !> IO: ZFP precision in bit planes (1..64, 0 unset), no default
+  !>     https://doi.org/10.1137/18M1168832
+  integer :: snap_zfp_precision
 
   !> Constant indicating log output
   integer, parameter :: filelog_      = 1

@@ -24,6 +24,8 @@ data, in the following order:
 
 # Header
 
+Comments here mean present under said condition.
+
 ```{fortran}
 integer           :: Version number
 integer           :: Byte offset where tree information starts
@@ -43,7 +45,9 @@ integer           :: block_nx(ndim)
 logical           :: periodic(ndim)
 character(len=16) :: geometry
 logical           :: staggered
-integer           :: size_real ! version >=6: size 4 or 8 reals
+integer           :: size_real ! version >= 6
+character(len=16) :: compression ! version >= 6
+integer           :: zfp_precision ! compression == 'zfp'
 character(len=16) :: w_names(nw)
 character(len=16) :: physics_type
 ! The physics parameters, such as gamma
@@ -62,11 +66,12 @@ integer           :: collapsenext
 logical :: leaf(nleafs+nparents)
 integer :: refinement_level(nleafs)
 integer :: spatial_index(ndim, nleafs)
-integer :: n_ghost(ndim, 2, nleafs) ! version >=6
+integer :: n_ghost(ndim, 2, nleafs) ! version >= 6
+integer :: field_nbytes(nw, nleafs) ! version >= 6, present when compression /= 'none'
 integer(kind=MPI_OFFSET_KIND) :: offset_block(nleafs)
 ```
 
-# Block 1 to nleafs
+# Block 1 to nleafs (uncompressed)
 
 ```{fortran}
 integer :: n_ghost_lo(ndim) ! version <= 5, number of ghost cells on lower boundaries
@@ -77,8 +82,18 @@ double precision :: w(block_shape, nw)
 ```
 
 Ghost cells are nonzero for physical-boundary blocks when `save_physical_boundary=T`,
-and (v6 snapshots only) on every block face when `snap_nghost>0`. This provides a uniform halo for
-seamless gradients in postprocessing.
+and (v6 snapshots only) on every block face when `snap_nghost>0`. This may help in
+post processing, avoids having to reconstruct ghost cells.
+
+# Block 1 to nleafs (ZFP compressed, version >=6)
+
+A block record is the concatenation of `nw` independent canonical
+fixed-precision ZFP streams (with headers). The fields are padded up to
+multiples of 4^3, as required by ZFP. After decompression and concatenation,
+the layout is the same as for any version >=6 file.
+```
+double precision :: w(block_shape, nw)
+```
 
 # Version history
 
@@ -138,3 +153,18 @@ Version 6 stores the per-block ghost-cell counts in the tree section as
 Version 6 supports storing ghost cells per block more generally, so that they
 don't have to be reconstructed and reshaped during further analysis.
 
+Version 6 block data can optionally be compressed with ZFP in fixed-precision
+mode (`snap_compress_zfp` and `snap_zfp_precision` in `filelist`; the binary
+must be built with the COMPRESS_ZFP option, which is derived automatically
+from the CONFIG parfile). The header then stores 'zfp' in its `compression`
+field followed by the precision, and the tree stores the per-block per-field
+compressed byte counts `field_nbytes(nw, nleafs)`. Compression is not
+supported with `stagger_grid`.
+
+Version 6 snapshots support LLNL ZFP compression in lossy fixed-precision mode.
+Currently unsupported in tandem with `stagger_grid`.
+See https://doi.org/10.1137/18M1168832 in regard to the parameter
+`zfp_precision`, to get a sense of how this translates into relative error
+statistics. It is recommended to not use compression in combination with
+`snap_size_real=4` since this is likely to hurt (especially block-average)
+accuracy over `snap_size_real=8`, but it will work.

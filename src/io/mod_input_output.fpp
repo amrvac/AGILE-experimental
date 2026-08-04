@@ -255,7 +255,7 @@ contains
        length_convert_factor, w_convert_factor, time_convert_factor,level_io,&
        level_io_min, level_io_max, autoconvert,slice_type,slicenext,&
        collapsenext,collapse_type, type_endian, snapnext, snap_nghost,&
-       snap_size_real
+       snap_size_real, snap_compress_zfp, snap_zfp_precision
 
     namelist /savelist/ tsave,itsave,dtsave,ditsave,nslices,slicedir,&
         slicecoord,collapse,collapseLevel, time_between_print,tsave_log,&
@@ -374,6 +374,8 @@ contains
     saveprim                 = .false.
     snap_nghost              = 0
     snap_size_real           = 4
+    snap_compress_zfp        = .false.
+    snap_zfp_precision       = 0
     autoconvert              = .false.
     convert_type             = 'vtuBCCmpi'
     slice_type               = 'vtuCC'
@@ -721,6 +723,28 @@ contains
 
     if (snap_size_real /= 4 .and. snap_size_real /= 8) call mpistop(&
        "snap_size_real should be 4 (single precision) or 8 (double precision).")
+
+    if (snap_compress_zfp) then
+#:if defined('COMPRESS_ZFP')
+      if (snap_zfp_precision < 1 .or. snap_zfp_precision > 64) call mpistop(&
+         "snap_compress_zfp=T requires snap_zfp_precision (1..64) in "//&
+         "&filelist, there is no default.")
+      if (stagger_grid) call mpistop(&
+         "snap_compress_zfp is not supported with stagger_grid.")
+      if (mype == 0 .and.&
+         any(mod([block_nx1,block_nx2,block_nx3] + 2*snap_nghost, 4) /= 0)) then
+         print *, "Warning: ZFP compresses in 4^3 chunks, so snapshot fields"
+         print *, "will be padded. For best compression ratio and IO"
+         print *, "performance, block_nx+snap_nghost should be a multiple of"
+         print *, "4^3."
+         print *, "  block_nx =", block_nx1,block_nx2,block_nx3
+         print *, "  snap_nghost =", snap_nghost
+      end if
+#:else
+      call mpistop("snap_compress_zfp=T but this binary was built without "//&
+         "ZFP support. Probably building against the wrong parfile.")
+#:endif
+    end if
 
     if (small_pressure < 0.d0) call mpistop(&
        "small_pressure should be positive.")
@@ -2422,6 +2446,10 @@ contains
     use mod_input_output_helper, only: count_ix,block_shape_io,&
        create_output_file
     use mod_functions_forest, only: write_forest
+#:if defined('COMPRESS_ZFP')
+    use mod_zfp, only: zfp_max_field_bytes,&
+       zfp_compress_field_dp, zfp_compress_field_sp
+#:endif
 
     !> Write a single precision (v6 format) snapshot for analysis, named
     !> <base_filename>_snapNNNN.dat and counted by snapnext. The default
@@ -2454,6 +2482,21 @@ contains
     logical :: snap_mode, write_sp
     integer :: file_version, size_real_out, size_block_prefix
 
+    logical :: compress_zfp
+    ! An additional tree offset not present in all files.
+    integer :: tree_extra_bytes
+#:if defined('COMPRESS_ZFP')
+    integer                       :: iw, nx1, nx2, nx3
+    integer(kind=8)               :: zfp_nbytes, zfp_total_bytes, zfp_buf_size
+    ! One buffer for all fields, but the fields are independently compressed.
+    integer(kind=1), allocatable, target :: zfp_buf(:)
+    integer(kind=MPI_OFFSET_KIND) :: offset_zfp_nbytes
+    ! Size per field, a column of zfp_block_nbytes.
+    integer                       :: zfp_field_bytes(nw)
+    ! Size per block and per field.
+    integer, allocatable          :: zfp_block_nbytes(:, :)
+#:endif
+
     snap_mode = .false.
     if (present(is_snap)) snap_mode = is_snap
 
@@ -2471,6 +2514,12 @@ contains
     end if
     ! Whether we cast w_buffer into w_buffer_sp before writing.
     write_sp = (size_real_out == 4)
+
+    compress_zfp = .false.
+    tree_extra_bytes = 0
+#:if defined('COMPRESS_ZFP')
+    compress_zfp = snap_mode .and. snap_compress_zfp
+#:endif
 
     call MPI_BARRIER(icomm, ierrmpi)
 
@@ -2491,6 +2540,21 @@ contains
       allocate(block_nghost(ndim, 2, nleafs))
       block_nghost = 0
     end if
+#:if defined('COMPRESS_ZFP')
+    if (compress_zfp) then
+      ! Worst case: compression ratio 1.
+      zfp_buf_size = nw * zfp_max_field_bytes(&
+         block_nx1 + 2 * nghostcells,&
+         block_nx2 + 2 * nghostcells,&
+         block_nx3 + 2 * nghostcells,&
+         write_sp, snap_zfp_precision)
+      allocate(zfp_buf(zfp_buf_size))
+      allocate(zfp_block_nbytes(nw, nleafs))
+      zfp_block_nbytes = 0
+      ! For the offsets.
+      tree_extra_bytes = tree_extra_bytes + nw * nleafs * size_int
+    end if
+#:endif
 
     ! master processor
     if (mype==0) then
@@ -2536,6 +2600,16 @@ contains
                size(block_nghost), MPI_INTEGER, istatus, ierrmpi)
       end if
 
+#:if defined('COMPRESS_ZFP')
+      if (compress_zfp) then
+        ! Per-block per-field compressed byte counts are currently unknown,
+        ! but will be overwritten later
+        call MPI_File_get_position(file_handle, offset_zfp_nbytes, ierrmpi)
+        call mpi_file_write_wrapper(file_handle, zfp_block_nbytes,&
+            size(zfp_block_nbytes), MPI_INTEGER, istatus, ierrmpi)
+      end if
+#:endif
+
       ! Block offsets are currently unknown, but will be overwritten later
       call MPI_File_get_position(file_handle, offset_offsets, ierrmpi)
       call mpi_file_write_wrapper(file_handle, block_offset(1:nleafs), nleafs,&
@@ -2546,7 +2620,8 @@ contains
       ! Check whether data was written as expected
       if (offset_block_data - offset_tree_info /= (nleafs + nparents) * &
          size_logical + nleafs * ((1+ndim) * size_int + 2 * size_int) + &
-         merge(nleafs * 2 * ndim * size_int, 0, snap_mode)) then
+         merge(nleafs * 2 * ndim * size_int, 0, snap_mode) + &
+         tree_extra_bytes) then
         if (mype == 0) then
           print *, "Warning: MPI_OFFSET type /= 8 bytes"
           print *, "This *could* cause problems when reading .dat files"
@@ -2569,6 +2644,62 @@ contains
         call block_shape_io(igrid, n_ghost, ixOmin1,ixOmin2,ixOmin3,ixOmax1,&
            ixOmax2,ixOmax3, n_values)
       end if
+
+#:if defined('COMPRESS_ZFP')
+      if (compress_zfp) then
+        ! Each rank compresses their block, then sends to rank 0.
+        ! Compress each field separately in a canonical ZFP stream, holding its
+        ! own metadata, so decompression will be trivial. Then concatenate them.
+        nx1 = ixOmax1 - ixOmin1 + 1
+        nx2 = ixOmax2 - ixOmin2 + 1
+        nx3 = ixOmax3 - ixOmin3 + 1
+        zfp_total_bytes = 0
+        do iw = 1, nw
+          if (write_sp) then
+            zfp_nbytes = zfp_compress_field_sp(&
+              real(ps(igrid)%w(&
+                ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3, iw), 4),&
+              nx1, nx2, nx3, snap_zfp_precision, zfp_buf,&
+              zfp_total_bytes + 1, zfp_buf_size)
+          else
+            zfp_nbytes = zfp_compress_field_dp(&
+              ps(igrid)%w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3, iw),&
+                nx1, nx2, nx3, snap_zfp_precision, zfp_buf,&
+                zfp_total_bytes + 1, zfp_buf_size)
+          end if
+          zfp_field_bytes(iw) = int(zfp_nbytes)
+          zfp_total_bytes = zfp_total_bytes + zfp_nbytes
+        end do
+        ! In compressed mode ix_buffer(1) counts bytes, not values.
+        ! (A bit of a hack.)
+        ix_buffer(1) = int(zfp_total_bytes)
+        ix_buffer(2:) = n_ghost
+
+        if (mype /= 0) then
+          call mpi_send_wrapper(ix_buffer, 2*ndim+1, MPI_INTEGER, 0, itag,&
+              icomm, ierrmpi)
+          call mpi_send_wrapper(zfp_field_bytes, nw, MPI_INTEGER, 0, itag,&
+              icomm, ierrmpi)
+          call mpi_send_wrapper(zfp_buf, ix_buffer(1), MPI_BYTE, 0, itag,&
+              icomm, ierrmpi)
+        else
+          iwrite = iwrite+1
+          block_nghost(:, 1, Morton_no) = n_ghost(1:ndim)
+          block_nghost(:, 2, Morton_no) = n_ghost(ndim+1:2*ndim)
+          zfp_block_nbytes(:, Morton_no) = zfp_field_bytes
+          call mpi_file_write_wrapper(file_handle, zfp_buf, ix_buffer(1),&
+              MPI_BYTE, istatus, ierrmpi)
+
+          ! Set offset of next block. Can only know this after compressing.
+          block_offset(iwrite+1) = block_offset(iwrite) + zfp_total_bytes
+        end if
+        ! Trick to avoid fypp: go to the next block from here.
+        cycle
+      end if
+#:endif
+
+      ! Uncompressed from here.
+
       if(stagger_grid) then
         w_buffer(1:n_values) = pack(ps(igrid)%w(ixOmin1:ixOmax1,&
            ixOmin2:ixOmax2,ixOmin3:ixOmax3, 1:nw), .true.)
@@ -2626,7 +2757,7 @@ contains
         block_offset(iwrite+1) = block_offset(iwrite) + int(n_values,&
             MPI_OFFSET_KIND) * size_real_out + size_block_prefix
       end if
-    end do
+    end do ! Iterate over blocks
 
     ! Write data communicated from other processors
     if (mype == 0) then
@@ -2638,6 +2769,27 @@ contains
           call mpi_recv_wrapper(ix_buffer, 2*ndim+1, MPI_INTEGER, ipe, itag, icomm,&
              igrecvstatus, ierrmpi)
           n_values = ix_buffer(1)
+
+#:if defined('COMPRESS_ZFP')
+          if (compress_zfp) then
+            call mpi_recv_wrapper(zfp_field_bytes, nw, MPI_INTEGER, ipe,&
+                itag, icomm, iorecvstatus, ierrmpi)
+            ! In compressed mode, n_values counts bytes.
+            call mpi_recv_wrapper(zfp_buf, n_values, MPI_BYTE, ipe, itag,&
+                icomm, iorecvstatus, ierrmpi)
+
+            block_nghost(:, 1, Morton_no) = ix_buffer(2:ndim+1)
+            block_nghost(:, 2, Morton_no) = ix_buffer(ndim+2:2*ndim+1)
+            zfp_block_nbytes(:, Morton_no) = zfp_field_bytes
+            call mpi_file_write_wrapper(file_handle, zfp_buf, n_values,&
+                MPI_BYTE, istatus, ierrmpi)
+
+            ! Set offset of next block
+            block_offset(iwrite+1) = block_offset(iwrite)&
+              + int(n_values, MPI_OFFSET_KIND)
+            cycle
+          end if
+#:endif
 
           if (write_sp) then
             call mpi_recv_wrapper(w_buffer_sp, n_values, MPI_REAL4, ipe, itag,&
@@ -2663,8 +2815,8 @@ contains
           end if
 
           ! Set offset of next block
-          block_offset(iwrite+1) = block_offset(iwrite) + int(n_values,&
-              MPI_OFFSET_KIND) * size_real_out + size_block_prefix
+          block_offset(iwrite+1) = block_offset(iwrite)&
+            + int(n_values, MPI_OFFSET_KIND) * size_real_out+size_block_prefix
         end do
       end do
 
@@ -2674,6 +2826,16 @@ contains
         call mpi_file_write_wrapper(file_handle, block_nghost,&
             size(block_nghost), MPI_INTEGER, istatus, ierrmpi)
       end if
+
+#:if defined('COMPRESS_ZFP')
+      if (compress_zfp) then
+        ! Write per-field compressed byte counts (now we know them).
+        call MPI_FILE_SEEK(file_handle, offset_zfp_nbytes, MPI_SEEK_SET,&
+            ierrmpi)
+        call mpi_file_write_wrapper(file_handle, zfp_block_nbytes,&
+            size(zfp_block_nbytes), MPI_INTEGER, istatus, ierrmpi)
+      end if
+#:endif
 
       ! Write block offsets (now we know them).
       call MPI_FILE_SEEK(file_handle, offset_offsets, MPI_SEEK_SET, ierrmpi)

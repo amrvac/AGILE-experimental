@@ -89,6 +89,8 @@ slicenext | integer | 0 | Start index for writing slices
 snapnext | integer | 0 | Start index for writing single precision snapshots (inferred from the file name when restarting from one)
 snap_nghost | integer | 0 | Number of ghost-cell layers to include on every block face in snapshot files (capped at nghostcells)
 snap_size_real | integer | 4 | Bytes per real in snapshot block data: 4 (single precision) or 8 (double precision)
+snap_compress_zfp | logical | F | Compress snapshot block data with LLNL ZFP in lossy fixed-precision mode; requires environment variable ZFP_DIR at build time
+snap_zfp_precision | integer | - | When `snap_compress_zfp=T`, the ZFP precision in bit planes (1..64); see https://doi.org/10.1137/18M1168832
 firstprocess | logical | F | If true, call `initonegrid_usr` upon restarting
 reset_grid | logical | F | If true, rebuild the AMR grid upon restarting
 convert | logical | F | If true and filenameini and datfileini are given, convert datfiles to other file formats

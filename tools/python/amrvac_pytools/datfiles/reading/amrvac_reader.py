@@ -11,7 +11,6 @@ Last edit: 1 August 2026
 import sys, os
 import numpy as np
 import copy
-import matplotlib.pyplot as plt
 
 # Allow this file to run directly, for convenience. See main function at the
 # bottom.
@@ -20,24 +19,27 @@ if __name__ == "__main__":
         os.path.join(os.path.dirname(__file__), "..", "..", "..")))
 
 from amrvac_pytools.datfiles.reading import datfile_utilities
-from amrvac_pytools.datfiles.processing import regridding, process_data
+from amrvac_pytools.datfiles.processing import process_data
 from amrvac_pytools.datfiles.physics import physical_constants
-from amrvac_pytools.datfiles.plotting import amrvac_plotter
-from amrvac_pytools.datfiles.views import synthetic
 
 
 class load_datfile():
     # Following methods provide easy access to functionalities in other scripts
     def amrplot(self, var, **kwargs):
+        from amrvac_pytools.datfiles.plotting import amrvac_plotter
         return amrvac_plotter.amrplot(self, var, **kwargs)
     def rgplot(self, data, **kwargs):
+        from amrvac_pytools.datfiles.plotting import amrvac_plotter
         return amrvac_plotter.rgplot(self, data, **kwargs)
     def halpha(self, **kwargs):
+        from amrvac_pytools.datfiles.views import synthetic
         return synthetic.h_alpha(self, **kwargs)
     def faraday(self, **kwargs):
+        from amrvac_pytools.datfiles.views import synthetic
         return synthetic.faraday(self, **kwargs)
     @staticmethod
     def show():
+        import matplotlib.pyplot as plt
         plt.show()
 
     def __init__(self, filename):
@@ -69,8 +71,8 @@ class load_datfile():
         self.adiab_constant = 1
 
         # load blocktree information
-        self.block_lvls, self.block_ixs, self.block_offsets, self.block_nghost = \
-            datfile_utilities.get_tree_info(file)
+        self.block_lvls, self.block_ixs, self.block_offsets, self.block_nghost, self.block_field_bytes \
+          = datfile_utilities.get_tree_info(file)
         self.block_shape = np.append(self.header["block_nx"], self.header["nw"])
         self.domain_width = self.header["xmax"] - self.header["xmin"]
 
@@ -97,6 +99,11 @@ class load_datfile():
         print(f"[INFO] Block size        : {self.header["block_nx"]}")
         print(f"[INFO] Number of blocks  : {len(self.block_offsets)}")
         print(f"[INFO] Real kind         : {self.header.get("size_real", 8)}")
+        if self.header.get("compression", "none") != "none":
+            print(f"[INFO] Compression       : {self.header["compression"]}")
+            match self.header["compression"]:
+                case "zfp":
+                    print(f"[INFO] ZFP precision     : {self.header["zfp_precision"]}")
         print("-" * 40)
         print(f"Known variables: {self.known_fields}")
 
@@ -233,6 +240,7 @@ class load_datfile():
         :param regriddir: The directory to which the regridded file is saved. This directory is searched in order to
                           try and load the file if already present.
         """
+        from amrvac_pytools.datfiles.processing import regridding
         self._check_regrid_directory(regriddir)
         try:
             data = self._load_regridded_data()

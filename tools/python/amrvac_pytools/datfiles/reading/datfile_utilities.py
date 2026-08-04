@@ -35,6 +35,8 @@ def get_header(istream):
     if h['datfile_version'] < 3:
         raise IOError("Unsupported AMRVAC .datfiles file version: %d", h['datfile_version'])
 
+    h['compression'] = 'none'
+
     # Read scalar data at beginning of file
     fmt = ALIGN + 9 * 'i' + 'd'
     hdr = struct.unpack(fmt, istream.read(struct.calcsize(fmt)))
@@ -80,6 +82,15 @@ def get_header(istream):
             fmt = ALIGN + 'i'
             [h['size_real']] = struct.unpack(fmt, istream.read(struct.calcsize(fmt)))
 
+            # Compression scheme name ('none', 'zfp', ...).
+            # Scheme-specific metadata follows the name.
+            fmt = ALIGN + NAME_LEN * 'c'
+            hdr = struct.unpack(fmt, istream.read(struct.calcsize(fmt)))
+            h['compression'] = b''.join(hdr).strip().decode()
+            if h['compression'] == 'zfp':
+                fmt = ALIGN + 'i'
+                [h['zfp_precision']] = struct.unpack(fmt, istream.read(struct.calcsize(fmt)))
+
     # Read w_names
     w_names = []
     for i in range(h['nw']):
@@ -116,19 +127,22 @@ def get_header(istream):
 def get_tree_info(istream):
     """
     Read levels, morton-curve indices, and byte offsets for each block as stored in the datfile
-    :param: istream         open datfile buffer with 'rb' mode
-    :return: block_lvls     numpy array with block levels
-             block_ixs      numpy array with block morton-curve indices
-             block_offsets  numpy array with block (data) offset in the datfile
-             block_nghost   numpy array (nleafs, 2*ndim) of per-block ghost-cell
-                            counts: [n_ghost_lo(ndim), n_ghost_hi(ndim)]. Zero for
-                            files written without a ghost halo.
+    :param:  istream            Open datfile buffer with 'rb' mode.
+    :return: block_lvls         NumPy array with block levels.
+             block_ixs          NumPy array with block morton-curve indices
+             block_offsets      NumPy array with block (data) offset in the datfile.
+             block_nghost       NumPy array (nleafs, 2*ndim) of per-block ghost-cell
+                                counts: [n_ghost_lo(ndim), n_ghost_hi(ndim)].
+             block_field_bytes  NumPy array (nleafs, nw) with the byte count of
+                                each block's per-field compressed stream, or None
+                                for uncompressed files.
     """
     istream.seek(0)
     header = get_header(istream)
     nleafs = header['nleafs']
     nparents = header['nparents']
     ndim = header['ndim']
+    block_field_bytes = None
 
     # Read tree info. Skip 'leaf' array
     istream.seek(header['offset_tree'] + (nleafs+nparents) * SIZE_LOGICAL)
@@ -153,6 +167,14 @@ def get_tree_info(istream):
             struct.unpack(fmt, istream.read(struct.calcsize(fmt))),
             [nleafs, 2 * ndim])
 
+        if header['compression'] != 'none':
+            # Per-block per-field compressed byte counts, stored in the tree
+            # as Fortran field_nbytes(nw, nleafs)
+            fmt = ALIGN + nleafs * header['nw'] * 'i'
+            block_field_bytes = np.reshape(
+                struct.unpack(fmt, istream.read(struct.calcsize(fmt))),
+                [nleafs, header['nw']])
+
         # Offsets point directly at the block data.
         fmt = ALIGN + nleafs * 'q'
         block_offsets = np.array(struct.unpack(fmt, istream.read(struct.calcsize(fmt))))
@@ -168,7 +190,7 @@ def get_tree_info(istream):
         for i, raw in enumerate(raw_offsets):
             istream.seek(int(raw))
             block_nghost[i] = struct.unpack(gfmt, istream.read(bcsize))
-    return block_lvls, block_ixs, block_offsets, block_nghost
+    return block_lvls, block_ixs, block_offsets, block_nghost, block_field_bytes
 
 
 def block_shape_with_ghost(header, nghost):
@@ -206,13 +228,45 @@ def get_single_block_data(istream, byte_offset, block_shape, size_real=SIZE_DOUB
     return block_data
 
 
+def get_single_block_data_zfp(istream, byte_offset, field_bytes, block_shape):
+    """
+    Retrieve a specific ZFP-compressed block from the datfile
+    :param: istream       open datfile buffer in 'rb' mode
+    :param: byte_offset   offset of the given block in the datfile
+    :param: field_bytes   per-field compressed byte counts (block_field_bytes row)
+    :param: block_shape   the shape of the block (list containing dimensions + number of variables)
+    :return: block_data   numpy array with dimensions equal to block_shape
+    """
+    import zfpy
+    ndim = len(block_shape) - 1
+    # There is padding due to e.g. blocks 4^3 in ndim = 3, so slice with this.
+    unpad = tuple(slice(0, int(n)) for n in block_shape[:ndim])
+    fields = []
+    pos = int(byte_offset)
+    for nb in field_bytes:
+        istream.seek(pos)
+        # Float kind is already deduced from the per-field ZFP header.
+        arr = zfpy.decompress_numpy(istream.read(int(nb)))
+        # Fortran ordering
+        fields += [arr.T[unpad]]
+        pos += int(nb)
+    return np.stack(fields, axis=-1)
+
+
 def read_block(dataset, ileaf, keep_ghost=False):
-    """Read leaf block `ileaf` at its true (ghosted) shape, stripping the halo
-    unless keep_ghost=True. Handles both ghosted and ghost-free files."""
+    """
+    Read leaf block `ileaf` at its true (ghosted) shape, stripping the halo
+    unless keep_ghost=True. Handles both ghosted and ghost-free files.
+    """
     nghost = dataset.block_nghost[ileaf]
     shape = block_shape_with_ghost(dataset.header, nghost)
-    size_real = dataset.header.get('size_real', SIZE_DOUBLE)
-    block = get_single_block_data(dataset.file, dataset.block_offsets[ileaf], shape, size_real)
+    match dataset.header['compression']:
+      case 'zfp':
+          block = get_single_block_data_zfp(
+              dataset.file, dataset.block_offsets[ileaf], dataset.block_field_bytes[ileaf], shape)
+      case 'none' | _:
+          size_real = dataset.header.get('size_real', SIZE_DOUBLE)
+          block = get_single_block_data(dataset.file, dataset.block_offsets[ileaf], shape, size_real)
     if not keep_ghost:
         block = strip_ghost(block, dataset.header, nghost)
     return block
@@ -234,7 +288,11 @@ def get_blocks(dataset, keep_ghost=False):
     for ileaf, offset in enumerate(dataset.block_offsets):
         nghost = dataset.block_nghost[ileaf]
         shape = block_shape_with_ghost(hdr, nghost)
-        block = get_single_block_data(dataset.file, offset, shape, size_real)
+        if hdr['compression'] == 'zfp':
+            block = get_single_block_data_zfp(dataset.file, offset,
+                                              dataset.block_field_bytes[ileaf], shape)
+        else:
+            block = get_single_block_data(dataset.file, offset, shape, size_real)
         if not keep_ghost:
             block = strip_ghost(block, hdr, nghost)
         lvl = dataset.block_lvls[ileaf]

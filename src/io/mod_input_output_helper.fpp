@@ -203,6 +203,18 @@ module mod_input_output_helper
     ! precision, so readers need not map version number to precision)
     if (file_version > 5) then
       call MPI_FILE_WRITE(fh, snap_size_real, 1, MPI_INTEGER, st, er)
+
+      ! Compression scheme name, 'none' if uncompressed.
+      ! Scheme-specific metadata follows the name.
+      if (snap_compress_zfp) then
+        dname = 'zfp'
+      else
+        dname = 'none'
+      end if
+      call MPI_FILE_WRITE(fh, dname, name_len, MPI_CHARACTER, st, er)
+      if (snap_compress_zfp) then
+        call MPI_FILE_WRITE(fh, snap_zfp_precision, 1, MPI_INTEGER, st, er)
+      end if
     end if
 
     do iw = 1, nw_vars
