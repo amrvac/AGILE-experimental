@@ -153,14 +153,6 @@ Version 6 stores the per-block ghost-cell counts in the tree section as
 Version 6 supports storing ghost cells per block more generally, so that they
 don't have to be reconstructed and reshaped during further analysis.
 
-Version 6 block data can optionally be compressed with ZFP in fixed-precision
-mode (`snap_compress_zfp` and `snap_zfp_precision` in `filelist`; the binary
-must be built with the COMPRESS_ZFP option, which is derived automatically
-from the CONFIG parfile). The header then stores 'zfp' in its `compression`
-field followed by the precision, and the tree stores the per-block per-field
-compressed byte counts `field_nbytes(nw, nleafs)`. Compression is not
-supported with `stagger_grid`.
-
 Version 6 snapshots support LLNL ZFP compression in lossy fixed-precision mode.
 Currently unsupported in tandem with `stagger_grid`.
 See https://doi.org/10.1137/18M1168832 in regard to the parameter
