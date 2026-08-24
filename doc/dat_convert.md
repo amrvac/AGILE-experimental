@@ -1,3 +1,5 @@
+title: Dump variables to dat files
+
 # Dump variables to dat files
 
 There are two ways to add variables to the dat files:

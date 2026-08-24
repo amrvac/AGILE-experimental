@@ -1,14 +1,12 @@
+title: Discretization
+
 # Discretization
 
-[TOC]
-
-# Introduction {#disc-intro}
-
+# Introduction {: #disc-intro }
 This document briefly describes how the equations are discretized.
 
-# Equations {#disc-eq}
-
-MPI-AMRVAC aims to solve a system of partial differential equations of the
+# Equations {: #disc-eq }
+AGILE aims to solve a system of partial differential equations of the
 form
 
     dw/dt=-dF_i(w)/dx_i+S(w)=R(w)
@@ -20,8 +18,7 @@ together are denoted by **R**. The discretization is of a finite volume kind,
 where cell-centered quantities represent cell-averaged densities for 
 conservative variables.
 
-# Dimensional and Source Splitting {#disc-splitting}
-
+# Dimensional and Source Splitting {: #disc-splitting }
 Some methods were originally designed to handle 1D problems, they may be best
 applied to multidimensional problems by splitting the equation for the
 derivatives of the flux, and solving the split equations in subsequent sweeps.
@@ -80,9 +77,8 @@ both at the beginning and at the end of the time step, otherwise the default
 **w_S = w + dt/2 S(w)** is used. Other choices for **typesourcesplit** are
 **'sf', 'ssf'**.
 
-# Time Discretization {#disc-time}
-
-The code can use a variety of [methods](methods.md) for spatial
+# Time Discretization {: #disc-time }
+The code can use a variety of [methods](methods.html) for spatial
 discretization of fluxes. A method is applied to all variables on a specific
 AMR level, but the method may differ from grid level to grid level. As we saw
 in the previous section, the contribution of the fluxes (dimensionally split
@@ -126,12 +122,10 @@ For the multistep RK4 integration scheme, the same **flux_scheme** method is
 used in each substep for **istep=1..nstep**. Full timesteps are counted by
 **it_init &lt;= it &lt;= it_max**, while the physical time is **global_time &lt;= time_max**.
 
-# Grid and Mesh {#disc-grid}
-
+# Grid and Mesh {: #disc-grid }
 The grid is a 1, 2 or 3D grid, either Cartesian, cylindrical (to which polar
 belongs), or spherical, which is selected by call `set_coordinate_system` 
-in `usr_init` subroutine of `mod_usr.t`. See [coordinate system](axial.md) for 
-more information.
+in `usr_init` subroutine of `mod_usr.t`.
  The coordinates of the grid points are represented by
 the array **x**, usually interpreted for Cartesian coordinates as x, y, and z;
 for cylindrical as r, z, and phi; for polar grid as r, phi, and z;
@@ -144,7 +138,7 @@ _pw(igrid)%surfaceC(ixG^T,^D)_, _pw(igrid)%surface(ixG^T,^D)_,
  _pw(igrid)%dvolume_ and _pw(igrid)%dx_.
 
 The spatial indices of these arrays, denoted by the dimension independent
-[syntax](source.md), have varying ranges, depending on their use (as cell
+syntax, have varying ranges, depending on their use (as cell
 centered, or cell surface quantities). Remember that 
 number of physical cells (by _block_nx^D_) plus number of ghostcells 
 (by _nghostcells_) gives the total grid extent:
@@ -165,13 +159,9 @@ or equivalently as ixMmin^D,ixMmax^D, or in a shorter notation
     ixM^L = ixG^L^LSUBnghostcells^L
 
 The ghost cells are updated by the subroutine `getbc` in `mod_ghostcells_update.t`. 
-When a file is read or saved by MPI-AMRVAC, the ghost cells are usually not included.
+When a file is read or saved by AGILE, the ghost cells are usually not included.
 
-You may run the [VACPP](vacpp.md) preprocessor interactively to see how the
-above expressions are translated for a given number of dimensions.
-
-# Boundary Regions {#disc-boundaries}
-
+# Boundary Regions {: #disc-boundaries }
 The boundary cells of the grid are grouped into boundary regions indexed by
 **iB=1..nB**. In 1D, there are 2 regions, at left and right of the mesh; in 2D
 there are 4, left, right, bottom, top (in that order); while for 3D there are
@@ -193,8 +183,7 @@ should be used for the scalar quantities and the tangential velocity
 components. For the normal vector components the anti-symmetric **'asymm'**
 boundary type should be used.
 
-## Internal boundaries {#disc-internal}
-
+## Internal boundaries {: #disc-internal }
 Internal boundaries can be used to overwrite the domain variables with
 specified values. Internally, these are assigned before the ghost-cells and
 external boundaries are applied (in subroutine `get_bc`). The user can provide

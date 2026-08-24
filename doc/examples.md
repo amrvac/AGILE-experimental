@@ -1,3 +1,5 @@
+title: Example simulations
+
 # Example simulations
 
 This document describes a few relatively simple example simulations which can
@@ -5,7 +7,7 @@ be done based on some readily available tests in amrvac/tests/
 
 ## Advection tests
 
-Configure MPI-AMRVAC to the standard 2D [advection equation](@ref eq_rho) test
+Configure AGILE to the standard 2D [advection equation](equations.html#eq_rho) test
 as follows:
     cd amrvac/tests/rho/vac
     setup.pl -d=2
@@ -13,9 +15,9 @@ as follows:
     mpirun -np 2 amrvac
 
 This test contains several tests, distinguished by **iprob**. In the above setting, it
-will use **iprob=3** as specified in the [meshlist](@ref par_meshlist) and
+will use **iprob=3** as specified in the [meshlist](par.html#par_meshlist) and
 do a 2D advection of the VAC-logo on a double periodic domain, on the unit
-square. After [converting](convert.md) the 21 data files created to the VTK
+square. After [converting](convert.html) the 21 data files created to the VTK
 format suited for paraview visualization, you will be able to make the
 following movie in a few simple steps:
 
@@ -53,7 +55,7 @@ as shown below.
 ## HD tests
 
 The examples realizing relatively standard test cases
-for [hydrodynamics](@ref eq_hd) include
+for [hydrodynamics](equations.html#eq_hd) include
 
     amrvac/tests/hd/Woodward_Collela_2D
     amrvac/tests/hd/bow_cylindrical_2D
@@ -101,7 +103,7 @@ than 12000 seconds (slightly over 3 hours).
 ## MHD tests
 
 The amrvac/tests/mhd codes up a large variety of standard test
-cases for [MHD](@ref eq_mhd), going from 1D Riemann problems to tests
+cases for [MHD](equations.html#eq_mhd), going from 1D Riemann problems to tests
 doable in 2D and 3D. 
 
 One of the tests is the Orszag-Tang test, in the compressible regime, for

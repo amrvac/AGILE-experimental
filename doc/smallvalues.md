@@ -1,6 +1,8 @@
-# Small values options in MPI-AMRVAC
+title: Small values options in AGILE
 
-# MPI-AMRVAC and negative pressure (or density)
+# Small values options in AGILE
+
+# AGILE and negative pressure (or density)
 
 When doing full hydrodynamic (HD) or MHD simulations, the density on the mesh `w(ixM^S,rho_)` must obviously always be strictly positive, and the same is true for the total energy density `w(ixM^S,e_)` (or the internal energy density, if used). The corresponding primitive variables, density and pressure, must similarly be strictly positive, always [note: When HD is extended to include pressureless dust, the density for any of the added dust species can be locally equal to zero, so their density is positive, but not strictly positive. Such pressureless dust, by definition, has zero pressure also. In MHD, one can handle zero temperature (hence zero pressure) in a zero-beta simulation, by using the isothermal closure with zero isothermal sound speed. In that case the simulation has no energy variable at all: `mhd_energy=.false.`]. The following discussion explains the use of positivity fixes, which may need to be activated to stably compute full (M)HD evolutions over extended timescales, at very high resolutions.
 

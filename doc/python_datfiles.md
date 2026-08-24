@@ -1,19 +1,17 @@
+title: Reading the dat files
+
 # Reading the dat files
 
-[TOC]
-
-# Introduction on reading datfiles {#introductiondat}
-
-This page provides guidelines and examples to read in and process MPI-AMRVAC `.dat` files with Python.
-All required packages and instructions on how to set up the tools folder are described in @ref python_setup.md.
+# Introduction on reading datfiles {: #introductiondat }
+This page provides guidelines and examples to read in and process AGILE `.dat` files with Python.
+All required packages and instructions on how to set up the tools folder are described in [Setting up the python tools](python_setup.html).
 The datfile tools can be found in the folder `$AMRVAC_DIR/tools/python/datfiles`.
 
 > **Please note**: the legacy Python tools do _not_ support polar/cylindrical/spherical datasets, and/or stretched/staggered grids.
-> We (highly) recommend to use `yt` ([see the docs](yt_usage.md)) for datfile analysis with Python.
+> We (highly) recommend to use `yt` ([see the docs](yt_usage.html)) for datfile analysis with Python.
 
 
-# Reading datasets {#reading_dat}
-
+# Reading datasets {: #reading_dat }
 ## Obtaining dataset information
 All functionality is contained in the file `amrvac_reader.py`, present in the `datfiles/reading` subdirectory.
 This class contains various instances and methods linking to other classes and methods in different subdirectories,
@@ -65,7 +63,7 @@ The data can then be accessed by calling the corresponding name in the `ad` dict
 
 or any other of the known variables (see above). This works in 1D, 2D and 3D, however, for large 3D datasets the regridding can take quite some time.
 
-# Plotting datasets {#plotting_dat}
+# Plotting datasets {: #plotting_dat }
 The datfile tools include support for plotting both 1D and 2D datasets, in two variants. The first option is directly plotting the regridded data,
 which requires that `ds.load_all_data()` has been called. Plotting is then done via
 
@@ -118,7 +116,7 @@ which will then be used instead. This is useful in for example plotting multiple
     fig.tight_layout()
     plt.show()
 
-# Synthetic views {#synthetic_dat}
+# Synthetic views {: #synthetic_dat }
 The python tools also include a ray-tracing algorithm along one of the coordinate axes to create synthetic views. Currently two types are supported, the
 first one being a synthetic H-alpha view based on a method described in [Heinzel et al. (2015)](https://www.aanda.org/articles/aa/pdf/2015/07/aa25716-15.pdf "Paper" ).
 Basically, based on tables given in said paper the degree of ionisation is calculated using the local pressure and temperatures, from which the opacity can be calculated
@@ -136,7 +134,7 @@ Please note that the creation of these synthetic views can take some time for la
 the results into one single image.
 As a final comment, it is **important** that the units are correctly specified to ensure a consistent calculation of the synthetic views, see [Units](#dat_units) below.
 
-# Units {#dat_units}
+# Units {: #dat_units }
 Everything described above (except for the synthetic views) is calculated using _normalised code units_. In order to retrieve the correct physical values of the variables
 in the dataset, it is important (and good practice) to correctly define the unit normalisations.
 The default unit system is `cgs`, which can be switched to `si` via  
@@ -165,4 +163,4 @@ Converting a variable back to physical units can then be done using
     pressure = ad['p'] * ds.units.unit_pressure
     current_time = ds.get_time() * ds.units.unit_time
 
-and so on. If no unit normalisations are specified, the default values of MPI-AMRVAC will be used.
+and so on. If no unit normalisations are specified, the default values of AGILE will be used.

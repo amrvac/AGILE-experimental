@@ -1,10 +1,9 @@
+title: Setting up the python tools
+
 # Setting up the python tools
 
-[TOC]
-
-# Introduction {#introductionpython}
-
-This document describes the use of Python for processing MPI-AMRVAC simulation data.
+# Introduction {: #introductionpython }
+This document describes the use of Python for processing AGILE simulation data.
 Both the reading of native `.dat`- and `vtk`-filetypes (`.vtu`, `.pvtu`, `.vti`) are supported.
 The goal of these Python tools is to provide additional data-analysis support with main focus
 on 1D and 2D simulation data, although there is functionality to read in and process 3D datasets.
@@ -16,7 +15,7 @@ containing the Python tools for both the .dat files and .vtk files.
 These tools were originally initiated by _Oliver Porth_ (in particular the `vtk` readers),
 and have recently been refactored and extended to include datfile support by _Niels Claes_ and _Clément Robert_.
 
-# Installation {#installation}
+# Installation {: #installation }
 ## Prerequisites
 
 The Python tools depend on a few standard packages:

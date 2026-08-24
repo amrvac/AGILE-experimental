@@ -1,3 +1,5 @@
+title: Writing a custom analysis subroutine
+
 # Writing a custom analysis subroutine
 
 # Introduction
@@ -26,7 +28,7 @@ Similar to the other IO-mechanisms, analysis is scheduled within the savelist:
 # write_analysis subroutine
 
 The user-defined analysis subroutine takes no arguments. It operates on the
-lowest abstraction level of MPI-AMRVAC so that the user has the flexibility to
+lowest abstraction level of AGILE so that the user has the flexibility to
 loop over the the SFC and freely perform integrals over the grid-functions,
 similar to the `printlog_special`. A special file-unit is reserved for the IO:
 `unitanalysis`. This should be used for any IO performed by this routine.

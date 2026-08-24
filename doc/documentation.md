@@ -1,9 +1,8 @@
+title: About the AGILE documentation
+
 # About the AGILE documentation
 
-[TOC]
-
-# Generating the documentation {#doc-gen}
-
+# Generating the documentation {: #doc-gen }
 API documentation for AGILE is generated from the source code using
 [FORD](https://forddocs.readthedocs.io/) (the Fortran Documenter). Unlike
 upstream MPI-AMRVAC, this fork no longer uses Doxygen.
@@ -15,29 +14,27 @@ To generate it locally:
     doc/ford/build_docs.sh
 
 This first expands `src/*.fpp` with `fypp` (FORD cannot parse fypp directives
-directly) using the compile-time flags in `doc/ford/docgen.par`, then runs
-FORD on the result. Open the output with
+directly), once per physics module (`doc/ford/docgen_{mhd,hd,ffhd,srhd}.par`),
+then runs FORD on the result. Open the output with
 
     firefox doc/ford/html/index.html
 
 Because AGILE's physics modules (`hd`, `mhd`, `ffhd`, `srhd`) are
-mutually-exclusive fypp branches spliced into the same files
-(`mod_physics`, `mod_finite_volume`, `mod_dt`, `mod_source`, ...) at
-compile time, one `fypp`/FORD pass can only show one physics module's
-variant of those files. `docgen.par` currently selects `mhd` with most of
-its optional features enabled, to maximize what's documented; see
-`doc/ford/project.md` for details.
+mutually-exclusive fypp branches, a single fypp pass with one `PHYS` value
+only shows that physics module's variant of any file whose content depends
+on it. `merge_physics_variants.py` auto-discovers (by comparison) which
+files actually differ by physics module and keeps those as
+`_hd`/`_mhd`/`_ffhd`/`_srhd`-suffixed variants; everything else is kept
+once. See `doc/ford/project.md` and `doc/ford/build_docs.sh` for details.
 
-# How to write documentation {#doc-howto}
-
+# How to write documentation {: #doc-howto }
 FORD understands the same `!>`/`!<` Doxygen-style comment syntax already
 used throughout AGILE, so existing source comments don't need to change.
-For the full set of features (special commands like `@note`, `@warning`,
-`@todo`, cross-references, LaTeX math, etc.) see the
+For the full set of features (note/warning/todo admonition blocks,
+cross-references, LaTeX math, etc.) see the
 [FORD user guide](https://forddocs.readthedocs.io/en/latest/user_guide/writing_documentation.html).
 
-## Documenting source code {#doc-src}
-
+## Documenting source code {: #doc-src }
 You can write documentation comments almost in the same way as regular
 comments, using the following syntax:
 
@@ -85,14 +82,22 @@ Here are some examples to demonstrate the syntax:
         real :: y !< The y-coordinate
     end type coordinate
 
-## Documentation in markdown files {#doc-md}
-
-FORD can also fold separate markdown pages (like this one) into the
-generated site, via its `page_dir` setting -- see the
+## Documentation in markdown files {: #doc-md }
+This page and the rest of `doc/*.md` are folded into the generated site as
+plain FORD pages, via the `page_dir` setting -- see the
 [FORD page documentation](https://forddocs.readthedocs.io/en/latest/user_guide/writing_documentation.html#writing-pages).
-This is **not currently wired up**: the `doc/*.md` files here still use
-Doxygen-specific syntax (`{#label}` section anchors, `@ref label` links,
-bare `[TOC]`) that would need to be converted to FORD's page-linking
-conventions first. Until that migration happens, these markdown files are
-only readable as plain files (e.g. on GitHub), not as part of the generated
-FORD site.
+`doc/index.md` is the required root page; every other `doc/*.md` file is a
+flat subpage of it. A few conventions carried over from the original
+Doxygen-authored files:
+
+* Every page needs a `title: ...` metadata line as its very first line.
+* Section anchors use Python-Markdown's `attr_list` syntax,
+  `## Heading {: #my-label }` (note the colon and spaces -- Doxygen's
+  `{#my-label}` form isn't recognized), and are linked to with ordinary
+  markdown links: `[text](#my-label)` on the same page, or
+  `[text](otherpage.html#my-label)` from another page.
+* Links to another page use its `.html` name, not `.md`
+  (`[Getting started](getting_started.html)`, not `getting_started.md`).
+* Inline LaTeX uses `\( ... \)`, and display equations use `\[ ... \]` or
+  `$$ ... $$` (`mdx_math`'s defaults) -- not Doxygen's `\f$ ... \f$`,
+  `\f[ ... \f]`, or `\f{env}{ ... \f}`.

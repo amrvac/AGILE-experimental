@@ -1,21 +1,19 @@
-# Contributing to MPI-AMRVAC and its documentation
+title: Contributing to AGILE and its documentation
 
-[TOC]
+# Contributing to AGILE and its documentation
 
-# Introduction {#contrib-intro}
+# Introduction {: #contrib-intro }
+This page describes how you can contribute code and documentation to AGILE.
 
-This page describes how you can contribute code and documentation to MPI-AMRVAC.
-
-# Testing your changes {#contrib-testing}
-
+# Testing your changes {: #contrib-testing }
 Having made some changes, the first thing you can check is whether the AMRVAC library still compiles. To compile the 1D, 2D and 3D version of the library in parallel with 8 jobs, you can run:
 
     cd lib
     make -j 8
 
-If you have added new files, you might have to update dependencies in the makefiles, see @ref addmodule.md.
+If you have added new files, you might have to update dependencies in the makefiles.
 
-It is important to test your changes by running MPI-AMRVAC's test suite. This is done as
+It is important to test your changes by running AGILE's test suite. This is done as
 follows:
 
     cd tests
@@ -31,8 +29,7 @@ threshold. Alternatively, you can run tests for individual physics modules:
     ...
 
 
-## Adding tests {#contrib-adding-tests}
-
+## Adding tests {: #contrib-adding-tests }
 To add new tests, you need:
 
 * A `mod_usr.t` or `mod_usr.f` file
@@ -40,7 +37,7 @@ To add new tests, you need:
 * A file `test.make` following the template below
 
 These files should be placed in the corresponding physics folder, e.g. `tests/hd`
-for hydro problems. Assuming your `.par` file is called `my_test.par`, it should contain the following options in its filelist (see @ref par.md):
+for hydro problems. Assuming your `.par` file is called `my_test.par`, it should contain the following options in its filelist (see [Setting parameters](par.html)):
 
     base_filename='my_test'
     typefilelog='regression_test'
@@ -92,16 +89,14 @@ Now `make -f test.make` should pass. You can then add your test folder to the
 corresponding directory in `tests/Makefile` file, so that the test is
 automatically performed. Finally, commit and push your changes.
 
-# Style guide {#contrib-style}
-
-To steadily improve MPI-AMRVAC, it would be good if new contributions take into
-account our [style guide](code_style_guide.md). Most importantly:
+# Style guide {: #contrib-style }
+To steadily improve AGILE, it would be good if new contributions take into
+account our [style guide](code_style_guide.html). Most importantly:
 
 * Choose meaningful names for variables, functions etc.
 * For non-trivial blocks of code or routines: describe what they are supposed to do
 
-# Working with git {#contrib-git}
-
+# Working with git {: #contrib-git }
 Git is a version control system that you can use for code and other 'line-based'
 documents, such as LaTeX files. There are many tutorials on git, so it is
 probably best to look at a couple of them and pick one you like, for example:
@@ -111,11 +106,10 @@ probably best to look at a couple of them and pick one you like, for example:
 * https://git-scm.com/docs/gittutorial
 * http://rogerdudler.github.io/git-guide/
 
-You can ask for access to the MPI-AMRVAC Github repository so that you can
+You can ask for access to the AGILE Github repository so that you can
 `push` your changes to it. You can also clone the repository and/or file a merge
 request.
 
-# Contributing documentation {#contrib-doc}
-
-The [documentation](documentation.md) page explains how to write documentation
-for MPI-AMRVAC.
+# Contributing documentation {: #contrib-doc }
+The [documentation](documentation.html) page explains how to write documentation
+for AGILE.

@@ -1,12 +1,14 @@
 project: AGILE
-summary: A GPU-enabled fork of MPI-AMRVAC for adaptive-mesh-refinement hydrodynamics and magnetohydrodynamics.
+summary: A GPU-enabled fork of AGILE for adaptive-mesh-refinement hydrodynamics and magnetohydrodynamics.
 project_github: https://github.com/amrvac/AGILE
 src_dir: ./src
 output_dir: ./html
+page_dir: ..
+html_template_dir: ./templates
 predocmark: >
 docmark: <
 source: true
-graph: true
+graph: false
 search: true
 warn: true
 display: public
@@ -35,5 +37,7 @@ compiles to whichever `PHYS` was selected at actual build time. See
 `doc/ford/build_docs.sh` and `doc/ford/merge_physics_variants.py` for
 details.
 
-For narrative documentation (installation, getting started, parameter list,
-etc.) see the plain markdown files under `doc/`.
+Narrative documentation (installation, getting started, parameter list,
+etc.) is folded into this site from the plain markdown files in `doc/`
+(FORD's `page_dir`, required to have `doc/index.md`) -- see [the doc
+pages](../page/index.html).

@@ -1,6 +1,6 @@
-# Time Discretization
+title: Time Discretization
 
-[TOC]
+# Time Discretization
 
 Numerical methods for conservation laws can in general be divided into two approaches: a one-step approach, where time and space discretization is coupled and semi-discrete schemes, where time and space integration are separated. AMRVAC chooses to use the latter approach, and provides multiple time discretization methods. They can all be found in mod_advance.t. Please not that not all the schemes could be combined with provided time discretizaiton methods.
 

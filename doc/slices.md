@@ -1,3 +1,5 @@
+title: Slice output
+
 # Slice output
 
 # Introduction

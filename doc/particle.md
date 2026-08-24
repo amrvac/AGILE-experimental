@@ -1,6 +1,8 @@
+title: Test particle module for HD/MHD
+
 # Test particle module for HD/MHD
 
-The test particle module in MPI-AMRVAC provides the possibility to track test particles, i.e. particles evolved according to the HD/MHD fields in a simulation without any feedback from the particles to these fields. Test particles can be added on top of an (M)HD state and evolved concurrently to the fluid. Alternatively, test particles can be evolved in a static snapshot, i.e. without evolving the underlying fluid quantities. The test particle module can also be used to sample the fluid quantities at specific locations (which may differ from the computational grid points) and output the results separately from the usual <tt>.dat</tt> and <tt>.vtu</tt> files.
+The test particle module in AGILE provides the possibility to track test particles, i.e. particles evolved according to the HD/MHD fields in a simulation without any feedback from the particles to these fields. Test particles can be added on top of an (M)HD state and evolved concurrently to the fluid. Alternatively, test particles can be evolved in a static snapshot, i.e. without evolving the underlying fluid quantities. The test particle module can also be used to sample the fluid quantities at specific locations (which may differ from the computational grid points) and output the results separately from the usual <tt>.dat</tt> and <tt>.vtu</tt> files.
 
 The particle module can work in four different modes, depending on the user's choice:
 * **Advection** (compatible with HD/MHD): In this mode particles represent Lagrangian blobs of fluid that are tracked through the physical domain. The fluid properties are interpolated at the particle location, which is advected by using the local fluid speed.
@@ -13,24 +15,24 @@ In the next sections, the details of each mode are illustrated.
 
 # Advection (HD/MHD)
 This mode is used to track fluid parcels moving through the simulation domain with the fluid speed. At each step, a simple equation of motion is solved for each particle,
-\f[ \frac{d\mathbf{x}}{dt} = \mathbf{v}, \f]
-where \f$\mathbf{v}\f$ is the local fluid velocity, linearly interpolated at the particle position \f$\mathbf{x}\f$. The equation of motion above is solved by means of a fourth-order Runge-Kutta integrator with adaptive time-stepping.
+\[ \frac{d\mathbf{x}}{dt} = \mathbf{v}, \]
+where \(\mathbf{v}\) is the local fluid velocity, linearly interpolated at the particle position \(\mathbf{x}\). The equation of motion above is solved by means of a fourth-order Runge-Kutta integrator with adaptive time-stepping.
 
 As the Lagrangian motion of the fluid particles is computed, it is possible to track various fluid quantities at the particle locations, e.g. the fluid density, pressure, etc. See the "Payloads" section below for further details.
 
 
 # Charged particles (MHD): Full Lorentz dynamics
-A charged particle of charge \f$q\f$ and mass \f$m\f$ in electromagnetic fields evolves in time according to Newton's equations of motion
-\f[ \frac{d\mathbf{x}}{dt} = \mathbf{v}, \f]
-\f[ \frac{d\mathbf{v}}{dt} = \frac{q}{m}\left(\mathbf{E}+\mathbf{v}\times\mathbf{B}\right), \f]
-where \f$\mathbf{x}\f$ is the particle position, \f$\mathbf{v}\f$ is the velocity, and the electric and magnetic fields \f$\mathbf{E}\f$ and \f$\mathbf{B}\f$ provide the accelerating Lorentz force for the particle. The typical particle trajectory is a superposition of a parallel motion along magnetic field lines, a gyro-motion around magnetic field lines, and various "drift" mechanisms that allow the particle to cross magnetic field lines. As the magnetic field does no work on charged particles, a change in the particle kinetic energy is only associated to the presence of electric fields.
+A charged particle of charge \(q\) and mass \(m\) in electromagnetic fields evolves in time according to Newton's equations of motion
+\[ \frac{d\mathbf{x}}{dt} = \mathbf{v}, \]
+\[ \frac{d\mathbf{v}}{dt} = \frac{q}{m}\left(\mathbf{E}+\mathbf{v}\times\mathbf{B}\right), \]
+where \(\mathbf{x}\) is the particle position, \(\mathbf{v}\) is the velocity, and the electric and magnetic fields \(\mathbf{E}\) and \(\mathbf{B}\) provide the accelerating Lorentz force for the particle. The typical particle trajectory is a superposition of a parallel motion along magnetic field lines, a gyro-motion around magnetic field lines, and various "drift" mechanisms that allow the particle to cross magnetic field lines. As the magnetic field does no work on charged particles, a change in the particle kinetic energy is only associated to the presence of electric fields.
 
-The equations above are valid for a particle travelling at speeds much smaller than the speed of light in vacuum \f$c\f$. When \f$v\rightarrow c\f$, it is necessary to adopt the **relativistic equations of motion**
-\f[ \frac{d\mathbf{x}}{dt} = \frac{\mathbf{u}}{\gamma}, \f]
-\f[ \frac{d\mathbf{u}}{dt} = \frac{q}{m}\left(\mathbf{E}+\frac{\mathbf{u}}{\gamma}\times\mathbf{B}\right), \f]
-where \f$\mathbf{u}=\gamma\mathbf{v}\f$ is the normalised particle momentum, with \f$\gamma=\sqrt{1+u^2/c^2}=1/\sqrt{1-v^2/c^2}\f$ the Lorentz factor.
+The equations above are valid for a particle travelling at speeds much smaller than the speed of light in vacuum \(c\). When \(v\rightarrow c\), it is necessary to adopt the **relativistic equations of motion**
+\[ \frac{d\mathbf{x}}{dt} = \frac{\mathbf{u}}{\gamma}, \]
+\[ \frac{d\mathbf{u}}{dt} = \frac{q}{m}\left(\mathbf{E}+\frac{\mathbf{u}}{\gamma}\times\mathbf{B}\right), \]
+where \(\mathbf{u}=\gamma\mathbf{v}\) is the normalised particle momentum, with \(\gamma=\sqrt{1+u^2/c^2}=1/\sqrt{1-v^2/c^2}\) the Lorentz factor.
 
-For the relativistic case, the solution of the equations for the Lorentz dynamics can be carried out numerically in several fashions. Below we list the options available in MPI-AMRVAC:
+For the relativistic case, the solution of the equations for the Lorentz dynamics can be carried out numerically in several fashions. Below we list the options available in AGILE:
 * **Boris algorithm**: the equations of motion are solved with the Boris scheme (Boris 1970), popular for its simplicity and limited computational cost.
 * **Vay algorithm**: this more recent scheme (Vay 2008) is more suitable for particles travelling at highly relativistic speeds.
 * **Higuera-Cary algorithm**: this scheme exhibits smaller numerical errors in the particle gyro-phase with respect to the Boris algorithm (Higuera and Cary 2010). It provides advantages for ultra-relativistic particle motion.
@@ -39,25 +41,25 @@ For the relativistic case, the solution of the equations for the Lorentz dynamic
 
 # Charged particles (MHD): Guiding centre approximation
 In this mode, a "reduced" set of equations is employed to resolve the dynamics of charged particles, according to the so-called "guiding centre approximation" (GCA) paradigm. This neglects the particle gyro-motion, and may present advantages in certain physical scenarios. The equations of motion in this case are
-\f[ \begin{aligned}
+\[ \begin{aligned}
     \frac{d\mathbf{R}}{dt} = & \mathbf{v}_{\|} + \mathbf{v}_E + \frac{\hat{\mathbf{b}}}{B}\times\frac{\mu}{q}\nabla B \\
                              & + \frac{m\hat{\mathbf{b}}}{qB} \times\left\{ v_{\|}^2\left(\hat{\mathbf{b}}\cdot\nabla\right)\hat{\mathbf{b}} + v_{\|}\left(\mathbf{v}_E\cdot\nabla\right)\hat{\mathbf{b}} + v_{\|}\left(\hat{\mathbf{b}}\cdot\nabla\right)\mathbf{v}_E + \left(\mathbf{v}_E\cdot\nabla\right)\mathbf{v}_E \right\},
-\end{aligned} \f]
-\f[ \frac{dv_{\|}}{dt} = \frac{q}{m}E_{\|} - \frac{\mu}{m}\hat{\mathbf{b}}\cdot\nabla B + \mathbf{v}_E\cdot\left(v_{\|}\left(\hat{\mathbf{b}}\cdot\nabla\right)\hat{\mathbf{b}}+\left(\mathbf{v}_E\cdot\nabla\right)\hat{\mathbf{b}}\right), \f]
-\f[ \frac{d\mu}{dt} = 0, \f]
-where \f$\mathbf{R}\f$ is the guiding centre position and \f$\mathbf{v}_{\|}=(\mathbf{v}\cdot\hat{\mathbf{b}})\hat{\mathbf{b}}\f$ is the particle velocity in the direction parallel to the magnetic field. The unit vector \f$\hat{\mathbf{b}}=\mathbf{B}/B\f$ also defines the drift velocity \f$\mathbf{v}_E=\mathbf{E}\times\hat{\mathbf{b}}/B\f$ and the parallel electric field \f$E_{\|}=\mathbf{E}\cdot\hat{\mathbf{b}}\f$. The conservation of the adiabatic invariant \f$\mu=mv_\perp^2/(2B)\f$, with \f$v_\perp\f$ the particle velocity perpendicular to \f$\mathbf{B}\f$, is an assumption of this paradigm and may not be valid in general.
+\end{aligned} \]
+\[ \frac{dv_{\|}}{dt} = \frac{q}{m}E_{\|} - \frac{\mu}{m}\hat{\mathbf{b}}\cdot\nabla B + \mathbf{v}_E\cdot\left(v_{\|}\left(\hat{\mathbf{b}}\cdot\nabla\right)\hat{\mathbf{b}}+\left(\mathbf{v}_E\cdot\nabla\right)\hat{\mathbf{b}}\right), \]
+\[ \frac{d\mu}{dt} = 0, \]
+where \(\mathbf{R}\) is the guiding centre position and \(\mathbf{v}_{\|}=(\mathbf{v}\cdot\hat{\mathbf{b}})\hat{\mathbf{b}}\) is the particle velocity in the direction parallel to the magnetic field. The unit vector \(\hat{\mathbf{b}}=\mathbf{B}/B\) also defines the drift velocity \(\mathbf{v}_E=\mathbf{E}\times\hat{\mathbf{b}}/B\) and the parallel electric field \(E_{\|}=\mathbf{E}\cdot\hat{\mathbf{b}}\). The conservation of the adiabatic invariant \(\mu=mv_\perp^2/(2B)\), with \(v_\perp\) the particle velocity perpendicular to \(\mathbf{B}\), is an assumption of this paradigm and may not be valid in general.
 
-For particles travelling at velocities close to \f$c\f$, the special-relativistic formulation of the equations above reads
-\f[ \begin{aligned}
+For particles travelling at velocities close to \(c\), the special-relativistic formulation of the equations above reads
+\[ \begin{aligned}
     \frac{d\mathbf{R}}{dt} = & \frac{\mathbf{u}_{\|}}{\gamma} + \mathbf{v}_E 
     + \frac{\kappa^2\hat{\mathbf{b}}}{B}\times\left\{\frac{\mu_r}{q\gamma}\nabla (B/\kappa) + \frac{u_{\|}}{\gamma}E_{\|}\mathbf{v}_E\right\} \\
     & + \frac{m\kappa^2\hat{\mathbf{b}}}{qB}\times\left\{\frac{u_{\|}^2}{\gamma}\left(\hat{\mathbf{b}}\cdot\nabla\right)\hat{\mathbf{b}} + u_{\|}\left(\mathbf{v}_E\cdot\nabla\right)\hat{\mathbf{b}} + u_{\|}\left(\hat{\mathbf{b}}\cdot\nabla\right)\mathbf{v}_E + \gamma\left(\mathbf{v}_E\cdot\nabla\right)\mathbf{v}_E\right\},
-\end{aligned} \f]
-\f[ \frac{du_{\|}}{dt} = \frac{q}{m}E_{\|} - \frac{\mu_r}{m\gamma}\hat{\mathbf{b}}\cdot\nabla \left( B/\kappa\right) + \mathbf{v}_E\cdot\left(u_{\|}\left(\hat{\mathbf{b}}\cdot\nabla\right)\hat{\mathbf{b}}+\gamma\left(\mathbf{v}_E\cdot\nabla\right)\hat{\mathbf{b}}\right), \f]
-\f[ \frac{d\mu_r}{dt} = 0, \f]
-where \f$\mathbf{u}_{\|}=\mathbf{v}_{\|}\gamma\f$, and \f$\kappa=1/\sqrt{1-v_E^2/c^2}\f$ is the Lorentz factor corresponding to the frame moving at a speed equal to \f$\mathbf{v}_E\f$. These equations are obtained by averaging over the particle gyro-motion, and therefore assume the conservation of the relativistic magnetic moment \f$\mu_r=m\gamma^2 v_\perp^2/(2B)\f$. Because of the averaging, it can be shown that the expansion of the guiding centre velocity leads to the definition of the Lorentz factor \f$\gamma = \kappa\sqrt{1+(u_{\|}^2+2\mu_r B/m)/c^2} = \kappa\sqrt{(1+2\mu_r B/(mc^2))/(1-\kappa^2 v_{\|}^2/c^2)}\f$ up to first order. This implies that the dominant drift mechanism in the guiding centre motion is represented by \f$\mathbf{v}_E\f$. For both the Newtonian and relativistic cases, the assumption of slowly time-varying electromagnetic fields has been made, in order to simplify the equations of motion. This is justified by the reasonable assumption that the particle dynamics takes place on much faster time scales than that of the typical MHD evolution.
+\end{aligned} \]
+\[ \frac{du_{\|}}{dt} = \frac{q}{m}E_{\|} - \frac{\mu_r}{m\gamma}\hat{\mathbf{b}}\cdot\nabla \left( B/\kappa\right) + \mathbf{v}_E\cdot\left(u_{\|}\left(\hat{\mathbf{b}}\cdot\nabla\right)\hat{\mathbf{b}}+\gamma\left(\mathbf{v}_E\cdot\nabla\right)\hat{\mathbf{b}}\right), \]
+\[ \frac{d\mu_r}{dt} = 0, \]
+where \(\mathbf{u}_{\|}=\mathbf{v}_{\|}\gamma\), and \(\kappa=1/\sqrt{1-v_E^2/c^2}\) is the Lorentz factor corresponding to the frame moving at a speed equal to \(\mathbf{v}_E\). These equations are obtained by averaging over the particle gyro-motion, and therefore assume the conservation of the relativistic magnetic moment \(\mu_r=m\gamma^2 v_\perp^2/(2B)\). Because of the averaging, it can be shown that the expansion of the guiding centre velocity leads to the definition of the Lorentz factor \(\gamma = \kappa\sqrt{1+(u_{\|}^2+2\mu_r B/m)/c^2} = \kappa\sqrt{(1+2\mu_r B/(mc^2))/(1-\kappa^2 v_{\|}^2/c^2)}\) up to first order. This implies that the dominant drift mechanism in the guiding centre motion is represented by \(\mathbf{v}_E\). For both the Newtonian and relativistic cases, the assumption of slowly time-varying electromagnetic fields has been made, in order to simplify the equations of motion. This is justified by the reasonable assumption that the particle dynamics takes place on much faster time scales than that of the typical MHD evolution.
 
-The solution of the equations above is carried out in MPI-AMRVAC with a fourth-order Runge-Kutta numerical integrator with adaptive time stepping.
+The solution of the equations above is carried out in AGILE with a fourth-order Runge-Kutta numerical integrator with adaptive time stepping.
 
 
 # Scattered sampling (HD/MHD)
@@ -111,13 +113,13 @@ Below, we describe the essential steps needed to correctly set up a particle sim
 
   The default payloads, depending on the running mode, are:
   * For the \p 'advect' mode, the fluid density at the particle location will be tracked and stored in the first payload.
-  * For the \p 'Lorentz' mode, up to four payloads can be updated by default: the particle Lorentz factor (\p =1 if <tt>relativistic=.false.</tt>), the particle gyroradius, the magnetic moment, and the local value of \f$ \textbf{E}\cdot\textbf{B}\f$.
+  * For the \p 'Lorentz' mode, up to four payloads can be updated by default: the particle Lorentz factor (\p =1 if <tt>relativistic=.false.</tt>), the particle gyroradius, the magnetic moment, and the local value of \( \textbf{E}\cdot\textbf{B}\).
   * For the \p 'GCA' mode, there are 14 default payloads:
     * Particle gyroradius;
-    * Pitch angle \f$\tan^{-1}(v_\perp/v_{\|})\f$;
-    * Perpendicular velocity \f$v_\perp\f$;
-    * Four parallel acceleration terms (see right-hand side of the \f$du_{\|}/dt\f$ equation above);
-    * Seven drift velocity terms (in magnitude; see right-hand side of the \f$d\textbf{R}/dt\f$ equation above).
+    * Pitch angle \(\tan^{-1}(v_\perp/v_{\|})\);
+    * Perpendicular velocity \(v_\perp\);
+    * Four parallel acceleration terms (see right-hand side of the \(du_{\|}/dt\) equation above);
+    * Seven drift velocity terms (in magnitude; see right-hand side of the \(d\textbf{R}/dt\) equation above).
   * For the \p 'sample' mode, by default (regardless of the value of \p ndefpayload in the <tt>.par</tt> file) there will be a number of payloads \p n=nw, where \p nw is the number of variables in the fluid simulation. Each of these payloads samples one of the *primitive* fluid quantities, and therefore in the <tt>.csv</tt> output these payloads are named according to the names given to the primitive quantities.
 
   A custom payload update routine allows the user to store additional payloads (on top of the default ones). This can be done in the \p mod_usr.t file via a user-defined routine which *must* be associated with the \p usr_update_payload pointer at the beginning of \p mod_usr.t. The required format for a user-defined payload update routine (e.g. named \p update_payload) is:
@@ -137,7 +139,7 @@ Below, we describe the essential steps needed to correctly set up a particle sim
 
 
 ## Running
-Particle calculations in MPI-AMRVAC can be carried out in two different modes, namely i) concurrently to the (M)HD evolution, or ii) in a fixed (M)HD snapshot. Additionally, the convert operations that can be performed with (M)HD output files also affect the particle outputs. Each of these options is illustrated below.
+Particle calculations in AGILE can be carried out in two different modes, namely i) concurrently to the (M)HD evolution, or ii) in a fixed (M)HD snapshot. Additionally, the convert operations that can be performed with (M)HD output files also affect the particle outputs. Each of these options is illustrated below.
 
 - **Running the particle module along an HD/MHD simulation**: as mentioned above, after the (M)HD setup has been coded correctly in the \p mod_usr.t file and all parameters for the (M)HD simulation are set in the <tt>.par</tt> file, the particle module can be activated simply by including the statement <tt>hd_particles=.true.</tt> or <tt>mhd_particles=.true.</tt> in the \p mhd_list of the <tt>.par</tt> file. This will tell the code to perform the particle calculations according to the parameters specified in the \p particles_list block of the input file. The (M)HD calculation will behave as usual, and the particle results will be stored in the output according to dedicated parameters (see section "Output and visualisation" below).
 

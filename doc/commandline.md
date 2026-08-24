@@ -1,3 +1,5 @@
+title: Command line parameters
+
 # Command line parameters
 
 AMRVAC can be invoked with command line parameters, for example to do a restart
@@ -30,7 +32,7 @@ which currently prints:
 
 Note that settings from later par files override earlier ones. There is one
 exception to this: `base_filename`, for which the values are concatenated. Par
-files do not need to contain all the namelists (see @ref par.md).
+files do not need to contain all the namelists (see [Setting parameters](par.html)).
 
 ## Resume a previous simulation (which has not finished yet)
 
@@ -56,4 +58,4 @@ To start the new output from a different index:
 
     mpirun -np 4 ./amrvac -i amrvac.par -if output/sim0010.dat -convert
 
-See @ref par.md for a list of formats (which should be specified in the `.par` file)
+See [Setting parameters](par.html) for a list of formats (which should be specified in the `.par` file)

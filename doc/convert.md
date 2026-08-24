@@ -1,16 +1,15 @@
+title: Data file conversion
+
 # Data file conversion
 
-[TOC]
-
-# Introduction {#convert_intro}
-
-The standard [MPI-AMRVAC dataformat](fileformat.md), i.e. the _*.dat_
+# Introduction {: #convert_intro }
+The standard [AGILE dataformat](fileformat.html), i.e. the _*.dat_
 files usable for restart, contain all the conservative variables in
 all gridblocks, and hence suffice for visualization.
-Additional variables can be added in the _*.dat_ files as explained [here](dat_convert.md).  
+Additional variables can be added in the _*.dat_ files as explained [here](dat_convert.html).  
 > Since late 2019, it can be directly read, visualised and
 > analysed with the Python package [yt](https://yt-project.org),
-> see [our documentation to get started with yt](yt_usage.md).
+> see [our documentation to get started with yt](yt_usage.html).
 
 However, in many instances, one would like to use data formats that
 are directly readable by some of the more widespread visualization
@@ -30,8 +29,7 @@ We now give some brief info on how to use the same executable _amrvac_ (which
 you already compiled and used to obtain output _*.dat_ files with), to convert
 a single or all _*.dat_ file(s) to one of these formats.
 
-# Converting (on a single CPU) {#converting}
-
+# Converting (on a single CPU) {: #converting }
 ** Note that all the steps below assume you're running on a single CPU. The same steps are to be taken for obtaining any of the other precoded data formats. One important warning is due: when you run a simulation for some reason twice, and you did not erase the previously created _*.dat_ files, these files are overwritten (if the base_filename has not changed). Then, it may be that conversion fails, since the end of the file may contain some leftover data from the previous time, if the filelength has changed due to some other reason. The only remedy to this is that one should always remove old _*.dat_ files, or never forget to change the name for the files accordingly, by setting _base_filename_ in the _&amp;filelist;_.**
 
 We will assume that you ran the standard 2D advection problem used for test
@@ -52,7 +50,7 @@ as usual by a backslash)
 
 If all went well, you then have created as many _*.dat_ files as requested
 through the settings you provided in the combined _&amp;savelist;_ and
-_&amp;stoplist;_ namelists from the [par-file](par.md). For the example,
+_&amp;stoplist;_ namelists from the [par-file](par.html). For the example,
 they normally default to asking a full data dump at time zero, as well as
 every time the time has increased by 0.05, and this till _tmax=1.0d0_, such
 that we actually have 21 snapshots in total. You should thus have files like
@@ -120,8 +118,7 @@ or to convert the snapshot number 12
 For details of aiconvert, please read the header of the
 $AMRVAC_DIR/tools/aiconvert.
 
-# Parallel conversion options {#parallel_convert}
-
+# Parallel conversion options {: #parallel_convert }
 For very large simulations (typically 3D, and/or runs achieving high effective
 resolutions), even the data conversion may need to be done in parallel (and
 ultimately, the visualization itself too). The _convert.t_ allows to perform
@@ -153,8 +150,7 @@ of processors to use by answering a popup question:
 
     How many processors do you want to use? (default=1) 4
 
-# Autoconvert {#autoconvert}
-
+# Autoconvert {: #autoconvert }
 In addition to the conversion after the run, AMRVAC now offers also to
 directly output files ready to use for visualization along with the
 simulation. A parallel run will however only be capable to provide the file-
@@ -178,10 +174,8 @@ files, stored at given intervals. All functionality of the usual convert is
 conserved, e.g. derived quantities and primitive variables (using the
 _saveprim=.true._ option) can be stored in the output files.
 
-# Notes on conversion possibilities {#notes}
-
-## Cell center versus cell corner values {#cell_vs_corner}
-
+# Notes on conversion possibilities {: #notes }
+## Cell center versus cell corner values {: #cell_vs_corner }
 In all cases mentioned below, the difference between convert-types with or
 without _CC_ relates to the difference between cell center (`CC') versus cell
 corner values. For the cell center case, no interpolation of the computed data
@@ -193,13 +187,12 @@ reading in the data in _paraview_, which reports whether data is cell data
 (cell centered) or point data (nodes or corners). In principle, the conversion
 from cell centered (or cell data) to cell corner (or point data) types can
 also be achieved in paraview itself, with the filter _Cell data to Point
-data_. There may be subtle differences between the way MPI-AMRVAC does this
+data_. There may be subtle differences between the way AGILE does this
 interpolation, and the way it happens internally to paraview, so we provide
 both options as output _*.vtu_ files. Similar observations hold for the
 Tecplot format.
 
-## Conservative/primitive storage and adding derived quantities {#cons_vs_prim}
-
+## Conservative/primitive storage and adding derived quantities {: #cons_vs_prim }
 The **saveprim** logical allows you to select whether the conservative or
 primitive variables need to be stored in the resulting output file. The names
 for the conservative variables and primitive ones are hard coded depending on
@@ -224,11 +217,11 @@ This feature is very useful, for the same reason as above: you can let the
 code compute gradients of scalar fields, divergence of vector quantities, curls 
 of vectors, etc, using the precoded subroutines for that purpose found in _geometry.t_.
 You then do not rely on visualization software to do interpolations or
-discretizations, which may not reflect those actually taken in MPI-AMRVAC.
+discretizations, which may not reflect those actually taken in AGILE.
 
 Another useful feature is the possibility to select the output AMR level. You
 can let the code compute from the _*.dat_ file an output residing on a
-specified level _level_io_. This then uses the MPI-AMRVAC internal means to
+specified level _level_io_. This then uses the AGILE internal means to
 perform restriction and prolongations, and you can then make sure to have a
 single uniform grid output too.
 

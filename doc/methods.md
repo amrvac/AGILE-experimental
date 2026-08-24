@@ -1,11 +1,13 @@
+title: Numerical methods
+
 # Numerical methods
 
 This document briefly describes the features of the spatial discretizations
-available in MPI-AMRVAC. The different options can be set in the
-[methodlist](@ref par_methodlist) of the input par file. For a more
+available in AGILE. The different options can be set in the
+[methodlist](par.html#par_methodlist) of the input par file. For a more
 extensive description, you can read the article [Comparison of some FCT and
 TVD Schemes](http://www-personal.umich.edu/~gtoth/Papers/vac.html). Also, the
-paper using MPI-AMRVAC has info on the various methods, see 'Parallel, grid-
+paper using AGILE has info on the various methods, see 'Parallel, grid-
 adaptive approaches for relativistic hydro and magnetohydrodynamics', R.
 Keppens, Z. Meliani, A.J. van Marle, P. Delmont, A. Vlasis, &amp; B. van der
 Holst, 2011, JCP. [doi:10.1016/j.jcp.2011.01.020](http://dx.doi.org/10.1016/j.jcp.2011.01.020).
@@ -35,7 +37,7 @@ we have the following combinations typically:
 Also, the method can be selected per AMR grid level, but one can not combine
 different stepsize methods (hence, TVD is the only second order onestep
 method, while all others can be used with all steps time stepper/integrator
-setting). In MPI-AMRVAC, the **flux_scheme** is thus an array of strings, one
+setting). In AGILE, the **flux_scheme** is thus an array of strings, one
 string per level up to **nlevelshi**. Some more info follows on the various
 methods.
 
@@ -169,7 +171,7 @@ number of ghost cell layers and odd number of ghost layers for some slope limite
 #### Powell fix: typedivbfix='powel'
 
 For multidimensional MHD calculations the non-conservative form of the [MHD
-equations](@ref eq_mhd) seems to produce better results than the usual
+equations](equations.html#eq_mhd) seems to produce better results than the usual
 conservative form. The idea is to include source terms proportional to div B
 into the momentum, energy and induction equations and to add a divergence wave
 for the Riemann solver.
@@ -185,7 +187,7 @@ is usable for both classical and relativistic MHD.
 #### Diffusive fix: typedivbfix='linde'
 
 You can also use the diffusive (parabolic) approach, see the
-[equations](@ref par_divbfix). It uses a `C_d` coefficient quantified by
+[equations](par.html#par_divbfix). It uses a `C_d` coefficient quantified by
 `divbdiff`, which can be up to 2. This method is by default inactive,
 identified by `divbdiff=1`, but it is recommended for many multi-D MHD
 applications.

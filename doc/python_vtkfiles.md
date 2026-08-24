@@ -1,14 +1,13 @@
+title: Reading the vtk files
+
 # Reading the vtk files
 
-[TOC]
-
-# Introduction on reading vtk files {#introductionvtk}
-
-This document describes the use of Python for plotting MPI-AMRVAC 1D and 2D simulation data using the `vtk` filetypes.
-All required packages and instructions on how to set up the tools folder are described in @ref python_setup.md.
+# Introduction on reading vtk files {: #introductionvtk }
+This document describes the use of Python for plotting AGILE 1D and 2D simulation data using the `vtk` filetypes.
+All required packages and instructions on how to set up the tools folder are described in [Setting up the python tools](python_setup.html).
 The vtk-file tools can be found in the folder `$AMRVAC_DIR/tools/python/vtkfiles`.
 
-# Reading datasets {#reading_vtk}
+# Reading datasets {: #reading_vtk }
 Currently only the reading of **cell-centered** `vtk` file-types (`.vtu`, `.pvtu`, `.vti`) is supported,
 together with some ascii `.csv` files. Reading the data is handled in the file `read.py`, present in the `vtkfiles` subdirectory.
 This file contains various classes for different data.
@@ -70,7 +69,7 @@ which loads in `data_d1_x+0.00D00_n0015.csv`. The argument `offset` refers to
 the last 4 digits of the filename, the argument `coord` translates to `0.00D00` and
 `dir=1` refers to the `d1` part of the filename (setting `dir=2` would mean `data_d2_x...`).
 
-# Plotting data {#plotting_vtk}
+# Plotting data {: #plotting_vtk }
 ## 1D plotting
 
 Once the data is loaded into the instance `ds`, you can access it with
@@ -121,7 +120,7 @@ Additionally there is a nice interactive feature when using `amrplot.polyplot`: 
 will be displayed and all variables at the chosen location will be returned to the terminal. This may take a few seconds the first time this feature is executed,
 as the centerpoints must be calculated first.
 
-# Convenient auxiliary functions {#vtk_auxiliary}
+# Convenient auxiliary functions {: #vtk_auxiliary }
 The class `amrplot` has some additional auxiliary functions which can be quite useful:
 * `amrplot.line`: selects variables over a straight path across a 2D slice
 * `amrplot.velovect`: provides velocity vectors for a flow field

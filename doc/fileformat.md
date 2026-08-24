@@ -1,4 +1,6 @@
-# MPI-AMRVAC data file format
+title: AGILE data file format
+
+# AGILE data file format
 > this doc describes the latest version of the data file format, which is numbered "5"
 
 All data files consist of a single snapshot, and they can be used for restart
