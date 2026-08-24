@@ -6,7 +6,7 @@ title: Code Contents
 * [Acknowledgments](acknowledgments.html) Information on collaboration and
 financial support.
 * [FAQ](faq.html) Frequently asked questions.
-* [Tests](test.html) An overview of documented test cases.
+* [Examples](examples.html) An overview of documented example simulations.
 * [Contributing to AGILE and its documentation](contributing.html)
 * [Documentation](documentation.html) How the documentation works.
 
@@ -30,8 +30,6 @@ the data structures for the block-tree AMR.
 
 # Additional Physics {: #special_sources }
 * [Radiative cooling](radiative_cooling.html) Description of adding radiative cooling.
-* [Test particles in (M)HD](particle.html) Description of test particle tracing routines.
-
 
 # IO and data analysis {: #io }
 * [File format](fileformat.html) Description of the format of AGILE data file (.dat).

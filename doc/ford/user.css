@@ -4,6 +4,19 @@
    components already re-theme themselves; this file only patches the bits
    of FORD's local.css/pygments.css that hardcode light-mode colors. */
 
+/* Images embedded in narrative page content (e.g. doc/examples.md figures)
+   are plain <img> tags emitted by the Markdown renderer with no sizing
+   class, so they display at their native pixel size -- often wider than
+   the #text content column. Constrain them to the column width at
+   render time via a percentage (not a fixed pixel max-width) so this
+   holds at any viewport size or browser zoom level, and center them. */
+#text img {
+    max-width: 100%;
+    height: auto;
+    display: block;
+    margin: 0.5rem auto 1rem;
+}
+
 #theme-toggle {
     color: rgba(255, 255, 255, 0.85);
     border-color: rgba(255, 255, 255, 0.4);

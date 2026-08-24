@@ -1,12 +1,12 @@
-title: Test cases
+title: Example simulations
 
-# Test cases {: #test-cases }
+# Example simulations {: #examples }
 
 `$AGILE_DIR/tests/{hd,mhd,ffhd,srhd}/` holds AGILE's test suite: a mix of
 short regression cases (built and run automatically by `make hd`/`make
 mhd`/`make ffhd`, see [Getting Started](getting_started.html)) and larger,
 physically motivated setups used as science demonstrations. This page
-documents the cases that are also described in detail in the AGILE 1.0
+documents the examples that are also described in detail in the AGILE 1.0
 paper, [Porth et al., "Astrophysics on GPUs: introducing AGILE 1.0"
 (submitted to RASTI, in review; arXiv:2607.19277)](https://arxiv.org/abs/2607.19277)
 -- the citable reference for AGILE 1.0 (see also
@@ -18,7 +18,7 @@ as in [Getting Started](getting_started.html#first-run), e.g.
     make arch=gnu
     mpirun -np 4 ./agile -i agile.par
 
-Beyond the cases below, `tests/` contains further regression and
+Beyond the examples below, `tests/` contains further regression and
 verification setups (e.g. `hd/RT3D`, `hd/KH3D-SMR`, `hd/KH3D_tracer`,
 `hd/sphere_advection`, `mhd/blast_wave_Cartesian_3D`, `mhd/Orszag-Tang_3D`,
 `mhd/doubleGEM3D`, `srhd/shockTube`) that aren't individually described in
@@ -39,6 +39,8 @@ is recorded. The paper's Figure 5 and Table 2 report measured performance
 across device types (up to ~2x10^9 CUPS on an NVIDIA B200), and Section 3.2
 reports multi-GPU strong- and weak-scaling results up to 2048 GPUs on the
 Snellius and LUMI-G clusters.
+
+![Single-device benchmark performance across GPU/CPU device types, problem sizes and block sizes (paper Figure 5)](figmovdir/agile_paper_kh3d_benchmark.png)
 
 ## Double Mach reflection meets shock-cloud -- `Woodward_Collela` {: #woodward-collela }
 *(paper Section 4.1)* Combines the classic Mach-10 double-Mach-reflection
@@ -67,6 +69,8 @@ activated over a million AMR blocks (1.7×10^9 cells) and ran for 2944
 node-hours across up to 2048 GPUs on LUMI. This case is a science
 demonstration, not part of the automated `make hd` regression suite.
 
+![Density at t=0.75 in a vertical slice (top), and density and pressure in a horizontal slice (middle/bottom), for the double Mach reflection meeting a shock-cloud (paper Figure 9)](figmovdir/agile_paper_woodward_collela.png)
+
 ## Multiphase turbulent mixing -- `TRML` {: #trml }
 *(paper Section 4.2)* A 3D turbulent radiative mixing layer (TRML) forming
 between a hot, tenuous phase and a cold, dense phase in shear contact --
@@ -89,6 +93,8 @@ subsampling AMR blocks (or isosurfacing) on a cooling-to-shear timescale
 ratio, measuring d = 2.541, consistent with the d = 5/2 scaling predicted
 by Fielding et al. (2020). Performance on LUMI reached ≳1.5×10^8 CUPS per
 GCD, close to AGILE's uniform-grid single-GPU benchmark number.
+
+![A slice of the turbulent shearing system showing density, the shear-to-cooling timescale ratio, pressure and vertical velocity for the TRML (paper Figure 11)](figmovdir/agile_paper_trml.png)
 
 ## Cloud crushing -- `cloud_crushing` {: #cloud-crushing }
 *(paper Section 4.3)* The classic "cloud crushing" problem (Klein et al.
@@ -118,6 +124,8 @@ ram-pressure drag prediction, and the cold cloud mass fraction fcl(t); fitted
 drag coefficients CD ≈ 3.1 are consistent across all three density
 contrasts. Uniform-grid performance runs (1280×256×256, HLL solver, 32
 MI250X GCDs on LUMI) reached ~1.1×10^8 CUPS/GCD.
+
+![Projected column density for the χ=240 cloud-crushing run at t≈1 tcc (top) and t≈2.5 tcc (bottom), side-on (left) and face-on (right) (paper Figure 14)](figmovdir/agile_paper_cloud_crushing.png)
 
 # Frozen-field hydrodynamics (`tests/ffhd/`) {: #ffhd-tests }
 
@@ -152,6 +160,8 @@ for MPI-AMRVAC), so AGILE's throughput advantage over MPI-AMRVAC actually
 *grows* with physics complexity, from 5.9x (baseline) to 7.0x (both source
 terms).
 
+![Volume rendering of the condensed structures emerging in the FFHD simulation, with filamentary overdensities flowing along the sheared quadrupolar field lines (paper Figure 17)](figmovdir/agile_paper_quadrupolar3d.png)
+
 The related `tests/ffhd/TI3D` case (adapted from MPI-AMRVAC's
 `demo/thermal_instability_HD`) exercises the same FFHD thermal-instability
 mechanism referenced in paper Section 2.3.2, in a simpler standalone
@@ -184,7 +194,11 @@ cooling drives runaway condensation via thermal instability -- the same
 mechanism as the FFHD case above -- producing thin, connected,
 low-temperature sheets with density condensations in their folds. The
 paper's Figure 19 was rendered directly from the native `.dat` AMR
-snapshot using the Intel Embree ray-tracing library. This case is a science
+snapshot using the Intel Embree ray-tracing library.
+
+![The cooled Orszag-Tang state at t=0.4 (left) and t=1.8 (right), showing magnetic field lines and strength, a temperature slice, and volumetric regions of high density (paper Figure 19)](figmovdir/agile_paper_orszag_tang_cooling.png)
+
+This case is a science
 demonstration (see the `job_lumi_gpu_4l*.sh` batch scripts for the full
 production run) and is not part of the automated `make mhd` regression
 suite; `tests/mhd/Orszag-Tang_3D` is instead the classic, non-cooled 3D
@@ -217,3 +231,5 @@ Snellius node (4×H100 GPUs) in 16 hours (3.02×10^8 CUPS/device, 1.2×10^9
 CUPS total), 5.3 times faster -- and about 3.6 times cheaper in compute
 cost including IO -- than the equivalent MPI-AMRVAC run on 512 EPYC Rome
 CPU cores.
+
+![Slice along the jet axis after 38 crossing times, comparing MPI-AMRVAC (left) and AGILE (right) -- both codes agree closely on the jet morphology (paper Figure 20)](figmovdir/agile_paper_jet3d.png)

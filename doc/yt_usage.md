@@ -1,9 +1,9 @@
-title: AMRVAC datasets and YT
+title: AGILE datasets and YT
 
-# AMRVAC datasets and YT
+# AGILE snaphot files and YT
 
 # Introduction {: #yt_introduction }
-The datfile format is such that its is compatible with [`yt`](https://yt-project.org),
+The datfile format (still identical to MPI-AMRVAC) is compatible with [`yt`](https://yt-project.org),
 an open-source Python package for analysing and visualising volumetric data.
 `yt` supports AMR meshes and can handle discrete or sampled data such as particles.
 It's query-based so that it can handle larger-than-RAM datasets and makes uses of [Cython](https://cython.org) for speed-up and C-interoperability.
@@ -46,9 +46,9 @@ Required dependencies are `Numpy` and `Cython`.
 
 # Examples {: #examples }
 Since adding lots of examples and figures on this webpage would be quite difficult to maintain, we prepared a Jupyter notebook
-which contains various examples of using yt with actual AGILE datasets:
+which contains various examples of using yt with actual AMRVAC datasets:
 
-[AGILE example notebook on Jupyter nbviewer](https://nbviewer.jupyter.org/github/n-claes/amrvac_yt_docs/blob/master/amrvac_yt_docs.ipynb)
+[MPI-AMRVAC example notebook on Jupyter nbviewer](https://nbviewer.jupyter.org/github/n-claes/amrvac_yt_docs/blob/master/amrvac_yt_docs.ipynb)
 
 This notebook is regularly updated whenever we update the frontend or have a fun idea that we think is worthwile to add as an example.
 If you want to experiment with it, you can either download the notebook directly from nbviewer and use your own data, or you

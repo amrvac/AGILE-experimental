@@ -6,13 +6,13 @@ title: Frequently Asked Questions
 Below you can find a list of frequently asked questions and answers.
 
 # Is there a mailinglist? {: #faq-mailinglist }
-There is a mailing list for the amrvac code that you can send questions to: <mailto:amrvacusers@ls.kuleuven.be>
+There is a mailing list for the agile code that you can send questions to: <mailto:agileusers@ls.kuleuven.be>
 
-You can join the mailing-list by [subscribing](https://ls.kuleuven.be/cgi-bin/wa?SUBED1=AMRVACUSERS&A=1), so that you will be informed about important changes or (bug)fixes. You can also search the [mailing list archive](https://ls.kuleuven.be/cgi-bin/wa?A0=AMRVACUSERS).
+You can join the mailing-list by [subscribing](https://ls.kuleuven.be/cgi-bin/wa?SUBED1=AGILEUSERS&A=1), so that you will be informed about important changes or (bug)fixes. You can also search the [mailing list archive](https://ls.kuleuven.be/cgi-bin/wa?A0=AGILEUSERS).
 
 If you find issues or have feature requests specific to AGILE, its best to do this by raising a [github issue](https://github.com/amrvac/AGILE/issues).   
 
-# Is there a way I can define my own parameters somewhere in mod_usr.t and configure them through `amrvac.par` ? {: #faq-own-parameters }
+# Is there a way I can define my own parameters somewhere in mod_usr.t and configure them through `agile.par` ? {: #faq-own-parameters }
 Indeed, there is a quick and time-saving way to read your own parameters without having to give an explicit value in the usr file and recompile each time. Instead, add this in your usr file : 
 
 1. at the end of the usr_init subroutine, add this line : call params_read(par_files)

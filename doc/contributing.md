@@ -8,26 +8,31 @@ This page describes how you can contribute code and documentation to AGILE.
 # Testing your changes {: #contrib-testing }
 Having made some changes, the first thing you can check is whether the AMRVAC library still compiles. To compile the 1D, 2D and 3D version of the library in parallel with 8 jobs, you can run:
 
-    cd lib
-    make -j 8
+```text
+cd lib
+make -j 8
+```
 
 If you have added new files, you might have to update dependencies in the makefiles.
 
 It is important to test your changes by running AGILE's test suite. This is done as
 follows:
 
-    cd tests
-    make all
+```text
+cd tests
+make all
+```
 
 This will run programs in 1D, 2D and 3D and compare their output to previously
 stored results, and report errors when differences are larger than some
 threshold. Alternatively, you can run tests for individual physics modules:
 
-    cd tests
-    make rho
-    make hd
-    ...
-
+```text
+cd tests
+make rho
+make hd
+...
+```
 
 ## Adding tests {: #contrib-adding-tests }
 To add new tests, you need:
@@ -39,11 +44,14 @@ To add new tests, you need:
 These files should be placed in the corresponding physics folder, e.g. `tests/hd`
 for hydro problems. Assuming your `.par` file is called `my_test.par`, it should contain the following options in its filelist (see [Setting parameters](par.html)):
 
+```fortran
     base_filename='my_test'
     typefilelog='regression_test'
+```
 
 You can then use the following template for the `test.make` file:
 
+```make
     # Template for test.make files
 
     # Name of .par file you want to use
@@ -71,19 +79,24 @@ You can then use the following template for the `test.make` file:
     # Generate dependency rules for the tests, which are used to run them
     $(foreach s, $(SCHEMES),\
         $(eval $(s:%=$(BASE_NAME)_%.log): $(PAR_FILE) $(SCHEME_DIR)/$(s).par))
+```
 
 Of course, you can change `my_test` in the above files to something more
 meaningful, e.g. `hd_dust_2d`. Now you can compile and run your tests with:
 
-    make -f test.make
+```text
+make -f test.make
+```
 
 They should all fail the first time, but there should now be log files of the
 "regression_test" type, which contain the volume averages of the variables and
 the variables squared over time. If you are happy with the results, store them
 in a folder called `correct_output`:
 
-    mkdir correct_output
-    cp *.log correct_output/
+```text
+mkdir correct_output
+cp *.log correct_output/
+```
 
 Now `make -f test.make` should pass. You can then add your test folder to the
 corresponding directory in `tests/Makefile` file, so that the test is
