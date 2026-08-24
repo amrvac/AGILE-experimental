@@ -58,21 +58,21 @@ A list of further naming guidelines:
 # Code style conventions {: #style-conventions }
 * Use `>=`, `<=`, `/=` etc. instead of `.gt.`, `.lt.`, `.ne.`
 * Include spaces around operators to improve readability: 
-  ```{fortran}
+  ```fortran
       i = 5
       i = 5 + j
       i = 5/(a + b) + c
   ```
 * Include spaces after commas to visually separate arguments:
-  ```{fortran}
+  ```fortran
       call my_routine(a, b, c)
   ```
 * Don't use semicolons to put multiple statements on one line
-  ```{fortran}
+  ```fortran
       i = 1; j = i + 1 ! Bad
   ```
 * Always use `::` in variable declarations
-  ```{fortran}
+  ```fortran
       integer :: i
   ```
 
@@ -97,7 +97,7 @@ comments, which show up in the generated FORD documentation.
 A source file should contain either a module or a program. Try to use modules in
 the following way:
 
-```{fortran}
+```fortran
     module mod_name
 
       ! Selectively import when needed in the whole module
@@ -160,7 +160,7 @@ variables in a module and give them a recognizable prefix such as `GLOBAL_`.
 
 To ensure that variables defined in a module are not accidentally changed, you can use the Fortran 2003 `protected` attribute:
 
-```{fortran}
+```fortran
     integer, protected :: my_age
 ```
 
@@ -172,14 +172,14 @@ Such variables can only be changed from inside the defining module.
 The usage of `double precision` is deprecated. Instead use the kind-parameter
 `dp` to declare double precision numbers:
 
-```{fortran}
+```fortran
     real(dp) :: x         ! good
     double precision :: x ! deprecated
 ```
 
 
 Write floating point constants using the `_dp` suffix:
-```{fortran}
+```fortran
     x = x * 1.1_dp ! good
     x = x * 1.1    ! bad: single precision constant
 ```
@@ -205,7 +205,7 @@ integer:
 
 Use named constants instead of *magic numbers*:
 
-```{fortran}
+```fortran
     real(dp), parameter :: pi = 3.14_dp
 
     x = sin(pi * x)      ! good
@@ -214,7 +214,7 @@ Use named constants instead of *magic numbers*:
 
 However, don't use named constants for simple numbers such as `0`, or `0.5`:
 
-```{fortran}
+```fortran
     x = 1.0_dp/pi         ! good
     x = one/pi            ! bad: what is one?
 ```
@@ -224,7 +224,7 @@ However, don't use named constants for simple numbers such as `0`, or `0.5`:
 
 Always loop over arrays in the *correct* order, meaning that the loop indices are ordered from right to left (opposite to loops in e.g., C or C++):
 
-```{fortran}
+```fortran
     do j = 1, N
        do i = 1, N
           array(i, j) = 1
@@ -236,7 +236,7 @@ Because Fortran stores arrays in column-major order, the loop then follows the
 'natural' memory order of the array. For the same reason, it pays off to think
 about the ordering of your arrays, for example:
 
-```{fortran}
+```fortran
     array(:, i, j) = 1 ! Fast
     array(i, j, :) = 1 ! Slower
 ```
@@ -257,7 +257,7 @@ for `ifort` you have to enable this behavior).
 
 Use **assumed-shape** arrays when performance is not critical, for example:
 
-```{fortran}
+```fortran
     subroutine square(values, squares)
        integer, intent(in) :: values(:)
        integer, intent(out) :: squares(:)
@@ -268,7 +268,7 @@ Use **assumed-shape** arrays when performance is not critical, for example:
 The advantage of assumed-shape arrays is that they allow for run-time bounds
 checking. When performance is critical, you can use explicit-shape arrays:
 
-```{fortran}
+```fortran
     subroutine square(values, squares, n_values)
        integer, intent(in) :: n_values
        integer, intent(in) :: values(n_values)
@@ -286,7 +286,7 @@ by Intel for more information about the performance differences.
 
 In new code, use the `[...]` syntax to define array constants:
 
-```{fortran}
+```fortran
     x = [1, 2, 3]   ! Fortran 2003 and later
     x = (/1, 2, 3/) ! Old style
 ```

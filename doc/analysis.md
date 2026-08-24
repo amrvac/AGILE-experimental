@@ -8,7 +8,7 @@ Users can write a subroutine to freely derive (and print or store) quantities of
 interest from the entire grid. To activate this functionality, set the following
 in your `usr_init` routine:
 
-```{fortran}
+```fortran
 subroutine usr_init()
   ...
   usr_write_analysis => my_analysis
@@ -35,7 +35,7 @@ similar to the `printlog_special`. A special file-unit is reserved for the IO:
 
 # Example of analysis routine
 
-```{fortran}
+```fortran
 subroutine my_analysis()
   double precision :: tmp, wmax
   integer          :: iigrid, igrid, ierrmpi

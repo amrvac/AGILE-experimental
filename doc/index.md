@@ -9,8 +9,7 @@ Contributions via [pull requests](https://github.com/amrvac/AGILE/pulls) welcome
 
 # Quick links {: #quick_links }
 * [Getting started](getting_started.html)
-* [Code Contents](contents.html) -- full narrative documentation index
-* [Setting parameters](par.html)
+* [Code Overview](contents.html) -- full narrative documentation index
 * [Frequently Asked Questions](faq.html)
 * [Contributing to AGILE and its documentation](contributing.html)
 * [Publications related to AGILE](publications.html)

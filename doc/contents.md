@@ -6,7 +6,7 @@ title: Code Contents
 * [Acknowledgments](acknowledgments.html) Information on collaboration and
 financial support.
 * [FAQ](faq.html) Frequently asked questions.
-* [**Tests**](test.html) An overview of documented test cases.
+* [Tests](test.html) An overview of documented test cases.
 * [Contributing to AGILE and its documentation](contributing.html)
 * [Documentation](documentation.html) How the documentation works.
 
@@ -16,8 +16,6 @@ financial support.
 * [Auxiliary variables](mpiamrvac_nw.html) Description of the intended use
   for _nw, nwflux, nwaux, nwextra, nwauxio_ parameters.
 * [Command line](commandline.html) Help on command-line parameters.
-* [Examples](examples.html) Description of various example simulations for which
-  parameter files and user modules have been provided.
 
 # Discretization methods and AMR strategy {: #discretization }
 * [Discretization](discretization.html) The equation and its discretization, the

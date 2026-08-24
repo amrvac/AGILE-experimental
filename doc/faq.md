@@ -6,9 +6,11 @@ title: Frequently Asked Questions
 Below you can find a list of frequently asked questions and answers.
 
 # Is there a mailinglist? {: #faq-mailinglist }
-Yes, we have a mailinglist that you can send questions to: <mailto:amrvacusers@ls.kuleuven.be>
+There is a mailing list for the amrvac code that you can send questions to: <mailto:amrvacusers@ls.kuleuven.be>
 
 You can join the mailing-list by [subscribing](https://ls.kuleuven.be/cgi-bin/wa?SUBED1=AMRVACUSERS&A=1), so that you will be informed about important changes or (bug)fixes. You can also search the [mailing list archive](https://ls.kuleuven.be/cgi-bin/wa?A0=AMRVACUSERS).
+
+If you find issues or have feature requests specific to AGILE, its best to do this by raising a [github issue](https://github.com/amrvac/AGILE/issues).   
 
 # Is there a way I can define my own parameters somewhere in mod_usr.t and configure them through `amrvac.par` ? {: #faq-own-parameters }
 Indeed, there is a quick and time-saving way to read your own parameters without having to give an explicit value in the usr file and recompile each time. Instead, add this in your usr file : 
@@ -16,7 +18,7 @@ Indeed, there is a quick and time-saving way to read your own parameters without
 1. at the end of the usr_init subroutine, add this line : call params_read(par_files)
 2. and just after the usr_init subroutine, define the params_read subroutine you just called. For instance :
   
-```{fortran}
+```fortran
     !> Read parameters from a file
     subroutine params_read(files)
     use mod_global_parameters, only: unitpar
@@ -36,7 +38,7 @@ Indeed, there is a quick and time-saving way to read your own parameters without
 
 with `my_parameter_1` and `my_parameter_2` to be defined at the very beginning of the user file, just before the “contains” statement. Doing so, you can use them anywhere in the usr file and they will have the value you defined in your par file adding the following lines :
 
-```{fortran}
+```fortran
 &my_list
 	my_parameter_1    = 0.2d0
 	my_parameter_2    = 1.d0
@@ -76,26 +78,3 @@ If you encounter this problem on your own machine, you can try to:
 1. Change compilers: Use the version of gfortran that MPI was compiled with
 2. Reinstall your MPI library, or install a different one (e.g. MPICH or OpenMPI), which is then hopefully compiled with the right version of GCC/gfortran.
 3. Install an operating system with working package management, e.g. Debian ;)
-
-# Can the MHD module handle Hall-MHD? {: #faq-hall-mhd }
-The AGILE code has Hall-MHD included, as detailed in some of our publications, e.g. in the method paper 
-
-* `MPI-AMRVAC for Solar and Astrophysics', O. Porth, C. Xia, T. Hendrix, S.P. Moschou, & R. Keppens, 2014, ApJS 214,4 [doi:10.1088/0067-0049/214/1/4](http://dx.doi.org/10.1088/0067-0049/214/1/4)
-
-or also in the Kelvin-Helmholtz related application paper 
-
-* `On the influence of environmental parameters on mixing and reconnection caused by the Kelvin-Helmholtz instability at the magnetopause', M.H.J. Leroy & R. Keppens, 2017, PoP 24, 012906 (15pp), [doi:10.1063/1.4974758](http://dx.doi.org/10.1063/1.4974758)
-
-The implementation details are given in the first reference (Porth et al.), and although it works properly on several tests and applications, we note that the time step constraint of our explicit implementation may become prohibitive for particular applications. We just limit the CFL according to \(\Delta t < \Delta x/ c_w\), with time step and spatial step linked by the speed \(c_w\), but in that speed we set \(c_w= |v|+\max(c_{fast}, \eta_h B/\rho * k_{max})\) and \(k_{max}\) is the maximal wavenumber we can represent (i.e. linked to \(\Delta x\)). The dispersive nature of the Hall-MHD system may then make \(\Delta t\) going like \(\Delta x^2\), and this limits the current implementation.
-
-In AGILE 3.0, the Hall effect is included when setting the following in the `mhd_list` namelist part
-
-```{fortran}
-&mhd_list
-      mhd_Hall=.true.
-      mhd_etah=  .... (some positive number, quantifying the hall parameter)
-/
-```
-
-In the same namelist, the optional logical `mhd_4th_order=.true.`
-implies a 4th order evaluation for currents, default it is only second order. In any case, you may also need to activate an additional ghost cell layer (or 2 for 4th-order evaluations), through setting appropriately the parameter `nghostcells`.

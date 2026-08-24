@@ -16,7 +16,7 @@ data, in the following order:
 
 # Header
 
-```{fortran}
+```fortran
 integer           :: Version number
 integer           :: Byte offset where tree information starts
 integer           :: Byte offset where block data starts
@@ -49,7 +49,7 @@ integer           :: collapsenext
 
 # Tree information
 
-```{fortran}
+```fortran
 logical :: leaf(nleafs+nparents)
 integer :: refinement_level(nleafs)
 integer :: spatial_index(ndim, nleafs)
@@ -58,7 +58,7 @@ integer(kind=MPI_OFFSET_KIND) :: offset_block(nleafs)
 
 # Block 1 to nleafs
 
-```{fortran}
+```fortran
 integer :: n_ghost_lo(ndim) ! number of ghost cells on lower boundaries
 integer :: n_ghost_hi(ndim) ! number of ghost cells on upper boundaries
 ! block_shape = 1-n_ghost_lo:block_nx+n_ghost_hi
