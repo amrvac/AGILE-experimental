@@ -5,6 +5,7 @@ src_dir: ./src
 output_dir: ./html
 page_dir: ..
 html_template_dir: ./templates
+css: ./user.css
 predocmark: >
 docmark: <
 source: true

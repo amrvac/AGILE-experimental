@@ -79,4 +79,25 @@ echo "Running FORD"
 cd "$script_dir"
 ford project.md
 
-echo "Documentation generated in $html_out/index.html"
+# FORD's own generated index.html is a generic project splash page; move it
+# aside and make the narrative front page (page/index.html, from project.md's
+# page_dir) the site's landing page instead, since that's what visitors
+# should land on. The "API reference" nav link in templates/base.html is
+# repointed at api-index.html to match.
+mv "$html_out/index.html" "$html_out/api-index.html"
+cat > "$html_out/index.html" <<'EOF'
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="refresh" content="0; url=page/index.html">
+<link rel="canonical" href="page/index.html">
+<title>AGILE Documentation</title>
+</head>
+<body>
+<p>Redirecting to the <a href="page/index.html">AGILE documentation</a>...</p>
+</body>
+</html>
+EOF
+
+echo "Documentation generated in $html_out/index.html (redirects to $html_out/page/index.html)"

@@ -2,6 +2,16 @@
 <html lang="en">
   <head>
     <meta charset="utf-8">
+    <!-- Set the theme before first paint, so there's no flash of the wrong
+         theme: prefer a saved choice, else fall back to the OS setting. -->
+    <script>
+      (function () {
+        var saved = null;
+        try { saved = localStorage.getItem("theme"); } catch (e) {}
+        var theme = saved || (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+        document.documentElement.setAttribute("data-bs-theme", theme);
+      })();
+    </script>
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     {% if summary %}
@@ -60,7 +70,7 @@
 
           <div id="navbar" class="navbar-collapse collapse">
             <ul class="navbar-nav">
-              <li class="nav-item"><a class="nav-link" href="{{ project_url }}/index.html">API reference</a></li>
+              <li class="nav-item"><a class="nav-link" href="{{ project_url }}/api-index.html">API reference</a></li>
               {% if incl_src %}
                 {% if (project.files|length + project.extra_files|length) is more_than_one %}
                   <li class="nav-item">
@@ -126,13 +136,17 @@
                 </li>
               {% endif %}
             </ul>
-            {% if search %}
-              <div class="d-flex align-items-end flex-grow-1">
+            <div class="d-flex align-items-end flex-grow-1">
+              {% if search %}
                 <form action="{{ project_url }}/search.html" role="search" class="ms-auto">
                   <input type="text" class="form-control" aria-label="Search" placeholder="Search" name="q" id="tipue_search_input" autocomplete="off" required>
                 </form>
-              </div>
-            {% endif %}
+              {% endif %}
+              <button type="button" id="theme-toggle" class="btn btn-outline-light btn-sm {% if search %}ms-2{% else %}ms-auto{% endif %}" aria-label="Toggle dark mode" title="Toggle dark mode">
+                <i class="fa-solid fa-moon"></i>
+                <i class="fa-solid fa-sun"></i>
+              </button>
+            </div>
           </div><!--/.nav-collapse -->
         </div>
       </nav>
@@ -165,5 +179,13 @@
         <br>
       </div> <!-- /container -->
     </footer>
+    <script>
+      document.getElementById("theme-toggle").addEventListener("click", function () {
+        var current = document.documentElement.getAttribute("data-bs-theme");
+        var next = current === "dark" ? "light" : "dark";
+        document.documentElement.setAttribute("data-bs-theme", next);
+        try { localStorage.setItem("theme", next); } catch (e) {}
+      });
+    </script>
   </body>
 </html>
