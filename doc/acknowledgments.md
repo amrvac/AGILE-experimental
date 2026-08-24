@@ -1,7 +1,5 @@
 title: Acknowledgments
 
-# Acknowledgments
-
 This 1.0 version of the AGILE software was released in 2026.  The team effort is managed by 
 [Oliver Porth](http://oliverporth.com) at
 the [Anton Pannekoek institute for Astronomy](https://api.uva.nl), 

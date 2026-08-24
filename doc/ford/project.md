@@ -9,7 +9,7 @@ css: ./user.css
 predocmark: >
 docmark: <
 source: true
-graph: false
+graph: true
 search: true
 warn: true
 display: public

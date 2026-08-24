@@ -1,7 +1,5 @@
 title: Command line parameters
 
-# Command line parameters
-
 AGILE can be invoked with command line parameters, for example to do a restart
 run or to convert `.dat` files. The documentation for the command line
 parameters is available through:

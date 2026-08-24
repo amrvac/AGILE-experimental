@@ -1,7 +1,5 @@
 title: Example simulations
 
-# Example simulations {: #examples }
-
 `$AGILE_DIR/tests/{hd,mhd,ffhd,srhd}/` holds AGILE's test suite: a mix of
 short regression cases (built and run automatically by `make hd`/`make
 mhd`/`make ffhd`, see [Getting Started](getting_started.html)) and larger,

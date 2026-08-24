@@ -1,7 +1,5 @@
 title: Getting started
 
-# Getting started
-
 # Installing AGILE {: #install }
 (from the repository [README](https://github.com/amrvac/AGILE))
 

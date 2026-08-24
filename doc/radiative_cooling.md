@@ -1,7 +1,5 @@
 title: Radiative cooling in AGILE
 
-# Radiative cooling in AGILE 
-
 The webpage describes how users can add radiative cooling to their setup in AGILE
 
 # Physics

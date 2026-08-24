@@ -1,6 +1,5 @@
-title: Code Contents
+title: Code Overview
 
-# Code Contents {: #doc-contents }
 # Introduction for new users {: #intro_new_users }
 * [Getting Started](getting_started.html) How to install AGILE and run your first test problem.
 * [Acknowledgments](acknowledgments.html) Information on collaboration and
@@ -20,13 +19,8 @@ financial support.
 # Discretization methods and AMR strategy {: #discretization }
 * [Discretization](discretization.html) The equation and its discretization, the
 basic variables, the structure of the grid, boundaries, ghost cells.
-* [Time Discretization](time_discretization.html) The way the time integration works.
-* [Methods](methods.html) Properties of the discretization methods like TVDLF,
-TVDMU, TVD, HLL...
-* [Slope limiters](limiter.html) Slope limiters for reconstruction to suppress spurious numerical oscillations
 * [AMR aspects](amrstructure.html) Some essential info on global parameters and
 the data structures for the block-tree AMR.
-* [Small Values](smallvalues.html) Info on positivity fixes for (M)HD runs.
 
 # Additional Physics {: #special_sources }
 * [Radiative cooling](radiative_cooling.html) Description of adding radiative cooling.

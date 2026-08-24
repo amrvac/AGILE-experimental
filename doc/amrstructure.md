@@ -1,7 +1,5 @@
 title: Adaptive Mesh Refinement
 
-# Adaptive Mesh Refinement
-
 ## Introduction
 
 This document briefly describes the AMR-related features in AGILE. The

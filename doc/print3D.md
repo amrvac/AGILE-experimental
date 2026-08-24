@@ -1,7 +1,5 @@
 title: 3D Printing
 
-# 3D Printing
-
 This is a short tutorial that shows how to prepare AGILE output for 3D printing.
 The advice in this tutorial is of a general nature. Please contact your
 printing service for specifics.

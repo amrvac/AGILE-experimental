@@ -1,7 +1,5 @@
 title: Looking at line-integrated quantities
 
-# Looking at line-integrated quantities
-
 # Collapsed output
 
 Often one wishes to look at quantities integrated over one particular
@@ -79,7 +77,7 @@ collapsed data) and stop the code immediately after the IO (_it_max=0_).
 The code can then be started with
 
 ```text
-agile -i collapse.par -collapsenext 10 -if datamr/data0010.dat
+./agile -i collapse.par -collapsenext 10 -if datamr/data0010.dat
 ```
 
 which will take the output _datamr/data0010.dat_ to create new collapsed view 

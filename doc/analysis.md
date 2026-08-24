@@ -1,7 +1,5 @@
 title: Writing a custom analysis subroutine
 
-# Writing a custom analysis subroutine
-
 # Introduction
 
 Users can write a subroutine to freely derive (and print or store) quantities of

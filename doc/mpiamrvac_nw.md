@@ -1,7 +1,5 @@
 title: Auxiliary variables (nw...)
 
-# Auxiliary variables (nw...)
-
 # List of auxiliary variables {: #list }
 This document describes the differences and the intended use of the **nwaux,
 nwextra** parameters. These global parameters are defined in the `mod_variables.t`

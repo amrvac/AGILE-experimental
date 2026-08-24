@@ -1,7 +1,5 @@
 title: About the AGILE documentation
 
-# About the AGILE documentation
-
 # Generating the documentation {: #doc-gen }
 API documentation for AGILE is generated from the source code using
 [FORD](https://forddocs.readthedocs.io/) (the Fortran Documenter). Unlike

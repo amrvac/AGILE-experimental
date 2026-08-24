@@ -1,7 +1,5 @@
 title: Code style guide
 
-# Code style guide
-
 
 # Introduction {: #style-intro }
 Below we present some guidelines for new code contributed to AGILE. The

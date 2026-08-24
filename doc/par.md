@@ -1,7 +1,5 @@
 title: Setting parameters
 
-# Setting parameters
-
 # Introduction {: #par_intro }
 This document describes the usage of a `.par` parameter (input) file for AGILE.
 For a list of command line options, see [Command line parameters](commandline.html).
@@ -381,11 +379,10 @@ and one sets
 `time_integrator='rk4'`. It can be used with _dimsplit=.true._.
  These higher order time integration methods can be
 most useful in conjunction with higher order spatial discretizations.
-See also [discretization](discretization.html) and
-[time_discretization](time_discretization.html).
+See also [discretization](discretization.html).
 
 The array `flux_scheme` defines a scheme to calculate the flux at cell interfaces using the chosen
-[method](methods.html) (like hll based approximate Riemann solver) per activated grid level
+method (like hll based approximate Riemann solver) per activated grid level
 (and on each level, all variables use the same discretization). In total,
 _nlevelshi_ methods must be specified, by default _nlevelshi=20_ and these are
 then all set by _flux_scheme=20*'tvdlf'_. Different discretizations can be mixed
@@ -403,8 +400,7 @@ for the limited linear reconstructions from cell-center to cell-edge
 variables, and for the TVD method, for the characteristic variables.
 The default limiter is the most diffusive `limiter=nlevelshi*'minmod'`
 limiter (minmod for all levels), but one can also use
-`limiter=nlevelshi*'woodward'`, or use different limiters per level. Click
-[Slope limiters](limiter.html) to see detailed description of all available limiters.
+`limiter=nlevelshi*'woodward'`, or use different limiters per level.
 
 The `gradient_limiter` is the selection of a limiter to be used in computing
 gradients (or divergence of vector) when the typegrad=limited (or
@@ -486,8 +482,7 @@ In multidimensional calculations dimensional splitting can be used by setting
 `dimsplit=T`, with an alternating order of the sweeps
 `typedimsplit='xyyx'` by default. It is best to use
 `dimsplit=F`, the default value, but the TVD method needs a dimensionally
-split strategy. The limitations on using dimensionally unsplit methods are
-described in [methods](methods.html).
+split strategy.
 
 ### Positivity fixes {: #par_positivityfix }
 Negative pressure or density caused by the numerical approximations can make the

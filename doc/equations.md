@@ -1,7 +1,5 @@
 title: Physics modules and equations
 
-# Physics modules and equations
-
 # List of physics modules {: #eq_list_physics }
 This document describes the equations implemented.
 Information about user defined source terms are in the user module. In
