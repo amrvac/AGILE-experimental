@@ -1211,11 +1211,11 @@ contains
     ! open the snapshot file on the headnode
     file_exists=.false.
     if (mype == 0) then
-!      write(filename,"(a,a,i4.4,a)") trim(base_filename),'_particles',snapshotini,'.dat'
+!      write(filename,"(a,a,i4.4,a)") trim(base_filename),'_particles',datfileini,'.dat'
       ! Strip restart_from_filename of the ending
       pos = scan(restart_from_file, '.dat', back=.true.)
       write(filename,"(a,a,i4.4,a)") trim(restart_from_file(1:pos-8)),&
-         '_particles',snapshotini,'.dat'
+         '_particles',datfileini,'.dat'
       INQUIRE(FILE=filename, EXIST=file_exists)
       if (.not. file_exists) then
         write(*,*) 'WARNING: File '//trim(&
@@ -1306,7 +1306,7 @@ contains
     ! open the snapshot file on the headnode
     if (mype .eq. 0) then
       write(filename,"(a,a,i4.4,a)") trim(base_filename),'_particles',&
-         snapshotnext,'.dat'
+         datfilenext,'.dat'
       INQUIRE(FILE=filename, EXIST=file_exists)
       if (.not. file_exists) then
         open(unit=unitparticles,file=filename,form='unformatted',status='new',&

@@ -7,3 +7,8 @@ dependencies = [
     "fortdepend>=2.3.2",
     "fypp>=3.2",
 ]
+
+[project.optional-dependencies]
+# For reading ZFP-compressed snapshot files with amrvac_pytools.
+# Use `uv sync --extra zfp`.
+zfp = ["zfpy>=1.0.0", "numpy"]

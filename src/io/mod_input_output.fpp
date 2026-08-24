@@ -37,7 +37,7 @@ module mod_input_output
   character(len=*), parameter :: fmt_i  = 'i8'     ! Integer format
 
   ! public methods
-  public :: snapshot_write_header
+  public :: datfile_write_header
 
 contains
 
@@ -77,9 +77,10 @@ contains
     ! Default command line arguments
     all_par_files="agile.par"
     restart_from_file=undefined
-    snapshotnext=-1
+    datfilenext=-1
     slicenext=-1
     collapsenext=-1
+    snapnext=-1
     help=.false.
     convert=.false.
     resume_previous_run=.false.
@@ -127,11 +128,11 @@ contains
            CALL get_command_argument(i, arg)
            read(arg,*,iostat=stat) collapsenext
            !if(mype==0)print *,'-collapsenext has argument=',arg,' passed to collapsenext=',collapsenext
-         case("-snapshotnext")
+         case("-datfilenext")
            i = i+1
            CALL get_command_argument(i, arg)
-           read(arg,*,iostat=stat) snapshotnext
-           !if(mype==0)print *,'-snapshotnext has argument=',arg,' passed to snapshotnext=',snapshotnext
+           read(arg,*,iostat=stat) datfilenext
+           !if(mype==0)print *,'-datfilenext has argument=',arg,' passed to datfilenext=',datfilenext
          case("-resume")
            resume_previous_run=.true.
            !if(mype==0)print *,'resume specified: resume_previous_run=T'
@@ -164,12 +165,12 @@ contains
           print *, '         (later .par files override earlier ones)'
           print *, ''
           print *, 'Optional arguments:'
-          print *, '-convert             Convert snapshot files'
-          print *, '-if file0001.dat     Use this snapshot to restart from'
+          print *, '-convert             Convert datfiles'
+          print *, '-if file0001.dat     Use this datfile to restart from'
           print *, '                     (you can modify e.g. output names)'
           print *, '-resume              Automatically resume previous run'
           print *, '                     (useful for long runs on HPC systems)'
-          print *, '-snapshotnext N      Manual index for next snapshot'
+          print *, '-datfilenext N       Manual index for next datfile'
           print *, '-slicenext N         Manual index for next slice output'
           print *, '-collapsenext N      Manual index for next collapsed output'
           print *, ''
@@ -237,23 +238,24 @@ contains
     character(len=std_len) :: typecourant
 
     double precision, dimension(nsavehi) :: tsave_log, tsave_dat, tsave_slice,&
-        tsave_collapsed, tsave_custom
+        tsave_collapsed, tsave_custom, tsave_snap
     double precision :: dtsave_log, dtsave_dat, dtsave_slice, dtsave_collapsed,&
-        dtsave_custom
+        dtsave_custom, dtsave_snap
     integer :: ditsave_log, ditsave_dat, ditsave_slice, ditsave_collapsed,&
-        ditsave_custom
+        ditsave_custom, ditsave_snap
     double precision :: tsavestart_log, tsavestart_dat, tsavestart_slice,&
-        tsavestart_collapsed, tsavestart_custom
+        tsavestart_collapsed, tsavestart_custom, tsavestart_snap
     integer :: windex, ipower
     double precision :: sizeuniformpart1,sizeuniformpart2,sizeuniformpart3
     double precision :: im_delta,im_nu,rka54,rka51,rkb54,rka55
 
     namelist /filelist/ base_filename,restart_from_file, typefilelog,&
-       firstprocess,reset_grid,snapshotnext, convert,convert_type,saveprim,&
+       firstprocess,reset_grid,datfilenext, convert,convert_type,saveprim,&
        usr_filename,nwauxio,nocartesian, w_write,writelevel,writespshift,&
        length_convert_factor, w_convert_factor, time_convert_factor,level_io,&
        level_io_min, level_io_max, autoconvert,slice_type,slicenext,&
-       collapsenext,collapse_type, type_endian
+       collapsenext,collapse_type, type_endian, snapnext, snap_nghost,&
+       snap_size_real, snap_compress_zfp, snap_zfp_precision
 
     namelist /savelist/ tsave,itsave,dtsave,ditsave,nslices,slicedir,&
         slicecoord,collapse,collapseLevel, time_between_print,tsave_log,&
@@ -261,7 +263,8 @@ contains
         dtsave_dat, dtsave_slice, dtsave_collapsed, dtsave_custom, ditsave_log,&
         ditsave_dat, ditsave_slice, ditsave_collapsed, ditsave_custom,&
        tsavestart_log, tsavestart_dat, tsavestart_slice, tsavestart_collapsed,&
-       tsavestart_custom, tsavestart
+       tsavestart_custom, tsavestart, tsave_snap, dtsave_snap,&
+       ditsave_snap, tsavestart_snap
 
     namelist /stoplist/ it_init,time_init,it_max,time_max,dtmin,reset_it,&
        reset_time,wall_time_max,final_dt_reduction
@@ -370,6 +373,10 @@ contains
     nwauxio                  = 0
     nocartesian              = .false.
     saveprim                 = .false.
+    snap_nghost              = 0
+    snap_size_real           = 4
+    snap_compress_zfp        = .false.
+    snap_zfp_precision       = 0
     autoconvert              = .false.
     convert_type             = 'vtuBCCmpi'
     slice_type               = 'vtuCC'
@@ -455,24 +462,28 @@ contains
     tsave_slice     = bigdouble
     tsave_collapsed = bigdouble
     tsave_custom    = bigdouble
+    tsave_snap      = bigdouble
 
     dtsave_log       = bigdouble
     dtsave_dat       = bigdouble
     dtsave_slice     = bigdouble
     dtsave_collapsed = bigdouble
     dtsave_custom    = bigdouble
+    dtsave_snap      = bigdouble
 
     ditsave_log       = biginteger
     ditsave_dat       = biginteger
     ditsave_slice     = biginteger
     ditsave_collapsed = biginteger
     ditsave_custom    = biginteger
+    ditsave_snap      = biginteger
 
     tsavestart_log       = bigdouble
     tsavestart_dat       = bigdouble
     tsavestart_slice     = bigdouble
     tsavestart_collapsed = bigdouble
     tsavestart_custom    = bigdouble
+    tsavestart_snap      = bigdouble
 
     typefilelog = 'default'
 
@@ -663,13 +674,13 @@ contains
     if(restart_from_file_arg /= undefined) &
        restart_from_file=restart_from_file_arg
 
-    ! Root process will search snapshot
+    ! Root process will search datfile
     if (mype == 0) then
       if(restart_from_file == undefined) then
         ! search file from highest index
         file_exists=.false.
         do index_latest_data = 9999, 0, -1
-          if(snapshot_exists(index_latest_data)) then
+          if(datfile_exists(index_latest_data)) then
             file_exists=.true.
             exit
           end if
@@ -677,7 +688,7 @@ contains
         if(.not.file_exists) index_latest_data=-1
       else
         ! get index of the given data restarted from
-        index_latest_data=get_snapshot_index(trim(restart_from_file))
+        index_latest_data=get_datfile_index(trim(restart_from_file))
       end if
     end if
     call MPI_BCAST(index_latest_data, 1, MPI_INTEGER, 0, icomm, ierrmpi)
@@ -685,7 +696,7 @@ contains
     if (resume_previous_run) then
       if (index_latest_data == -1) then
         if(mype==0) write(*,*)&
-            "No snapshots found to resume from, start a new run..."
+            "No datfiles found to resume from, start a new run..."
       else
         ! Set file name to restart from
         write(restart_from_file, "(a,i4.4,a)") trim(base_filename),&
@@ -694,12 +705,46 @@ contains
     end if
 
     if (restart_from_file == undefined) then
-      snapshotnext = 0
+      datfilenext = 0
       slicenext    = 0
       collapsenext = 0
+      snapnext     = 0
       if (firstprocess) call mpistop&
-         ("Please restart from a snapshot when firstprocess=T")
+         ("Please restart from a datfile when firstprocess=T")
       if (convert) call mpistop('Change convert to .false. for a new run!')
+    else if (snapnext == -1) then
+      ! the header has no counter for single precision snapshots, so infer
+      ! it from the file name when restarting from one (<base>_snapNNNN.dat)
+      if (index(restart_from_file, '_snap') > 0) then
+        snapnext = get_datfile_index(trim(restart_from_file)) + 1
+      else
+        snapnext = 0
+      end if
+    end if
+
+    if (snap_size_real /= 4 .and. snap_size_real /= 8) call mpistop(&
+       "snap_size_real should be 4 (single precision) or 8 (double precision).")
+
+    if (snap_compress_zfp) then
+#:if defined('COMPRESS_ZFP')
+      if (snap_zfp_precision < 1 .or. snap_zfp_precision > 64) call mpistop(&
+         "snap_compress_zfp=T requires snap_zfp_precision (1..64) in "//&
+         "&filelist, there is no default.")
+      if (stagger_grid) call mpistop(&
+         "snap_compress_zfp is not supported with stagger_grid.")
+      if (mype == 0 .and.&
+         any(mod([block_nx1,block_nx2,block_nx3] + 2*snap_nghost, 4) /= 0)) then
+         print *, "Warning: ZFP compresses in 4^3 chunks, so snapshot fields"
+         print *, "will be padded. For best compression ratio and IO"
+         print *, "performance, block_nx+snap_nghost should be a multiple of"
+         print *, "4^3."
+         print *, "  block_nx =", block_nx1,block_nx2,block_nx3
+         print *, "  snap_nghost =", snap_nghost
+      end if
+#:else
+      call mpistop("snap_compress_zfp=T but this binary was built without "//&
+         "ZFP support. Probably building against the wrong parfile.")
+#:endif
     end if
 
     if (small_pressure < 0.d0) call mpistop(&
@@ -716,24 +761,28 @@ contains
     where (tsave_slice < bigdouble) tsave(:, 3) = tsave_slice
     where (tsave_collapsed < bigdouble) tsave(:, 4) = tsave_collapsed
     where (tsave_custom < bigdouble) tsave(:, 5) = tsave_custom
+    where (tsave_snap < bigdouble) tsave(:, 6) = tsave_snap
 
     if (dtsave_log < bigdouble) dtsave(1) = dtsave_log
     if (dtsave_dat < bigdouble) dtsave(2) = dtsave_dat
     if (dtsave_slice < bigdouble) dtsave(3) = dtsave_slice
     if (dtsave_collapsed < bigdouble) dtsave(4) = dtsave_collapsed
     if (dtsave_custom < bigdouble) dtsave(5) = dtsave_custom
+    if (dtsave_snap < bigdouble) dtsave(6) = dtsave_snap
 
     if (tsavestart_log < bigdouble) tsavestart(1) = tsavestart_log
     if (tsavestart_dat < bigdouble) tsavestart(2) = tsavestart_dat
     if (tsavestart_slice < bigdouble) tsavestart(3) = tsavestart_slice
     if (tsavestart_collapsed < bigdouble) tsavestart(4) = tsavestart_collapsed
     if (tsavestart_custom < bigdouble) tsavestart(5) = tsavestart_custom
+    if (tsavestart_snap < bigdouble) tsavestart(6) = tsavestart_snap
 
     if (ditsave_log < bigdouble) ditsave(1) = ditsave_log
     if (ditsave_dat < bigdouble) ditsave(2) = ditsave_dat
     if (ditsave_slice < bigdouble) ditsave(3) = ditsave_slice
     if (ditsave_collapsed < bigdouble) ditsave(4) = ditsave_collapsed
     if (ditsave_custom < bigdouble) ditsave(5) = ditsave_custom
+    if (ditsave_snap < bigdouble) ditsave(6) = ditsave_snap
     ! convert hours to seconds for ending wall time
     if (wall_time_max < bigdouble) wall_time_max=wall_time_max*3600.d0
 
@@ -2120,15 +2169,20 @@ contains
 
     select case (ifile)
     case (fileout_)
-       ! Write .dat snapshot
-       call write_snapshot()
+       ! Write datfile (double precision, v5)
+       call write_datfile()
 
        ! Generate formatted output (e.g., VTK)
        if(autoconvert) call generate_plotfile
 
        if(use_particles) call write_particles_snapshot()
 
-       snapshotnext = snapshotnext + 1
+       datfilenext = datfilenext + 1
+    case (filesnap_)
+       ! Write single precision (v6) snapshot for analysis
+       call write_datfile(is_snap=.true.)
+
+       snapnext = snapnext + 1
     case (fileslice_)
        call write_slice
     case (filecollapse_)
@@ -2163,48 +2217,51 @@ contains
   end subroutine saveamrfile
 
 
-  ! Check if a snapshot exists
-  logical function snapshot_exists(ix)
+  ! Check if a datfile exists
+  logical function datfile_exists(ix)
     use mod_global_parameters
-    integer, intent(in)    :: ix !< Index of snapshot
+    integer, intent(in)    :: ix !< Index of datfile
     character(len=std_len) :: filename
 
     write(filename, "(a,i4.4,a)") trim(base_filename), ix, ".dat"
-    inquire(file=trim(filename), exist=snapshot_exists)
-  end function snapshot_exists
+    inquire(file=trim(filename), exist=datfile_exists)
+  end function datfile_exists
 
-  integer function get_snapshot_index(filename)
+  integer function get_datfile_index(filename)
     character(len=*), intent(in) :: filename
     integer                      :: i
 
     ! Try to parse index in restart_from_file string (e.g. basename0000.dat)
     i = len_trim(filename) - 7
-    read(filename(i:i+3), '(I4)') get_snapshot_index
-  end function get_snapshot_index
+    read(filename(i:i+3), '(I4)') get_datfile_index
+  end function get_datfile_index
 
 
 
-  !> Write header for a snapshot
+  !> Write header for a datfile
   !>
-  !> If you edit the header, don't forget to update: snapshot_write_header(),
-  !> snapshot_read_header(), doc/fileformat.md, tools/python/dat_reader.py
-  subroutine snapshot_write_header(fh, offset_tree, offset_block)
+  !> If you edit the header, don't forget to update: datfile_write_header(),
+  !> datfile_read_header(), doc/fileformat.md, tools/python/dat_reader.py
+  subroutine datfile_write_header(fh, offset_tree, offset_block, version,&
+      is_snap)
     use mod_forest
     use mod_physics
     use mod_global_parameters
-    use mod_input_output_helper, only: snapshot_write_header1
+    use mod_input_output_helper, only: datfile_write_header1
     integer, intent(in)                       :: fh           !< File handle
     integer(kind=MPI_OFFSET_KIND), intent(in) :: offset_tree !< Offset of tree info
     integer(kind=MPI_OFFSET_KIND), intent(in) :: offset_block !< Offset of block data
-    call snapshot_write_header1(fh, offset_tree, offset_block, cons_wnames,&
-        nw)
-  end subroutine snapshot_write_header
+    integer, intent(in), optional             :: version !< File format version
+    logical, intent(in), optional             :: is_snap
+    call datfile_write_header1(fh, offset_tree, offset_block, cons_wnames,&
+        nw, version, is_snap)
+  end subroutine datfile_write_header
 
-  !> Read header for a snapshot
+  !> Read header for a datfile
   !>
-  !> If you edit the header, don't forget to update: snapshot_write_header(),
-  !> snapshot_read_header(), doc/fileformat.md, tools/python/dat_reader.py
-  subroutine snapshot_read_header(fh, offset_tree, offset_block)
+  !> If you edit the header, don't forget to update: datfile_write_header(),
+  !> datfile_read_header(), doc/fileformat.md, tools/python/dat_reader.py
+  subroutine datfile_read_header(fh, offset_tree, offset_block)
     use mod_forest
     use mod_global_parameters
     use mod_physics, only: physics_type
@@ -2357,11 +2414,11 @@ contains
       call mpi_file_read_wrapper(fh, param_names, name_len * n_par, MPI_CHARACTER, st,&
           er)
 
-      ! Read snapshotnext etc. for restarting
+      ! Read datfilenext etc. for restarting
       call mpi_file_read_wrapper(fh, tmp_int, 1, MPI_INTEGER, st, er)
 
-      ! Only set snapshotnext if the user hasn't specified it
-      if (snapshotnext == -1) snapshotnext = tmp_int
+      ! Only set datfilenext if the user hasn't specified it
+      if (datfilenext == -1) datfilenext = tmp_int
 
       call mpi_file_read_wrapper(fh, tmp_int, 1, MPI_INTEGER, st, er)
       if (slicenext == -1) slicenext = tmp_int
@@ -2369,28 +2426,37 @@ contains
       call mpi_file_read_wrapper(fh, tmp_int, 1, MPI_INTEGER, st, er)
       if (collapsenext == -1) collapsenext = tmp_int
     else
-      ! Guess snapshotnext from file name if not set
-      if (snapshotnext == -1) snapshotnext = &
-         get_snapshot_index(trim(restart_from_file)) + 1
+      ! Guess datfilenext from file name if not set
+      if (datfilenext == -1) datfilenext = &
+         get_datfile_index(trim(restart_from_file)) + 1
       ! Set slicenext and collapsenext if not set
       if (slicenext == -1) slicenext = 0
       if (collapsenext == -1) collapsenext = 0
     end if
 
     ! Still used in convert
-    snapshotini = snapshotnext-1
+    datfileini = datfilenext-1
 
-  end subroutine snapshot_read_header
+  end subroutine datfile_read_header
 
 
 
-  subroutine write_snapshot
+  subroutine write_datfile(is_snap)
     use mod_forest
     use mod_global_parameters
     use mod_physics
     use mod_input_output_helper, only: count_ix,block_shape_io,&
        create_output_file
     use mod_functions_forest, only: write_forest
+#:if defined('COMPRESS_ZFP')
+    use mod_zfp, only: zfp_max_field_bytes,&
+       zfp_compress_field_dp, zfp_compress_field_sp
+#:endif
+
+    !> Write a single precision (v6 format) snapshot for analysis, named
+    !> <base_filename>_snapNNNN.dat and counted by snapnext. The default
+    !> is the established double precision v5 datfile.
+    logical, intent(in), optional :: is_snap
 
     integer                       :: file_handle, igrid, Morton_no, iwrite
     integer                       :: ipe, ix_buffer(2*ndim+1), n_values
@@ -2406,11 +2472,56 @@ contains
     integer(kind=MPI_OFFSET_KIND) :: offset_tree_info
     integer(kind=MPI_OFFSET_KIND) :: offset_block_data
     integer(kind=MPI_OFFSET_KIND) :: offset_offsets
+    integer(kind=MPI_OFFSET_KIND) :: offset_nghost
     double precision, allocatable :: w_buffer(:)
+    real(kind=4), allocatable     :: w_buffer_sp(:)
 
     integer, allocatable                       :: block_ig(:, :)
     integer, allocatable                       :: block_lvl(:)
+    integer, allocatable                       :: block_nghost(:, :, :)
     integer(kind=MPI_OFFSET_KIND), allocatable :: block_offset(:)
+
+    logical :: snap_mode, write_sp
+    integer :: file_version, size_real_out, size_block_prefix
+
+    logical :: compress_zfp
+    ! An additional tree offset not present in all files.
+    integer :: tree_extra_bytes
+#:if defined('COMPRESS_ZFP')
+    integer                       :: iw, nx1, nx2, nx3
+    integer(kind=8)               :: zfp_nbytes, zfp_total_bytes, zfp_buf_size
+    ! One buffer for all fields, but the fields are independently compressed.
+    integer(kind=1), allocatable, target :: zfp_buf(:)
+    integer(kind=MPI_OFFSET_KIND) :: offset_zfp_nbytes
+    ! Size per field, a column of zfp_block_nbytes.
+    integer                       :: zfp_field_bytes(nw)
+    ! Size per block and per field.
+    integer, allocatable          :: zfp_block_nbytes(:, :)
+#:endif
+
+    snap_mode = .false.
+    if (present(is_snap)) snap_mode = is_snap
+
+    ! dat files use the v5 format.
+    ! Snapshots use the v6 format, with precision given by snap_size_real, and
+    ! storing ghost cell counts in the tree instead of the leaf.
+    if (snap_mode) then
+      file_version = 6
+      size_real_out = snap_size_real
+      size_block_prefix = 0
+    else
+      file_version = 5
+      size_real_out = size_double
+      size_block_prefix = 2 * ndim * size_int
+    end if
+    ! Whether we cast w_buffer into w_buffer_sp before writing.
+    write_sp = (size_real_out == 4)
+
+    compress_zfp = .false.
+    tree_extra_bytes = 0
+#:if defined('COMPRESS_ZFP')
+    compress_zfp = snap_mode .and. snap_compress_zfp
+#:endif
 
     call MPI_BARRIER(icomm, ierrmpi)
 
@@ -2421,21 +2532,45 @@ contains
          ixGshi3) * nws
     end if
     allocate(w_buffer(n_values))
+    if (write_sp) allocate(w_buffer_sp(n_values))
 
     ! Allocate arrays with information about grid blocks
     allocate(block_ig(ndim, nleafs))
     allocate(block_lvl(nleafs))
     allocate(block_offset(nleafs+1))
+    if (snap_mode) then
+      allocate(block_nghost(ndim, 2, nleafs))
+      block_nghost = 0
+    end if
+#:if defined('COMPRESS_ZFP')
+    if (compress_zfp) then
+      ! Worst case: compression ratio 1.
+      zfp_buf_size = nw * zfp_max_field_bytes(&
+         block_nx1 + 2 * nghostcells,&
+         block_nx2 + 2 * nghostcells,&
+         block_nx3 + 2 * nghostcells,&
+         write_sp, snap_zfp_precision)
+      allocate(zfp_buf(zfp_buf_size))
+      allocate(zfp_block_nbytes(nw, nleafs))
+      zfp_block_nbytes = 0
+      ! For the offsets.
+      tree_extra_bytes = tree_extra_bytes + nw * nleafs * size_int
+    end if
+#:endif
 
     ! master processor
     if (mype==0) then
-      call create_output_file(file_handle, snapshotnext, ".dat")
+      if (snap_mode) then
+        call create_output_file(file_handle, snapnext, ".dat", "_snap")
+      else
+        call create_output_file(file_handle, datfilenext, ".dat")
+      end if
 
       ! Don't know offsets yet, we will write header again later
       offset_tree_info = -1
       offset_block_data = -1
-      call snapshot_write_header(file_handle, offset_tree_info,&
-          offset_block_data)
+      call datfile_write_header(file_handle, offset_tree_info,&
+          offset_block_data, file_version, snap_mode)
 
       call MPI_File_get_position(file_handle, offset_tree_info, ierrmpi)
 
@@ -2459,6 +2594,24 @@ contains
       call MPI_FILE_WRITE(file_handle, block_ig, size(block_ig), MPI_INTEGER,&
           istatus, ierrmpi)
 
+      if (snap_mode) then
+        ! Per-block ghost cells are currently unknown, but will overwritten
+        ! later
+        call MPI_File_get_position(file_handle, offset_nghost, ierrmpi)
+        call mpi_file_write_wrapper(file_handle, block_nghost,&
+               size(block_nghost), MPI_INTEGER, istatus, ierrmpi)
+      end if
+
+#:if defined('COMPRESS_ZFP')
+      if (compress_zfp) then
+        ! Per-block per-field compressed byte counts are currently unknown,
+        ! but will be overwritten later
+        call MPI_File_get_position(file_handle, offset_zfp_nbytes, ierrmpi)
+        call mpi_file_write_wrapper(file_handle, zfp_block_nbytes,&
+            size(zfp_block_nbytes), MPI_INTEGER, istatus, ierrmpi)
+      end if
+#:endif
+
       ! Block offsets are currently unknown, but will be overwritten later
       call MPI_File_get_position(file_handle, offset_offsets, ierrmpi)
       call mpi_file_write_wrapper(file_handle, block_offset(1:nleafs), nleafs,&
@@ -2468,7 +2621,9 @@ contains
 
       ! Check whether data was written as expected
       if (offset_block_data - offset_tree_info /= (nleafs + nparents) * &
-         size_logical + nleafs * ((1+ndim) * size_int + 2 * size_int)) then
+         size_logical + nleafs * ((1+ndim) * size_int + 2 * size_int) + &
+         merge(nleafs * 2 * ndim * size_int, 0, snap_mode) + &
+         tree_extra_bytes) then
         if (mype == 0) then
           print *, "Warning: MPI_OFFSET type /= 8 bytes"
           print *, "This *could* cause problems when reading .dat files"
@@ -2483,8 +2638,70 @@ contains
       igrid  = sfc_to_igrid(Morton_no)
       itag   = Morton_no
 
-      call block_shape_io(igrid, n_ghost, ixOmin1,ixOmin2,ixOmin3,ixOmax1,&
-         ixOmax2,ixOmax3, n_values)
+      if(snap_mode .and. snap_nghost > 0) then
+        ! v6 snapshot: include a uniform ghost-cell halo
+        call block_shape_io(igrid, n_ghost, ixOmin1,ixOmin2,ixOmin3,ixOmax1,&
+           ixOmax2,ixOmax3, n_values, snap_nghost)
+      else
+        call block_shape_io(igrid, n_ghost, ixOmin1,ixOmin2,ixOmin3,ixOmax1,&
+           ixOmax2,ixOmax3, n_values)
+      end if
+
+#:if defined('COMPRESS_ZFP')
+      if (compress_zfp) then
+        ! Each rank compresses their block, then sends to rank 0.
+        ! Compress each field separately in a canonical ZFP stream, holding its
+        ! own metadata, so decompression will be trivial. Then concatenate them.
+        nx1 = ixOmax1 - ixOmin1 + 1
+        nx2 = ixOmax2 - ixOmin2 + 1
+        nx3 = ixOmax3 - ixOmin3 + 1
+        zfp_total_bytes = 0
+        do iw = 1, nw
+          if (write_sp) then
+            zfp_nbytes = zfp_compress_field_sp(&
+              real(ps(igrid)%w(&
+                ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3, iw), 4),&
+              nx1, nx2, nx3, snap_zfp_precision, zfp_buf,&
+              zfp_total_bytes + 1, zfp_buf_size)
+          else
+            zfp_nbytes = zfp_compress_field_dp(&
+              ps(igrid)%w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3, iw),&
+                nx1, nx2, nx3, snap_zfp_precision, zfp_buf,&
+                zfp_total_bytes + 1, zfp_buf_size)
+          end if
+          zfp_field_bytes(iw) = int(zfp_nbytes)
+          zfp_total_bytes = zfp_total_bytes + zfp_nbytes
+        end do
+        ! In compressed mode ix_buffer(1) counts bytes, not values.
+        ! (A bit of a hack.)
+        ix_buffer(1) = int(zfp_total_bytes)
+        ix_buffer(2:) = n_ghost
+
+        if (mype /= 0) then
+          call mpi_send_wrapper(ix_buffer, 2*ndim+1, MPI_INTEGER, 0, itag,&
+              icomm, ierrmpi)
+          call mpi_send_wrapper(zfp_field_bytes, nw, MPI_INTEGER, 0, itag,&
+              icomm, ierrmpi)
+          call mpi_send_wrapper(zfp_buf, ix_buffer(1), MPI_BYTE, 0, itag,&
+              icomm, ierrmpi)
+        else
+          iwrite = iwrite+1
+          block_nghost(:, 1, Morton_no) = n_ghost(1:ndim)
+          block_nghost(:, 2, Morton_no) = n_ghost(ndim+1:2*ndim)
+          zfp_block_nbytes(:, Morton_no) = zfp_field_bytes
+          call mpi_file_write_wrapper(file_handle, zfp_buf, ix_buffer(1),&
+              MPI_BYTE, istatus, ierrmpi)
+
+          ! Set offset of next block. Can only know this after compressing.
+          block_offset(iwrite+1) = block_offset(iwrite) + zfp_total_bytes
+        end if
+        ! Trick to avoid fypp: go to the next block from here.
+        cycle
+      end if
+#:endif
+
+      ! Uncompressed from here.
+
       if(stagger_grid) then
         w_buffer(1:n_values) = pack(ps(igrid)%w(ixOmin1:ixOmax1,&
            ixOmin2:ixOmax2,ixOmin3:ixOmax3, 1:nw), .true.)
@@ -2507,23 +2724,42 @@ contains
       ix_buffer(1) = n_values
       ix_buffer(2:) = n_ghost
 
+      if (write_sp) w_buffer_sp(1:n_values) = real(w_buffer(1:n_values), 4)
+
       if (mype /= 0) then
         call mpi_send_wrapper(ix_buffer, 2*ndim+1, MPI_INTEGER, 0, itag, icomm,&
             ierrmpi)
-        call mpi_send_wrapper(w_buffer, n_values, MPI_DOUBLE_PRECISION, 0, itag, icomm,&
-            ierrmpi)
+        if (write_sp) then
+          call mpi_send_wrapper(w_buffer_sp, n_values, MPI_REAL4, 0, itag, icomm,&
+              ierrmpi)
+        else
+          call mpi_send_wrapper(w_buffer, n_values, MPI_DOUBLE_PRECISION, 0, itag, icomm,&
+              ierrmpi)
+        end if
       else
         iwrite = iwrite+1
-        call mpi_file_write_wrapper(file_handle, ix_buffer(2:), 2*ndim, MPI_INTEGER,&
-            istatus, ierrmpi)
-        call mpi_file_write_wrapper(file_handle, w_buffer, n_values,&
-            MPI_DOUBLE_PRECISION, istatus, ierrmpi)
+        if (snap_mode) then
+          ! Ghost-cell counts go in the tree, moved in mype == 0 below.
+          block_nghost(:, 1, Morton_no) = n_ghost(1:ndim)
+          block_nghost(:, 2, Morton_no) = n_ghost(ndim+1:2*ndim)
+        else
+          ! Ghost-cell counts go in the block.
+          call mpi_file_write_wrapper(file_handle, ix_buffer(2:), 2*ndim, MPI_INTEGER,&
+              istatus, ierrmpi)
+        end if
+        if (write_sp) then
+          call mpi_file_write_wrapper(file_handle, w_buffer_sp, n_values,&
+              MPI_REAL4, istatus, ierrmpi)
+        else
+          call mpi_file_write_wrapper(file_handle, w_buffer, n_values,&
+              MPI_DOUBLE_PRECISION, istatus, ierrmpi)
+        end if
 
         ! Set offset of next block
         block_offset(iwrite+1) = block_offset(iwrite) + int(n_values,&
-            MPI_OFFSET_KIND) * size_double + 2 * ndim * size_int
+            MPI_OFFSET_KIND) * size_real_out + size_block_prefix
       end if
-    end do
+    end do ! Iterate over blocks
 
     ! Write data communicated from other processors
     if (mype == 0) then
@@ -2536,21 +2772,74 @@ contains
              igrecvstatus, ierrmpi)
           n_values = ix_buffer(1)
 
-          call mpi_recv_wrapper(w_buffer, n_values, MPI_DOUBLE_PRECISION,ipe, itag,&
-              icomm, iorecvstatus, ierrmpi)
+#:if defined('COMPRESS_ZFP')
+          if (compress_zfp) then
+            call mpi_recv_wrapper(zfp_field_bytes, nw, MPI_INTEGER, ipe,&
+                itag, icomm, iorecvstatus, ierrmpi)
+            ! In compressed mode, n_values counts bytes.
+            call mpi_recv_wrapper(zfp_buf, n_values, MPI_BYTE, ipe, itag,&
+                icomm, iorecvstatus, ierrmpi)
 
-          call mpi_file_write_wrapper(file_handle, ix_buffer(2:), 2*ndim, MPI_INTEGER,&
-              istatus, ierrmpi)
-          call mpi_file_write_wrapper(file_handle, w_buffer, n_values,&
-              MPI_DOUBLE_PRECISION, istatus, ierrmpi)
+            block_nghost(:, 1, Morton_no) = ix_buffer(2:ndim+1)
+            block_nghost(:, 2, Morton_no) = ix_buffer(ndim+2:2*ndim+1)
+            zfp_block_nbytes(:, Morton_no) = zfp_field_bytes
+            call mpi_file_write_wrapper(file_handle, zfp_buf, n_values,&
+                MPI_BYTE, istatus, ierrmpi)
+
+            ! Set offset of next block
+            block_offset(iwrite+1) = block_offset(iwrite)&
+              + int(n_values, MPI_OFFSET_KIND)
+            cycle
+          end if
+#:endif
+
+          if (write_sp) then
+            call mpi_recv_wrapper(w_buffer_sp, n_values, MPI_REAL4, ipe, itag,&
+                icomm, iorecvstatus, ierrmpi)
+          else
+            call mpi_recv_wrapper(w_buffer, n_values, MPI_DOUBLE_PRECISION,ipe, itag,&
+                icomm, iorecvstatus, ierrmpi)
+          end if
+
+          if (snap_mode) then
+            block_nghost(:, 1, Morton_no) = ix_buffer(2:ndim+1)
+            block_nghost(:, 2, Morton_no) = ix_buffer(ndim+2:2*ndim+1)
+          else
+            call mpi_file_write_wrapper(file_handle, ix_buffer(2:), 2*ndim, MPI_INTEGER,&
+                istatus, ierrmpi)
+          end if
+          if (write_sp) then
+            call mpi_file_write_wrapper(file_handle, w_buffer_sp, n_values,&
+                MPI_REAL4, istatus, ierrmpi)
+          else
+            call mpi_file_write_wrapper(file_handle, w_buffer, n_values,&
+                MPI_DOUBLE_PRECISION, istatus, ierrmpi)
+          end if
 
           ! Set offset of next block
-          block_offset(iwrite+1) = block_offset(iwrite) + int(n_values,&
-              MPI_OFFSET_KIND) * size_double + 2 * ndim * size_int
+          block_offset(iwrite+1) = block_offset(iwrite)&
+            + int(n_values, MPI_OFFSET_KIND) * size_real_out+size_block_prefix
         end do
       end do
 
-      ! Write block offsets (now we know them)
+      if (snap_mode) then
+        ! Write ghost-cell counts (now we know them).
+        call MPI_FILE_SEEK(file_handle, offset_nghost, MPI_SEEK_SET, ierrmpi)
+        call mpi_file_write_wrapper(file_handle, block_nghost,&
+            size(block_nghost), MPI_INTEGER, istatus, ierrmpi)
+      end if
+
+#:if defined('COMPRESS_ZFP')
+      if (compress_zfp) then
+        ! Write per-field compressed byte counts (now we know them).
+        call MPI_FILE_SEEK(file_handle, offset_zfp_nbytes, MPI_SEEK_SET,&
+            ierrmpi)
+        call mpi_file_write_wrapper(file_handle, zfp_block_nbytes,&
+            size(zfp_block_nbytes), MPI_INTEGER, istatus, ierrmpi)
+      end if
+#:endif
+
+      ! Write block offsets (now we know them).
       call MPI_FILE_SEEK(file_handle, offset_offsets, MPI_SEEK_SET, ierrmpi)
       call mpi_file_write_wrapper(file_handle, block_offset(1:nleafs), nleafs,&
           MPI_OFFSET, istatus, ierrmpi)
@@ -2558,19 +2847,19 @@ contains
       ! Write header again, now with correct offsets
       call MPI_FILE_SEEK(file_handle, 0_MPI_OFFSET_KIND, MPI_SEEK_SET,&
           ierrmpi)
-      call snapshot_write_header(file_handle, offset_tree_info,&
-          offset_block_data)
+      call datfile_write_header(file_handle, offset_tree_info,&
+          offset_block_data, file_version, snap_mode)
 
       call MPI_FILE_CLOSE(file_handle, ierrmpi)
     end if
 
     call MPI_BARRIER(icomm, ierrmpi)
 
-  end subroutine write_snapshot
+  end subroutine write_datfile
 
-  !> Routine to read in snapshots (.dat files). When it cannot recognize the
+  !> Routine to read in datfiles. When it cannot recognize the
   !> file version, it will automatically try the 'old' reader.
-  subroutine read_snapshot
+  subroutine read_datfile
     use mod_usr_methods, only: usr_transform_w
     use mod_input_output_helper, only: count_ix
     use mod_forest
@@ -2608,25 +2897,25 @@ contains
     call MPI_BCAST(file_version,1,MPI_INTEGER,0,icomm,ierrmpi)
 
     if (all(compatible_versions /= file_version)) then
-      if (mype == 0) print *, "Unknown version, trying old snapshot reader..."
+      if (mype == 0) print *, "Unknown version, trying old datfile reader..."
       call MPI_FILE_CLOSE(file_handle,ierrmpi)
-      call read_snapshot_old()
+      call read_datfile_old()
 
-      ! Guess snapshotnext from file name if not set
-      if (snapshotnext == -1) snapshotnext = &
-         get_snapshot_index(trim(restart_from_file)) + 1
+      ! Guess datfilenext from file name if not set
+      if (datfilenext == -1) datfilenext = &
+         get_datfile_index(trim(restart_from_file)) + 1
       ! Set slicenext and collapsenext if not set
       if (slicenext == -1) slicenext = 0
       if (collapsenext == -1) collapsenext = 0
 
       ! Still used in convert
-      snapshotini = snapshotnext-1
+      datfileini = datfilenext-1
 
       return ! Leave this routine
     else if (mype == 0) then
       call MPI_FILE_SEEK(file_handle, 0_MPI_OFFSET_KIND, MPI_SEEK_SET,&
           ierrmpi)
-      call snapshot_read_header(file_handle, offset_tree_info,&
+      call datfile_read_header(file_handle, offset_tree_info,&
           offset_block_data)
     end if
 
@@ -2637,7 +2926,7 @@ contains
     call MPI_BCAST(it,1,MPI_INTEGER,0,icomm,ierrmpi)
     call MPI_BCAST(global_time,1,MPI_DOUBLE_PRECISION,0,icomm,ierrmpi)
 
-    call MPI_BCAST(snapshotnext,1,MPI_INTEGER,0,icomm,ierrmpi)
+    call MPI_BCAST(datfilenext,1,MPI_INTEGER,0,icomm,ierrmpi)
     call MPI_BCAST(slicenext,1,MPI_INTEGER,0,icomm,ierrmpi)
     call MPI_BCAST(collapsenext,1,MPI_INTEGER,0,icomm,ierrmpi)
     call MPI_BCAST(stagger_mark_dat,1,MPI_LOGICAL,0,icomm,ierrmpi)
@@ -2828,9 +3117,9 @@ contains
 
     call MPI_BARRIER(icomm,ierrmpi)
 
-  end subroutine read_snapshot
+  end subroutine read_datfile
 
-  subroutine read_snapshot_old()
+  subroutine read_datfile_old()
     use mod_forest
     use mod_global_parameters
     use mod_amr_solution_node, only: alloc_node
@@ -2976,7 +3265,7 @@ contains
 
     call MPI_BARRIER(icomm,ierrmpi)
 
-  end subroutine read_snapshot_old
+  end subroutine read_datfile_old
 
   !> Write volume-averaged values and other information to the log file
   subroutine printlog_default

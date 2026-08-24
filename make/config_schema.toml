@@ -183,3 +183,10 @@ type = "flag"
 name = "REFINE_USR"
 flags = ["fypp", "hash"]
 default = false
+
+[filelist]
+[filelist.snap_compress_zfp]
+type = "flag"
+name = "COMPRESS_ZFP"
+flags = ["fypp", "hash"]
+default = false
