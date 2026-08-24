@@ -95,8 +95,8 @@ When in doubt, you should probably add a comment: it will help the reader to
 confirm his/her understanding. Do not write comments around trivial statements,
 such as `i = i + 1`.
 
-The [documentation](documentation.md) page explains how to write Doxygen
-comments, which show up in the documentation of MPI-AMRVAC.
+The [documentation](documentation.md) page explains how to write documentation
+comments, which show up in the generated FORD documentation.
 
 # Modules and programs {#style-mod}
 

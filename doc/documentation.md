@@ -1,44 +1,53 @@
-# About the MPI-AMRVAC documentation
+# About the AGILE documentation
 
 [TOC]
 
 # Generating the documentation {#doc-gen}
 
-The documentation of MPI-AMRVAC is generated using
-[Doxygen](http://doxygen.org/). On every commit to the (owner-protected) master branch, documentation on http://amrvac.org
-is automatically updated. You can also generate 
-documentation locally if you have a recent version of Doxygen installed. The
-latest binaries can be downloaded
-[here](https://doxygen.nl/download.html).
+API documentation for AGILE is generated from the source code using
+[FORD](https://forddocs.readthedocs.io/) (the Fortran Documenter). Unlike
+upstream MPI-AMRVAC, this fork no longer uses Doxygen.
 
-To locally generate the documentation, execute
+To generate it locally:
 
-    doxygen
+    uv sync --extra docs
+    source .venv/bin/activate
+    doc/ford/build_docs.sh
 
-in the documentation folder (`doc`). You can then open the documentation in
-`html` folder with for example
+This first expands `src/*.fpp` with `fypp` (FORD cannot parse fypp directives
+directly) using the compile-time flags in `doc/ford/docgen.par`, then runs
+FORD on the result. Open the output with
 
-    firefox html/index.html
+    firefox doc/ford/html/index.html
+
+Because AGILE's physics modules (`hd`, `mhd`, `ffhd`, `srhd`) are
+mutually-exclusive fypp branches spliced into the same files
+(`mod_physics`, `mod_finite_volume`, `mod_dt`, `mod_source`, ...) at
+compile time, one `fypp`/FORD pass can only show one physics module's
+variant of those files. `docgen.par` currently selects `mhd` with most of
+its optional features enabled, to maximize what's documented; see
+`doc/ford/project.md` for details.
 
 # How to write documentation {#doc-howto}
 
-Below some of the Doxygen basics are described, but for more information see the
-online [manual](https://www.doxygen.nl/manual/index.html). Having
-a quick look at the documentation already present in MPI-AMRVAC (both in the
-source code and in the `doc` folder) will also help get you started.
+FORD understands the same `!>`/`!<` Doxygen-style comment syntax already
+used throughout AGILE, so existing source comments don't need to change.
+For the full set of features (special commands like `@note`, `@warning`,
+`@todo`, cross-references, LaTeX math, etc.) see the
+[FORD user guide](https://forddocs.readthedocs.io/en/latest/user_guide/writing_documentation.html).
 
 ## Documenting source code {#doc-src}
 
-You can write Doxygen comments almost in the same way as regular comments, using
-the following syntax:
+You can write documentation comments almost in the same way as regular
+comments, using the following syntax:
 
-    ! The number of iterations (normal comment, ignored by Doxygen)
+    ! The number of iterations (normal comment, ignored by FORD)
     integer :: x
 
-    !> The number of iterations (Doxygen variant 1)
+    !> The number of iterations (variant 1)
     integer :: bum_its
 
-    integer :: x !< The number of iterations (Doxygen variant 2)
+    integer :: x !< The number of iterations (variant 2)
 
 Note that `!>` describes the next statement, whereas `!<` describes the previous statement.
 Multi-line comments can be formed in the following way:
@@ -76,33 +85,14 @@ Here are some examples to demonstrate the syntax:
         real :: y !< The y-coordinate
     end type coordinate
 
-Besides documenting your source code, you can also include other information
-using special commands, preceded by a backslash (\). Examples are: **todo** to
-list TODO items, **test** to describe test cases and **page** to create a
-separate documentation page. The full list of commands is available
-[here](https://www.doxygen.nl/manual/commands.html).
-
 ## Documentation in markdown files {#doc-md}
 
-It is also possible to write separate markdown files that will show up in the
-generated documentation. In these markdown files Doxygen will automatically
-generate links for names it recognizes. Here is a short example:
-
-    # The title that doxygen will use for your page
-
-    [TOC]
-
-    # A section {#label-1}
-
-    Please read the [subsection](@ref label-2).
-
-    This is the general link syntax: [link name](link).
-
-    ## A subsection {#label-2}
-
-    You can also place LateX equations in a file, like this:
-
-\f$ f(x) = \sin(x^2) \f$.
-
-Note that in doxygen 1.8.11 you have to define section labels for the table of
-contents to work, which appear at the location of the special `[TOC]` command.
+FORD can also fold separate markdown pages (like this one) into the
+generated site, via its `page_dir` setting -- see the
+[FORD page documentation](https://forddocs.readthedocs.io/en/latest/user_guide/writing_documentation.html#writing-pages).
+This is **not currently wired up**: the `doc/*.md` files here still use
+Doxygen-specific syntax (`{#label}` section anchors, `@ref label` links,
+bare `[TOC]`) that would need to be converted to FORD's page-linking
+conventions first. Until that migration happens, these markdown files are
+only readable as plain files (e.g. on GitHub), not as part of the generated
+FORD site.
