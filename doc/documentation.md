@@ -7,15 +7,19 @@ upstream MPI-AMRVAC, this fork no longer uses Doxygen.
 
 To generate it locally:
 
-    uv sync --extra docs
-    source .venv/bin/activate
-    doc/ford/build_docs.sh
+```bash
+uv sync --extra docs
+source .venv/bin/activate
+doc/ford/build_docs.sh
+```
 
 This first expands `src/*.fpp` with `fypp` (FORD cannot parse fypp directives
 directly), once per physics module (`doc/ford/docgen_{mhd,hd,ffhd,srhd}.par`),
-then runs FORD on the result. Open the output with
+then runs FORD on the result. Open the output e.g. with
 
-    firefox doc/ford/html/index.html
+```bash
+firefox doc/ford/html/index.html
+```
 
 Because AGILE's physics modules (`hd`, `mhd`, `ffhd`, `srhd`) are
 mutually-exclusive fypp branches, a single fypp pass with one `PHYS` value
@@ -36,6 +40,7 @@ cross-references, LaTeX math, etc.) see the
 You can write documentation comments almost in the same way as regular
 comments, using the following syntax:
 
+```fortran
     ! The number of iterations (normal comment, ignored by FORD)
     integer :: x
 
@@ -43,10 +48,12 @@ comments, using the following syntax:
     integer :: bum_its
 
     integer :: x !< The number of iterations (variant 2)
+```
 
 Note that `!>` describes the next statement, whereas `!<` describes the previous statement.
 Multi-line comments can be formed in the following way:
 
+```fortran
     !> a long line
     !> of text
     !> it is really long
@@ -54,10 +61,12 @@ Multi-line comments can be formed in the following way:
     !> a long line
     !! of text
     !! it is really long
+```
 
 You can document variables, functions, subroutines, modules, types and arguments.
 Here are some examples to demonstrate the syntax:
 
+```fortran
     !> Compute the square of x
     subroutine square(x, x2)
         real, intent(in)  :: x  !< The number we will square
@@ -79,6 +88,7 @@ Here are some examples to demonstrate the syntax:
         real :: x !< The x-coordinate
         real :: y !< The y-coordinate
     end type coordinate
+```
 
 ## Documentation in markdown files {: #doc-md }
 This page and the rest of `doc/*.md` are folded into the generated site as
