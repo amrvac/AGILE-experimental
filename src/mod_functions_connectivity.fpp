@@ -118,17 +118,17 @@ module mod_functions_connectivity
 #endif
 #ifdef _OPENMP
     if (omp_target_is_present(c_loc(nbprocs_info%srl_nb), omp_get_default_device()) /= 0) then
-      !omp target exit data delete (nbprocs_info%srl_nb)
+      !$omp target exit data map(delete:nbprocs_info%srl_nb)
     end if
     if (omp_target_is_present(c_loc(nbprocs_info%course_nb), omp_get_default_device()) /= 0) then
-      !omp target exit data delete (nbprocs_info%course_nb)
+      !$omp target exit data map(delete:nbprocs_info%course_nb)
     end if
     if (omp_target_is_present(c_loc(nbprocs_info%fine_nb), omp_get_default_device()) /= 0) then
-      !omp target exit data delete (nbprocs_info%fine_nb)
+      !$omp target exit data map(delete:nbprocs_info%fine_nb)
     end if
 #ifdef _CRAYFTN ! should be a no-op, but hey, its cray...
     if (omp_target_is_present(c_loc(nbprocs_info))) then
-      !$omp target exit data delete (nbprocs_info)
+      !$omp target exit data map(delete:nbprocs_info)
     end if
 #endif
 #ifndef _CRAYFTN ! acc_is_present can only be cast on arrays with nvidia (its anyways a no-op)
