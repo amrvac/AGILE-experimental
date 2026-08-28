@@ -1,3 +1,4 @@
+#:include "../mod_gpu_directives.fpp"
 module mod_con2prim
 
 use mod_global_parameters
@@ -12,14 +13,14 @@ implicit none
   double precision, public         :: tolernr   = 1.0d-9
   double precision, public         :: dmaxvel   = 1.0d-7
   
-  !$acc declare copyin(maxitnr,absaccnr,tolernr,dmaxvel)
+  ${GPU_DECLARE_COPYIN('maxitnr,absaccnr,tolernr,dmaxvel')}$
 
 
 contains 
 
   !> con2prim: (D,S**2,tau) --> compute auxiliaries lfac and xi
   pure subroutine con2prim_eos(lfac,xi,myd,myssqr,mytau)
-    !$acc routine seq
+    ${GPU_ROUTINE_SEQ()}$
     double precision, intent(in)    :: myd, myssqr, mytau
     double precision, intent(inout) :: lfac, xi
 
@@ -48,7 +49,7 @@ contains
 
   !> SRHD iteration solves for p via NR, and then gives xi as output
   pure subroutine con2primHydro_eos(lfac,xi,d,sqrs,tau)
-    !$acc routine seq
+    ${GPU_ROUTINE_SEQ()}$
     double precision, intent(out) :: xi,lfac
     double precision, intent(in)  :: d,sqrs,tau
 
@@ -219,7 +220,7 @@ contains
   !> pointwise evaluations used in con2prim
   !> compute pointwise value for pressure p and dpdxi
   pure subroutine FuncPressure_eos(xicurrent,lfac,d,dlfacdxi,p,dpdxi)
-    !$acc routine seq
+    ${GPU_ROUTINE_SEQ()}$
     double precision, intent(in)         :: xicurrent,lfac,d,dlfacdxi
     double precision, intent(out)        :: p,dpdxi
     ! .. local ..
@@ -249,7 +250,7 @@ contains
 
   !> con2prim: (D,S**2,tau) --> compute auxiliaries lfac and xi
   pure subroutine con2prim(lfac,xi,myd,myssqr,mytau)
-    !$acc routine seq
+    ${GPU_ROUTINE_SEQ()}$
     double precision, intent(in)    :: myd, myssqr, mytau
     double precision, intent(inout) :: lfac, xi
 
@@ -274,7 +275,7 @@ contains
 
 
   pure subroutine funcd(xi,f,df,mylfac,d,ssqr,tau)
-    !$acc routine seq
+    ${GPU_ROUTINE_SEQ()}$
     double precision, intent(in)  :: xi,d,ssqr,tau
     double precision, intent(out) :: f,df,mylfac
 
@@ -297,7 +298,7 @@ contains
 
   !> SRHD iteration solves for p via NR, and then gives xi as output
   pure subroutine con2primHydro(lfac,xi,d,sqrs,tau)
-    !$acc routine seq
+    ${GPU_ROUTINE_SEQ()}$
     double precision, intent(out) :: xi,lfac
     double precision, intent(in)  :: d,sqrs,tau
 
@@ -453,7 +454,7 @@ contains
   !> pointwise evaluations used in con2prim
   !> compute pointwise value for pressure p and dpdxi
   pure subroutine FuncPressure(xicurrent,lfac,d,dlfacdxi,p,dpdxi)
-    !$acc routine seq
+    ${GPU_ROUTINE_SEQ()}$
 
     double precision, intent(in)         :: xicurrent,lfac,d,dlfacdxi
     double precision, intent(out)        :: p,dpdxi

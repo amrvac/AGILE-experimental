@@ -1,3 +1,4 @@
+#:include "../mod_gpu_directives.fpp"
 !> Module with basic grid data structures
 module mod_forest
    implicit none
@@ -70,7 +71,7 @@ module mod_forest
    !> AMR flags and grids-in-use identifier per processor (igrid,ipe) 
    logical, dimension(:,:), allocatable, save :: coarsen, refine, buffer,&
         igrid_inuse
-   !$acc declare create(coarsen, refine, buffer, igrid_inuse)
+   ${GPU_DECLARE_CREATE('coarsen, refine, buffer, igrid_inuse')}$
 
    !> Number of parent blocks
    integer, save :: nparents

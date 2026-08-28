@@ -1,3 +1,4 @@
+#:include "../mod_gpu_directives.fpp"
 module mod_errest
   use mod_comm_lib, only: mpistop
   implicit none
@@ -14,133 +15,130 @@ contains
 
     integer :: igrid, iigrid
 
-    if (igridstail==0) return
-
-    select case (refine_criterion)
-    case (1)
-       ! all refinement solely based on user routine usr_refine_grid
-    case (3)
-       ! Error estimation is based on Lohner's scheme
-       !$acc parallel loop gang private(igrid)
-       do iigrid=1,igridstail; igrid=igrids(iigrid);
-          call lohner_grid(igrid)
-       end do
-    case default
-       call mpistop("Unknown error estimator")
-    end select
-
-    if ( refine_usr ) then
-       !$acc parallel loop gang private(igrid)
-       do iigrid=1,igridstail; igrid=igrids(iigrid);
-          call forcedrefine_grid(igrid)
-       end do
-    end if
-
-    !$acc update host(refine, coarsen)
-
-  end subroutine errest
-
-  subroutine lohner_grid(igrid)
-    !$acc routine vector
-    use mod_forest, only: coarsen, refine
-    use mod_global_parameters
-
-    integer, intent(in) :: igrid
-
+    ! Locals inlined from lohner_grid (see comment below for why this is
+    ! inlined rather than a called GPU_ROUTINE_VECTOR subroutine)
     integer                            :: iflag, idims1, idims2, level
     integer                            :: ix1, ix2, ix3
     double precision                   :: threshold, error, numerator, denominator
     logical                            :: refineflag, coarsenflag
     double precision, parameter        :: epsilon=1.0d-6
 
-      level       = node(plevel_,igrid)
-      threshold   = refine_threshold(level)
+    if (igridstail==0) return
 
-      refineflag  = .false.
-      coarsenflag = .true.
-      !$acc loop vector collapse(3) reduction(.or.:refineflag) reduction(.and.:coarsenflag)
-      do ix3 = ixMlo3, ixMhi3
-         do ix2 = ixMlo2, ixMhi2
-            do ix1 = ixMlo1, ixMhi1
+    select case (refine_criterion)
+    case (1)
+       ! all refinement solely based on user routine usr_refine_grid
+    case (3)
+       ! Error estimation is based on Lohner's scheme.
+       ! Inlined version of lohner_igrid subroutine, because a vector-parallelism
+       ! subroutine called from a gang loop does not work with OpenMP.
+       ! Note: the same could happen to a user-defined refinement, but this has not yet been tested.
+       ${GPU_PARALLEL_LOOP_GANG("private(igrid, level, threshold, refineflag, coarsenflag)")}$
+       do iigrid=1,igridstail; igrid=igrids(iigrid);
 
-               error = zero
-               !$acc loop seq reduction(+:error)
-               do iflag = 1, nw
-                  if(w_refine_weight(iflag)==0.d0) cycle
+          level       = node(plevel_,igrid)
+          threshold   = refine_threshold(level)
 
-                  numerator   = zero
-                  denominator = zero
-                  !$acc loop seq reduction(+:numerator, denominator)
-                  do idims1 = 1, ndim
-                     do idims2 = 1, ndim
+          refineflag  = .false.
+          coarsenflag = .true.
+          ${GPU_LOOP_VECTOR("collapse(3) reduction(.or.:refineflag) reduction(.and.:coarsenflag) private(ix1,ix2,ix3,error,iflag,idims1,idims2,numerator,denominator)")}$
+          do ix3 = ixMlo3, ixMhi3
+             do ix2 = ixMlo2, ixMhi2
+                do ix1 = ixMlo1, ixMhi1
 
-                        numerator = numerator + &
-                             ( &
-                             ( bg(1)%w(ix1+kr(1,idims2)+kr(1,idims1), &
-                             ix2+kr(2,idims2)+kr(2,idims1), &
-                             ix3+kr(3,idims2)+kr(3,idims1), iflag, igrid)    &
-                             - bg(1)%w(ix1-kr(1,idims2)+kr(1,idims1), &
-                             ix2-kr(2,idims2)+kr(2,idims1), &
-                             ix3-kr(3,idims2)+kr(3,idims1), iflag, igrid) )  &
-                             - &
-                             ( bg(1)%w(ix1+kr(1,idims2)-kr(1,idims1), &
-                             ix2+kr(2,idims2)-kr(2,idims1), &
-                             ix3+kr(3,idims2)-kr(3,idims1), iflag, igrid)    &
-                             - bg(1)%w(ix1-kr(1,idims2)-kr(1,idims1), &
-                             ix2-kr(2,idims2)-kr(2,idims1), &
-                             ix3-kr(3,idims2)-kr(3,idims1), iflag, igrid) )  &
-                             )**2
+                   error = zero
+                   ${GPU_LOOP_SEQ()}$
+                   do iflag = 1, nw
+                      if(w_refine_weight(iflag)==0.d0) cycle
 
-                        denominator = denominator + &
-                             ( &
-                             abs( &
-                             bg(1)%w(ix1+2*kr(1,idims1), ix2+2*kr(2,idims1), ix3+2*kr(3,idims1), iflag, igrid) &
-                             - bg(1)%w(ix1, ix2, ix3, iflag, igrid) &
-                             ) &
-                             + abs( &
-                             bg(1)%w(ix1, ix2, ix3, iflag, igrid) &
-                             - bg(1)%w(ix1-2*kr(1,idims1), ix2-2*kr(2,idims1), ix3-2*kr(3,idims1), iflag, igrid) &
-                             ) &
-                             + amr_wavefilter(level) * ( &
-                             ( abs( bg(1)%w(ix1+kr(1,idims1)+kr(1,idims2), &
-                             ix2+kr(2,idims1)+kr(2,idims2), &
-                             ix3+kr(3,idims1)+kr(3,idims2), iflag, igrid) )   &
-                             + abs( bg(1)%w(ix1-kr(1,idims1)+kr(1,idims2), &
-                             ix2-kr(2,idims1)+kr(2,idims2), ix3-kr(3,idims1)+kr(3,idims2), iflag, igrid) ) ) &
-                             + &
-                             ( abs( bg(1)%w(ix1+kr(1,idims1)-kr(1,idims2), &
-                             ix2+kr(2,idims1)-kr(2,idims2), &
-                             ix3+kr(3,idims1)-kr(3,idims2), iflag, igrid) )   &
-                             + abs( bg(1)%w(ix1-kr(1,idims1)-kr(1,idims2), &
-                             ix2-kr(2,idims1)-kr(2,idims2), &
-                             ix3-kr(3,idims1)-kr(3,idims2), iflag, igrid) ) ) &
-                             ) &
-                             )**2
-                     end do
-                  end do
+                      numerator   = zero
+                      denominator = zero
+                      ${GPU_LOOP_SEQ()}$
+                      do idims1 = 1, ndim
+                         do idims2 = 1, ndim
 
-                  error = error + w_refine_weight(iflag) * sqrt( numerator / max( denominator, epsilon ) )
+                            numerator = numerator + &
+                                 ( &
+                                 ( bg(1)%w(ix1+kr(1,idims2)+kr(1,idims1), &
+                                 ix2+kr(2,idims2)+kr(2,idims1), &
+                                 ix3+kr(3,idims2)+kr(3,idims1), iflag, igrid)    &
+                                 - bg(1)%w(ix1-kr(1,idims2)+kr(1,idims1), &
+                                 ix2-kr(2,idims2)+kr(2,idims1), &
+                                 ix3-kr(3,idims2)+kr(3,idims1), iflag, igrid) )  &
+                                 - &
+                                 ( bg(1)%w(ix1+kr(1,idims2)-kr(1,idims1), &
+                                 ix2+kr(2,idims2)-kr(2,idims1), &
+                                 ix3+kr(3,idims2)-kr(3,idims1), iflag, igrid)    &
+                                 - bg(1)%w(ix1-kr(1,idims2)-kr(1,idims1), &
+                                 ix2-kr(2,idims2)-kr(2,idims1), &
+                                 ix3-kr(3,idims2)-kr(3,idims1), iflag, igrid) )  &
+                                 )**2
 
-               end do
+                            denominator = denominator + &
+                                 ( &
+                                 abs( &
+                                 bg(1)%w(ix1+2*kr(1,idims1), ix2+2*kr(2,idims1), ix3+2*kr(3,idims1), iflag, igrid) &
+                                 - bg(1)%w(ix1, ix2, ix3, iflag, igrid) &
+                                 ) &
+                                 + abs( &
+                                 bg(1)%w(ix1, ix2, ix3, iflag, igrid) &
+                                 - bg(1)%w(ix1-2*kr(1,idims1), ix2-2*kr(2,idims1), ix3-2*kr(3,idims1), iflag, igrid) &
+                                 ) &
+                                 + amr_wavefilter(level) * ( &
+                                 ( abs( bg(1)%w(ix1+kr(1,idims1)+kr(1,idims2), &
+                                 ix2+kr(2,idims1)+kr(2,idims2), &
+                                 ix3+kr(3,idims1)+kr(3,idims2), iflag, igrid) )   &
+                                 + abs( bg(1)%w(ix1-kr(1,idims1)+kr(1,idims2), &
+                                 ix2-kr(2,idims1)+kr(2,idims2), ix3-kr(3,idims1)+kr(3,idims2), iflag, igrid) ) ) &
+                                 + &
+                                 ( abs( bg(1)%w(ix1+kr(1,idims1)-kr(1,idims2), &
+                                 ix2+kr(2,idims1)-kr(2,idims2), &
+                                 ix3+kr(3,idims1)-kr(3,idims2), iflag, igrid) )   &
+                                 + abs( bg(1)%w(ix1-kr(1,idims1)-kr(1,idims2), &
+                                 ix2-kr(2,idims1)-kr(2,idims2), &
+                                 ix3-kr(3,idims1)-kr(3,idims2), iflag, igrid) ) ) &
+                                 ) &
+                                 )**2
+                         end do
+                      end do
 
-               if (error > threshold) then
-                  refineflag = .true.
-               end if
-               if (error > derefine_ratio(level) * threshold) then
-                  coarsenflag = .false.
-               end if
+                      error = error + w_refine_weight(iflag) * sqrt( numerator / max( denominator, epsilon ) )
 
-            end do
-         end do
-      end do
+                   end do
 
-      if (refineflag .and. level < refine_max_level) refine(igrid,mype)=.true.
-      if (coarsenflag .and. level > 1) coarsen(igrid,mype)=.true.
+                   if (error > threshold) then
+                      refineflag = .true.
+                   end if
+                   if (error > derefine_ratio(level) * threshold) then
+                      coarsenflag = .false.
+                   end if
 
-  end subroutine lohner_grid
+                end do
+             end do
+          end do
+
+          if (refineflag .and. level < refine_max_level) refine(igrid,mype)=.true.
+          if (coarsenflag .and. level > 1) coarsen(igrid,mype)=.true.
+
+       end do
+    case default
+       call mpistop("Unknown error estimator")
+    end select
+
+    if ( refine_usr ) then
+       ${GPU_PARALLEL_LOOP_GANG("private(igrid)")}$
+       do iigrid=1,igridstail; igrid=igrids(iigrid);
+          call forcedrefine_grid(igrid)
+       end do
+    end if
+
+    ${GPU_UPDATE_HOST('refine, coarsen')}$
+
+  end subroutine errest
+
 
   subroutine forcedrefine_grid(igrid)
-    !$acc routine vector
+    ${GPU_ROUTINE_VECTOR()}$
     #:if defined('REFINE_USR')
     use mod_usr, only: usr_refine_grid
     #:endif

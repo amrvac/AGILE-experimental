@@ -1,3 +1,4 @@
+#:include "../mod_gpu_directives.fpp"
 !> Module with slope/flux limiters
 module mod_limiter
   implicit none
@@ -7,7 +8,7 @@ module mod_limiter
   !> region but more overshooting at discontinuities
   double precision :: cada3_radius
   double precision :: schmid_rad1,schmid_rad2,schmid_rad3
-  !$acc declare create(cada3_radius, schmid_rad1,schmid_rad2,schmid_rad3)
+  ${GPU_DECLARE_CREATE('cada3_radius, schmid_rad1,schmid_rad2,schmid_rad3')}$
   integer, parameter :: limiter_minmod = 1
   integer, parameter :: limiter_woodward = 2
   integer, parameter :: limiter_mcbeta = 3

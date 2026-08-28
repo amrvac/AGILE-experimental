@@ -2,6 +2,7 @@
 
 #:mute
 #:include "physics/mod_physics_templates.fpp"
+#:include "mod_gpu_directives.fpp"
 #:endmute
 
 module mod_finite_volume
@@ -126,7 +127,7 @@ end subroutine finite_volume_local
        igrid_beg = (ibatch-1) * max_batch + 1
        igrid_end = min(ibatch * max_batch, igridstail_active)
 
-       !$acc parallel loop gang private(uprim, inv_dr, dr, n) default(present)
+       ${GPU_PARALLEL_LOOP_GANG("private(uprim, inv_dr, dr, n)")}$ ${GPU_DEFAULT_PRESENT()}$
        do iigrid = igrid_beg, igrid_end
           n = igrids_active(iigrid)
 
@@ -134,7 +135,7 @@ end subroutine finite_volume_local
           inv_dr  = 1/dr
           typelim = type_limiter(node(plevel_, n))
 
-          !$acc loop collapse(ndim) vector
+          ${GPU_LOOP_VECTOR("collapse(ndim)")}$
           do ix3=ixImin3,ixImax3 
              do ix2=ixImin2,ixImax2 
                 do ix1=ixImin1,ixImax1 
@@ -145,7 +146,7 @@ end subroutine finite_volume_local
              end do
           end do
 
-       !$acc loop vector collapse(ndim) private(f, wnew, tmp, xlocC, xloc#{if defined('SOURCE_LOCAL')}#, wCT, wprim #{endif}##{if defined('SOURCE_COMPACT')}#, tmp1,tmp2,tmp3 #{endif}#)
+       ${GPU_LOOP_VECTOR("collapse(ndim) private(f, wnew, tmp, xlocC, xloc" + (", wCT, wprim " if defined('SOURCE_LOCAL') else "") + (", tmp1,tmp2,tmp3 " if defined('SOURCE_COMPACT') else "") + ")")}$
        do ix3=ixOmin3,ixOmax3 
           do ix2=ixOmin2,ixOmax2 
              do ix1=ixOmin1,ixOmax1 
@@ -245,7 +246,7 @@ end subroutine finite_volume_local
   !> MUSCL reconstruction in primitive variables for two faces using a 5-point stencil.
   !> Returns uL(:,iface), uR(:,iface) for iface=1 (between cells 2-3) and iface=2 (between 3-4).
   pure subroutine muscl_reconstruct_prim(u, typelim, uL, uR)
-    !$acc routine seq
+    ${GPU_ROUTINE_SEQ()}$
     use mod_limiter, only: limiter_minmod, limiter_vanleer, limiter_mcbeta, limiter_koren
     real(dp), intent(in)  :: u(nw_phys,5)
     integer,  intent(in)  :: typelim
@@ -300,7 +301,7 @@ end subroutine finite_volume_local
   !> One-face LLF/Rusanov numerical flux from primitive L/R states.
   !> phi(nw_flux) is the adaptive-diffusion reduction factor; only present when FLUX_AD is defined.
   subroutine riemann_llf_prim(uL, uR, xC, flux_dim, F#{if defined('FLUX_AD')}#, phi#{endif}#)
-    !$acc routine seq
+    ${GPU_ROUTINE_SEQ()}$
     real(dp), intent(inout) :: uL(nw_phys), uR(nw_phys)
     real(dp), intent(in)    :: xC(ndim)
     integer,  intent(in)    :: flux_dim
@@ -329,7 +330,7 @@ end subroutine finite_volume_local
   !> One-face HLL numerical flux from primitive L/R states.
   !> takes flux_type(flux_dim,nw_flux) into account (fallback to LLF for selected variables)
   subroutine riemann_hll_prim(uL, uR, xC, flux_dim, F)
-    !$acc routine seq
+    ${GPU_ROUTINE_SEQ()}$
     real(dp), intent(inout) :: uL(nw_phys), uR(nw_phys)
     real(dp), intent(in)    :: xC(ndim)
     integer,  intent(in)    :: flux_dim
@@ -379,7 +380,7 @@ end subroutine finite_volume_local
   !> Reference: Toro (2010), chapter 10 (Variant 2)
   !> does not yet take flux_type(flux_dim,nw_flux) into account
   subroutine riemann_hllc_prim(uL, uR, xC, flux_dim, F)
-    !$acc routine seq
+    ${GPU_ROUTINE_SEQ()}$
     real(dp), intent(inout) :: uL(nw_phys), uR(nw_phys)
     real(dp), intent(in)    :: xC(ndim)
     integer,  intent(in)    :: flux_dim
@@ -463,7 +464,7 @@ end subroutine finite_volume_local
   !> MUSCL (primitive-variable) reconstruction with slope limiter; HLL two-wave approximate Riemann flux at faces.
   !> Uses estimated left/right signal speeds (Davis (1988)) for less diffusion than LLF, no contact resolution.
   subroutine reconflux_muscl_hll_prim(u, xlocC, flux_dim, flux, typelim)
-    !$acc routine seq
+    ${GPU_ROUTINE_SEQ()}$
     real(dp), intent(in)  :: u(nw_phys, 5)
     real(dp), intent(in)  :: xlocC(1:ndim, 2)
     integer, intent(in)   :: flux_dim, typelim
@@ -484,7 +485,7 @@ end subroutine finite_volume_local
   !> Robust and diffusive; uses local max wavespeed for upwinding.
   !> Adaptive diffusion (Rempel et al. 2009) is compiled in only when FLUX_AD is defined.
   subroutine reconflux_muscl_llf_prim(u, xlocC, flux_dim, flux, typelim)
-    !$acc routine seq
+    ${GPU_ROUTINE_SEQ()}$
     real(dp), intent(in)  :: u(nw_phys, 5)
     real(dp), intent(in)  :: xlocC(1:ndim, 2)
     integer, intent(in)   :: flux_dim, typelim
@@ -536,7 +537,7 @@ end subroutine finite_volume_local
   !> MUSCL (primitive-variable) reconstruction with slope limiter; HLLC approximate Riemann flux at faces.
   !> Restores the contact wave (and shear in Euler/HD), typically sharper than HLL for similar cost.
   subroutine reconflux_muscl_hllc_prim(u, xlocC, flux_dim, flux, typelim)
-    !$acc routine seq
+    ${GPU_ROUTINE_SEQ()}$
     real(dp), intent(in)  :: u(nw_phys, 5)
     real(dp), intent(in)  :: xlocC(1:ndim, 2)
     integer, intent(in)   :: flux_dim, typelim
@@ -553,7 +554,7 @@ end subroutine finite_volume_local
 
 
   pure real(dp) function vanleer(a, b) result(phi)
-    !$acc routine seq
+    ${GPU_ROUTINE_SEQ()}$
     real(dp), intent(in) :: a, b
     real(dp)             :: ab
 
@@ -566,7 +567,7 @@ end subroutine finite_volume_local
   end function vanleer
 
   pure real(dp) function minmod(a, b)
-    !$acc routine seq
+    ${GPU_ROUTINE_SEQ()}$
     real(dp), intent(in) :: a, b
 
     if (a * b <= 0) then
@@ -584,7 +585,7 @@ end subroutine finite_volume_local
   !> have r = a / b (ratio of gradients). Then the limiter phi(r) is multiplied
   !> with b. With this implementation, you get phi(r) * b
   pure real(dp) function koren(a, b)
-    !$acc routine seq
+    ${GPU_ROUTINE_SEQ()}$
     real(dp), intent(in) :: a  !< Density gradient (numerator)
     real(dp), intent(in) :: b  !< Density gradient (denominator)
     real(dp), parameter  :: third = 1/3.0_dp
@@ -613,7 +614,7 @@ end subroutine finite_volume_local
   !> Monotonised central-difference limiter with tunable beta (AMRVAC's
   !> mcbeta; beta=2 recovers the classic MC limiter, van Leer 1979)
   pure real(dp) function mcbeta(a, b) result(phi)
-  !$acc routine seq
+  ${GPU_ROUTINE_SEQ()}$
   real(dp), intent(in) :: a, b
   real(dp), parameter  :: c_mcbeta = 1.4_dp
   real(dp)             :: ab
