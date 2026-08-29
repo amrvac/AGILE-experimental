@@ -118,12 +118,12 @@ end subroutine finite_volume_local
     real(dp)               :: xloc(ndim)
     real(dp)               :: xlocC(ndim,2)
     real(dp)               :: wprim(nw_phys), wCT(nw_phys), wnew(nw_phys)
+    ! Block corner in the logical coordinate, for building face positions.
+    real(dp)               :: xlo(ndim)
 #:if GEOM != 'Cartesian'
     ! Inverse cell volume, and the (upper minus lower) face area over volume
     ! per direction, which the curvilinear geometric source terms need.
     real(dp)               :: inv_dvol, dAdV(ndim)
-    ! Block corner in the logical coordinate, for rebuilding face positions.
-    real(dp)               :: xlo(ndim)
 #:endif
 #:if defined('SOURCE_LOCAL') or defined('SOURCE_NONLOCAL') or defined('SOURCE_COMPACT')
     ! Physical cell size handed to the optional source terms.  dr below is the
@@ -142,15 +142,13 @@ end subroutine finite_volume_local
        igrid_beg = (ibatch-1) * max_batch + 1
        igrid_end = min(ibatch * max_batch, igridstail_active)
 
-       !$acc parallel loop gang private(uprim, inv_dr, dr, n#{if GEOM != 'Cartesian'}#, xlo#{endif}#) default(present)
+       !$acc parallel loop gang private(uprim, inv_dr, dr, n, xlo) default(present)
        do iigrid = igrid_beg, igrid_end
           n = igrids_active(iigrid)
 
           dr  = rnode(rpdx1_:rnodehi, n)
           inv_dr  = 1/dr
-#:if GEOM != 'Cartesian'
           xlo = rnode(rpxmin1_:rpxmin1_+ndim-1, n)
-#:endif
           typelim = type_limiter(node(plevel_, n))
 
           !$acc loop collapse(ndim) vector
@@ -174,23 +172,39 @@ end subroutine finite_volume_local
                 inv_dvol = 1.0_dp / bgeo%dvolume(ix1, ix2, ix3, n)
 #:endif
 
+                ! This cell's stored position - its volume barycentre - read
+                ! once and reused by all three face constructions and by every
+                ! source term below. The component index of bgeo%x sits between
+                ! the cell indices and the grid index, so each of these is a
+                ! strided gather; fetching it once rather than per direction
+                ! takes ten of them per cell down to one.
+                xloc(1:ndim) = bgeo%x(ix1, ix2, ix3, 1:ndim, n)
+
                 tmp = uprim(1:nw_phys, ix1-2:ix1+2, ix2, ix3)
-                xlocC(1:ndim,1) = bgeo%x(ix1, ix2, ix3, 1:ndim, n)
-                xlocC(1:ndim,2) = bgeo%x(ix1, ix2, ix3, 1:ndim, n)
-#:if GEOM == 'Cartesian'
-                xlocC(1,1) = xlocC(1,1)-0.5_dp*dr(1)
-                xlocC(1,2) = xlocC(1,2)+0.5_dp*dr(1)
-#:else
-                ! bgeo%x holds the cell's volume barycentre, so x -/+ dr/2 is
-                ! not a face: rebuild the radial faces from the block corner.
-                ! Under LOG_RADIUS the discrepancy is not a small one either -
-                ! dr(1) is then a ratio in ln(r), not a length.
+                ! transverse components stay on the barycentre; only the normal
+                ! one is moved to the interface
+                xlocC(1:ndim,1) = xloc(1:ndim)
+                xlocC(1:ndim,2) = xloc(1:ndim)
+                ! Face positions, built from the block corner and the cell
+                ! index.  This is the one form that is right in every geometry,
+                ! so it is used unconditionally.  It cannot be shortened to
+                ! x -/+ dr/2: bgeo%x is the cell's volume *barycentre* in a
+                ! curvilinear build, and under LOG_RADIUS dr(1) is a ratio in
+                ! ln(r) rather than a length, so that form would not merely be
+                ! imprecise but wrong.  Where x is the midpoint - Cartesian in
+                ! every direction, and phi and cylindrical z besides - the two
+                ! agree to round-off.
+                !
+                ! The lower-corner form suffices because this loop covers the
+                ! mesh interior only; fill_geometry_device's two-sided rule
+                ! exists to make neighbouring blocks' *ghost* cells agree
+                ! bit-for-bit, which nothing here needs.
                 xlocC(1,1) = xlo(1) + dble(ix1-nghostcells-1)*dr(1)
                 xlocC(1,2) = xlocC(1,1) + dr(1)
-  #:if defined('LOG_RADIUS')
+#:if defined('LOG_RADIUS')
+                ! the logical radial coordinate is ln(r)
                 xlocC(1,1) = dexp(xlocC(1,1))
                 xlocC(1,2) = dexp(xlocC(1,2))
-  #:endif
 #:endif
                 call ${faceflux_proc}$(tmp, xlocC, 1, f, typelim)
 #:if GEOM == 'Cartesian'
@@ -203,19 +217,10 @@ end subroutine finite_volume_local
 #:endif
 
                 tmp = uprim(1:nw_phys, ix1, ix2-2:ix2+2, ix3)
-                xlocC(1:ndim,1) = bgeo%x(ix1, ix2, ix3, 1:ndim, n)
-                xlocC(1:ndim,2) = bgeo%x(ix1, ix2, ix3, 1:ndim, n)
-#:if GEOM == 'spherical'
-                ! as for the radial direction: x(2) is the sin(theta)-weighted
-                ! barycentre, not the midpoint of the two polar faces
+                xlocC(1:ndim,1) = xloc(1:ndim)
+                xlocC(1:ndim,2) = xloc(1:ndim)
                 xlocC(2,1) = xlo(2) + dble(ix2-nghostcells-1)*dr(2)
                 xlocC(2,2) = xlocC(2,1) + dr(2)
-#:else
-                ! Cartesian y, and cylindrical z, carry uniform weight, so the
-                ! stored position is the midpoint and this is already exact
-                xlocC(2,1) = xlocC(2,1)-0.5_dp*dr(2)
-                xlocC(2,2) = xlocC(2,2)+0.5_dp*dr(2)
-#:endif
                 call ${faceflux_proc}$(tmp, xlocC, 2, f, typelim)
 #:if GEOM == 'Cartesian'
                 bgb%w(ix1, ix2, ix3, 1:nw_flux, n) = bgb%w(ix1, ix2, ix3, 1:nw_flux,&
@@ -227,12 +232,10 @@ end subroutine finite_volume_local
 #:endif
 
                 tmp = uprim(1:nw_phys, ix1, ix2, ix3-2:ix3+2)
-                xlocC(1:ndim,1) = bgeo%x(ix1, ix2, ix3, 1:ndim, n)
-                xlocC(1:ndim,2) = bgeo%x(ix1, ix2, ix3, 1:ndim, n)
-                ! phi (and Cartesian z) carries uniform weight in every
-                ! geometry, so its barycentre is its midpoint and this is exact
-                xlocC(3,1) = xlocC(3,1)-0.5_dp*dr(3)
-                xlocC(3,2) = xlocC(3,2)+0.5_dp*dr(3)
+                xlocC(1:ndim,1) = xloc(1:ndim)
+                xlocC(1:ndim,2) = xloc(1:ndim)
+                xlocC(3,1) = xlo(3) + dble(ix3-nghostcells-1)*dr(3)
+                xlocC(3,2) = xlocC(3,1) + dr(3)
                 call ${faceflux_proc}$(tmp, xlocC, 3, f, typelim)
 #:if GEOM == 'Cartesian'
                 bgb%w(ix1, ix2, ix3, 1:nw_flux, n) = bgb%w(ix1, ix2, ix3, 1:nw_flux,&
@@ -247,7 +250,6 @@ end subroutine finite_volume_local
                    ! Add the geometric (curvature) source terms that the
                    ! flux-divergence form of the momentum equations leaves over
                    ! in a curvilinear coordinate system.
-                   xloc(1:ndim) = bgeo%x(ix1, ix2, ix3, 1:ndim, n)
                    wprim        = uprim(1:nw_phys, ix1, ix2, ix3)
                    wnew         = bgb%w(ix1, ix2, ix3, 1:nw_phys, n)
                    dAdV(1) = (bgeo%surfaceC(ix1, ix2, ix3, 1, n) &
@@ -273,7 +275,6 @@ end subroutine finite_volume_local
 
 #:if defined('SOURCE_LOCAL')
                    ! Add local source terms:
-                   xloc(1:ndim) = bgeo%x(ix1, ix2, ix3, 1:ndim, n)
                    wprim        = uprim(1:nw_phys, ix1, ix2, ix3)
                    wCT          = bga%w(ix1, ix2, ix3, 1:nw_phys, n)
                    wnew         = bgb%w(ix1, ix2, ix3, 1:nw_phys, n)
@@ -285,7 +286,6 @@ end subroutine finite_volume_local
 
 #:if defined('SOURCE_NONLOCAL')
                    ! Add non-local (gradient) source terms:
-                   xloc(1:ndim) = bgeo%x(ix1, ix2, ix3, 1:ndim, n)
                    wnew         = bgb%w(ix1, ix2, ix3, 1:nw_phys, n)
 
                    tmp = uprim(1:nw_phys, ix1-2:ix1+2, ix2, ix3)
@@ -308,7 +308,6 @@ end subroutine finite_volume_local
 
 #:if defined('SOURCE_COMPACT')
                    ! Add non-local compact source terms:
-                   xloc(1:ndim) = bgeo%x(ix1, ix2, ix3, 1:ndim, n)
                    wnew         = bgb%w(ix1, ix2, ix3, 1:nw_phys, n)
                    tmp1 = uprim(1:nw_phys, ix1-1:ix1+1, ix2, ix3)
                    tmp2 = uprim(1:nw_phys, ix1, ix2-1:ix2+1, ix3)
