@@ -127,7 +127,7 @@ module mod_functions_connectivity
       !$omp target exit data map(delete:nbprocs_info%fine_nb)
     end if
 #ifdef _CRAYFTN ! should be a no-op, but hey, its cray...
-    if (omp_target_is_present(c_loc(nbprocs_info))) then
+    if (omp_target_is_present(c_loc(nbprocs_info), omp_get_default_device()) /= 0) then
       !$omp target exit data map(delete:nbprocs_info)
     end if
 #endif
