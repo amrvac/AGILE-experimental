@@ -70,6 +70,32 @@ independent
 !$acc exit data delete(${vars}$)
 #:enddef
 
+#:def GPU_EXIT_DATA_DELETE_IF_PRESENT(vars)
+#:set depth = 0
+#:set parts = ['']
+#:for ch in vars
+#:if ch == '('
+#:set depth = depth + 1
+#:endif
+#:if ch == ')'
+#:set depth = depth - 1
+#:endif
+#:if ch == ',' and depth == 0
+#:set parts = parts + ['']
+#:else
+#:set parts = parts[:-1] + [parts[-1] + ch]
+#:endif
+#:endfor
+#:set parts = [p.strip() for p in parts]
+#:for part in parts
+!$acc exit data delete(${part}$) if(acc_is_present(${part}$))
+#:endfor
+#:enddef
+
+#:def GPU_USE_IS_PRESENT()
+use openacc, only : acc_is_present
+#:enddef
+
 #:def GPU_UPDATE_DEVICE(vars)
 !$acc update device(${vars}$)
 #:enddef
@@ -142,6 +168,35 @@ independent
 
 #:def GPU_EXIT_DATA_DELETE(vars)
 !$omp target exit data map(delete: ${vars}$)
+#:enddef
+
+#:def GPU_EXIT_DATA_DELETE_IF_PRESENT(vars)
+#:set depth = 0
+#:set parts = ['']
+#:for ch in vars
+#:if ch == '('
+#:set depth = depth + 1
+#:endif
+#:if ch == ')'
+#:set depth = depth - 1
+#:endif
+#:if ch == ',' and depth == 0
+#:set parts = parts + ['']
+#:else
+#:set parts = parts[:-1] + [parts[-1] + ch]
+#:endif
+#:endfor
+#:set parts = [p.strip() for p in parts]
+#:for part in parts
+if (omp_target_is_present(c_loc(${part}$), omp_get_default_device()) /= 0) then
+    !$omp target exit data map(delete: ${part}$)
+end if
+#:endfor
+#:enddef
+
+#:def GPU_USE_IS_PRESENT()
+use omp_lib, only: omp_target_is_present, omp_get_default_device
+use, intrinsic :: iso_c_binding, only: c_loc
 #:enddef
 
 #:def GPU_UPDATE_DEVICE(vars)
@@ -233,6 +288,12 @@ independent
 #:enddef
 
 #:def GPU_EXIT_DATA_DELETE(vars)
+#:enddef
+
+#:def GPU_EXIT_DATA_DELETE_IF_PRESENT(vars)
+#:enddef
+
+#:def GPU_USE_IS_PRESENT()
 #:enddef
 
 #:def GPU_UPDATE_DEVICE(vars)

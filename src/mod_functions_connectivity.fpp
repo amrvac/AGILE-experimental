@@ -58,14 +58,8 @@ module mod_functions_connectivity
     use mod_forest
     use mod_global_parameters
     use mod_ghostcells_update
-#ifdef _OPENACC
-    use openacc, only: acc_is_present
-#endif
-#ifdef _OPENMP
-    use omp_lib, only: omp_target_is_present, omp_get_default_device
-    use, intrinsic :: iso_c_binding, only: c_loc
-#endif
     use mod_amr_neighbors, only: find_neighbor
+    ${GPU_USE_IS_PRESENT()}$
 
     integer :: iigrid, igrid, i1,i2,i3, my_neighbor_type
     integer :: iside, idim, ic1,ic2,ic3, inc1,inc2,inc3, ih1,ih2,ih3, icdim
@@ -103,36 +97,17 @@ module mod_functions_connectivity
     do inb = 1, nbprocs_info%nbprocs_f
        ${GPU_EXIT_DATA_DELETE('nbprocs_info%fine_nb(inb)%rcv%buffer, nbprocs_info%fine_nb(inb)%info_rcv%buffer, nbprocs_info%fine_nb(inb)%send%buffer, nbprocs_info%fine_nb(inb)%info_send%buffer, nbprocs_info%fine_nb(inb)%info%nigrids, nbprocs_info%fine_nb(inb)%info%igrid, nbprocs_info%fine_nb(inb)%info%inc1, nbprocs_info%fine_nb(inb)%info%inc2, nbprocs_info%fine_nb(inb)%info%inc3, nbprocs_info%fine_nb(inb)%info%i1, nbprocs_info%fine_nb(inb)%info%i2, nbprocs_info%fine_nb(inb)%info%i3, nbprocs_info%fine_nb(inb)%info%ibuf_start, nbprocs_info%fine_nb(inb)%info%isize')}$
     end do
-#endif
+
     ! Deallocate the top-level objects
-#ifdef _OPENACC
-    !$acc exit data delete (nbprocs_info%srl_nb) if(acc_is_present(nbprocs_info%srl_nb))
-    !$acc exit data delete (nbprocs_info%course_nb) if(acc_is_present(nbprocs_info%course_nb))
-    !$acc exit data delete (nbprocs_info%fine_nb) if(acc_is_present(nbprocs_info%fine_nb))
-#ifdef _CRAYFTN ! should be a no-op, but hey, its cray...
-    !$acc exit data delete (nbprocs_info) if(acc_is_present(nbprocs_info))
-#endif
-#ifndef _CRAYFTN ! acc_is_present can only be cast on arrays with nvidia (its anyways a no-op)
-    !$acc exit data delete (nbprocs_info)
-#endif
-#endif
-#ifdef _OPENMP
-    if (omp_target_is_present(c_loc(nbprocs_info%srl_nb), omp_get_default_device()) /= 0) then
-      !$omp target exit data map(delete:nbprocs_info%srl_nb)
-    end if
-    if (omp_target_is_present(c_loc(nbprocs_info%course_nb), omp_get_default_device()) /= 0) then
-      !$omp target exit data map(delete:nbprocs_info%course_nb)
-    end if
-    if (omp_target_is_present(c_loc(nbprocs_info%fine_nb), omp_get_default_device()) /= 0) then
-      !$omp target exit data map(delete:nbprocs_info%fine_nb)
-    end if
-#ifdef _CRAYFTN ! should be a no-op, but hey, its cray...
-    if (omp_target_is_present(c_loc(nbprocs_info), omp_get_default_device()) /= 0) then
-      !$omp target exit data map(delete:nbprocs_info)
-    end if
-#endif
-#ifndef _CRAYFTN ! acc_is_present can only be cast on arrays with nvidia (its anyways a no-op)
-    !$acc exit data delete (nbprocs_info)
+    ${GPU_EXIT_DATA_DELETE_IF_PRESENT('nbprocs_info%srl_nb')}$
+    ${GPU_EXIT_DATA_DELETE_IF_PRESENT('nbprocs_info%course_nb')}$
+    ${GPU_EXIT_DATA_DELETE_IF_PRESENT('nbprocs_info%fine_nb')}$
+#ifdef _CRAYFTN
+    ! should be a no-op, but hey, its cray...
+    ${GPU_EXIT_DATA_DELETE_IF_PRESENT('nbprocs_info')}$
+#else
+    ! acc_is_present can only be cast on arrays with nvidia (its anyways a no-op)  
+    ${GPU_EXIT_DATA_DELETE('nbprocs_info')}$
 #endif
 #endif
 
