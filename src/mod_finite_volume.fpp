@@ -171,6 +171,14 @@ end subroutine finite_volume_local
                    bgb%w(ix1, ix2, ix3, 1:nw_flux, n) = bgb%w(ix1, ix2, ix3, 1:nw_flux,&
                         n) + qdt * (f(:, 1) - f(:, 2)) * inv_dr(1)
 
+                   !TODO JESSE FIRST SET ALL PFLUX TO ZERO???
+                   pflux(1,1,n)%flux = 0.0d0 
+                   pflux(2,1,n)%flux = 0.0d0 
+                   pflux(1,2,n)%flux = 0.0d0 
+                   pflux(2,2,n)%flux = 0.0d0 
+                   pflux(1,3,n)%flux = 0.0d0 
+                   pflux(2,3,n)%flux = 0.0d0 
+
                    ! Store fluxes for flux fixing in direction 1
                    select case (neighbor_type(-1,0,0,n))
                    case (neighbor_fine)

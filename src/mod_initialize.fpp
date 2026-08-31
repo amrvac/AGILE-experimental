@@ -47,6 +47,7 @@ contains
 
   !> Initialize (and allocate) simulation and grid variables
   subroutine initialize_vars
+    use openacc
     use mod_forest
     use mod_global_parameters
     use mod_ghostcells_update
@@ -55,6 +56,7 @@ contains
     use mod_geometry
 
     integer :: igrid, level, ipe, ig1,ig2,ig3
+    integer :: nx1, nx2, nx3, iside !JESSE TODO
     logical :: ok
 
     allocate(ps(max_blocks))
@@ -79,6 +81,75 @@ contains
        phyboundblock(max_blocks))
     allocate(pflux(2,3,max_blocks))
     !$acc enter data create(pflux) !JESSE
+
+    !TODO DO THE SINGLE ALLOCATE HERE INSTEAD OF IN "allocateBflux"
+
+  nx1 = ixMhi1-ixMlo1+1
+  nx2 = ixMhi2-ixMlo2+1
+  nx3 = ixMhi3-ixMlo3+1
+
+!!  nxCo1 = nx1/2
+!!  nxCo2 = nx2/2
+!!  nxCo3 = nx3/2
+
+  do igrid = 1, max_blocks
+    do iside = 1, 2
+      !!i1 = kr(1,1)*(2*iside-3)
+      !!i2 = kr(2,1)*(2*iside-3)
+      !!i3 = kr(3,1)*(2*iside-3)
+
+      !!if (neighbor_pole(i1,i2,i3,igrid) /= 0) cycle
+
+      !!select case (neighbor_type(i1,i2,i3,igrid))
+      !!case (neighbor_fine)
+
+      allocate(pflux(iside,1,igrid)%flux(1,1:nx2,1:nx3,1:nwflux))
+
+!      if (acc_is_present(pflux(iside,1,igrid)%flux)) then
+!        !$acc update device(pflux(iside,1,igrid)%flux)
+!        print *, "acc_is_present(pflux(iside,1,igrid)%flux) should&
+!             not be possible"
+!      else
+!        !$acc enter data create(pflux(iside,1,igrid)%flux)
+!      end if
+
+      allocate(pflux(iside,2,igrid)%flux(1:nx1,1,1:nx3,1:nwflux))
+
+!      if (acc_is_present(pflux(iside,2,igrid)%flux)) then 
+!        !$acc update device(pflux(iside,2,igrid)%flux)
+!        print *, "acc_is_present(pflux(iside,2,igrid)%flux) should& 
+!            not be possible"
+!      else
+!        !$acc enter data create(pflux(iside,2,igrid)%flux)
+!      end if
+
+      allocate(pflux(iside,3,igrid)%flux(1:nx1,1:nx2,1,1:nwflux))
+
+!      if (acc_is_present(pflux(iside,3,igrid)%flux)) then
+!        !$acc update device(pflux(iside,3,igrid)%flux)
+!        print *, "acc_is_present(pflux(iside,3,igrid)%flux) should not&
+!            be possible"
+!      else
+!        !$acc enter data create(pflux(iside,3,igrid)%flux)
+!      end if
+
+      !! THIS CASE WILL NOT EXIST AT INITIALIZATION, IT WILL ONLY USE
+      !HALF THE CELLS THEN
+      !!case (neighbor_coarse)
+      !!  allocate(pflux(iside,1,igrid)%flux(1,1:nxCo2,1:nxCo3,1:nwflux))
+      !!  !!$acc update device(pflux(iside,1,igrid)%flux)
+
+      !!  if (acc_is_present(pflux(iside,1,igrid)%flux)) then
+      !!    !$acc update device(pflux(iside,1,igrid)%flux)
+      !!  else
+      !!    !$acc enter data create(pflux(iside,1,igrid)%flux)
+      !!  end if
+
+      !!end select
+    end do
+  end do
+
+    !TODO END allocateBflux function
 
     allocate( bg(1:nstep) )
     !$acc enter data copyin(bg)

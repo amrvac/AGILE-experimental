@@ -123,9 +123,9 @@ contains
        ! reset AMR grid
        if (reset_grid) then
          call settree
-       else
-         ! set up boundary flux conservation arrays
-         if (levmax>levmin) call allocateBflux
+!!       else
+!!         ! set up boundary flux conservation arrays
+!!         if (levmax>levmin) call allocateBflux
        end if
 
        ! all blocks refined to the same level for output
