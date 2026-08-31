@@ -1,3 +1,7 @@
+#:mute
+#:include "../../../src/mod_gpu_directives.fpp"
+#:endmute
+
 module mod_usr
   use mod_amrvac
   use mod_physics
@@ -142,7 +146,7 @@ contains
 
 
     has_interface = .false.
-    !$acc loop vector collapse(3) reduction(.or.:has_interface)
+    ${GPU_LOOP_VECTOR("collapse(3) reduction(.or.:has_interface)")}$
     do ix3 = ixmin3, ixmax3
        do ix2 = ixmin2, ixmax2
           do ix1 = ixmin1, ixmax1

@@ -1,3 +1,7 @@
+#:mute
+#:include "../../../src/mod_gpu_directives.fpp"
+#:endmute
+
 module mod_usr
 
   use mod_amrvac
@@ -44,9 +48,9 @@ module mod_usr
 ! (4, n_modes, n_modes, 2:3)
   double precision, dimension(:,:,:,:), allocatable :: rand_1
 
-!$acc declare create(P, rho_H, rho_C, z0, d_z, sig_z, v_H, v_C, v_sh, mode_root, n_modes)
-!$acc declare create(L, v_per, f_til, refine_z)
-!$acc declare create(rand_1)
+  ${GPU_DECLARE_CREATE('P, rho_H, rho_C, z0, d_z, sig_z, v_H, v_C, v_sh, mode_root, n_modes')}$
+  ${GPU_DECLARE_CREATE('L, v_per, f_til, refine_z')}$
+  ${GPU_DECLARE_CREATE('rand_1')}$
 
 contains
 
@@ -190,9 +194,9 @@ contains
     T_C = T_H/chi
     T_mix = sqrt(T_C*T_H)
 
-!$acc update device(P, rho_H, rho_C, z0, d_z, sig_z, v_H, v_C, v_sh, mode_root, n_modes)
-!$acc update device(L, v_per, f_til, refine_z)
-!$acc update device(rand_1)
+    ${GPU_UPDATE_DEVICE('P, rho_H, rho_C, z0, d_z, sig_z, v_H, v_C, v_sh, mode_root, n_modes')}$
+    ${GPU_UPDATE_DEVICE('L, v_per, f_til, refine_z')}$
+    ${GPU_UPDATE_DEVICE('rand_1')}$
 
     if (mype == 0) call print_params()
   end subroutine set_parameters_usr
@@ -291,10 +295,10 @@ contains
       ixImin1, ixImin2, ixImin3, ixImax1, ixImax2, ixImax3,&
       ixOmin1, ixOmin2, ixOmin3, ixOmax1, ixOmax2, ixOmax3,&
       iB, w, x)
-!$acc routine vector
     ! use mod_physics, only: to_conservative, to_primitive
     use mod_global_parameters
     use mod_physics
+    ${GPU_ROUTINE_VECTOR()}$
     implicit none
     integer, intent(in) :: ixImin1, ixImin2, ixImin3, ixImax1, ixImax2, ixImax3
     integer, intent(in) :: ixOmin1, ixOmin2, ixOmin3, ixOmax1, ixOmax2, ixOmax3
@@ -316,7 +320,7 @@ contains
 !   moment, we apply the boundary condition in conservative form.
     select case(iB)
     case(5)
-!$acc loop collapse(3) vector
+      ${GPU_LOOP_VECTOR("collapse(3)")}$
       do ix3 = ixOmin3, ixOmax3
       do ix2 = ixOmin2, ixOmax2
       do ix1 = ixOmin1, ixOmax1
@@ -330,7 +334,7 @@ contains
       end do
       end do
     case(6)
-!$acc loop collapse(3) vector
+      ${GPU_LOOP_VECTOR("collapse(3)")}$
       do ix3 = ixOmin3, ixOmax3
       do ix2 = ixOmin2, ixOmax2
       do ix1 = ixOmin1, ixOmax1
