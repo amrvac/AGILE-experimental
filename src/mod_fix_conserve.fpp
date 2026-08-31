@@ -86,7 +86,7 @@ module mod_fix_conserve
          nrecv=nrecv+nrecv_fc(1)
          nsend=nsend+nsend_fc(1)
          nxCo1=1;nxCo2=ixGhi2/2-nghostcells;nxCo3=ixGhi3/2-nghostcells;
-         isize(1)=nxCo1*nxCo2*nxCo3*(nwfluxin)
+         isize(1)=nxCo1*nxCo2*nxCo3*nwfluxin*max_blocks
          recvsize=recvsize+nrecv_fc(1)*isize(1)
          sendsize=sendsize+nsend_fc(1)*isize(1)
          if(stagger_grid) then
@@ -108,7 +108,7 @@ module mod_fix_conserve
          nrecv=nrecv+nrecv_fc(2)
          nsend=nsend+nsend_fc(2)
          nxCo1=ixGhi1/2-nghostcells;nxCo2=1;nxCo3=ixGhi3/2-nghostcells;
-         isize(2)=nxCo1*nxCo2*nxCo3*(nwfluxin)
+         isize(2)=nxCo1*nxCo2*nxCo3*nwfluxin*max_blocks
          recvsize=recvsize+nrecv_fc(2)*isize(2)
          sendsize=sendsize+nsend_fc(2)*isize(2)
          if(stagger_grid) then
@@ -130,7 +130,7 @@ module mod_fix_conserve
          nrecv=nrecv+nrecv_fc(3)
          nsend=nsend+nsend_fc(3)
          nxCo1=ixGhi1/2-nghostcells;nxCo2=ixGhi2/2-nghostcells;nxCo3=1;
-         isize(3)=nxCo1*nxCo2*nxCo3*(nwfluxin)
+         isize(3)=nxCo1*nxCo2*nxCo3*nwfluxin*max_blocks
          recvsize=recvsize+nrecv_fc(3)*isize(3)
          sendsize=sendsize+nsend_fc(3)*isize(3)
          if(stagger_grid) then
@@ -420,6 +420,7 @@ module mod_fix_conserve
                  !!      MPI_DOUBLE_PRECISION,ipe_neighbor,itag, icomm,&
                  !!     fc_sendreq(isend),ierrmpi)
                  !!  ibuf_send=ibuf_send_next
+                 !!TODO JESSE TRY THIS OUT
                  else
                    !TODO DEBUG UPDATE JESSE
                    call mpi_isend_wrapper(pflux(iside,1)%flux,isize(1),&
@@ -1180,14 +1181,12 @@ pflux(2,2)%flux(1,1,1,igrid,1)
                           * CoFiratio
                          !!OLD VERSION JESSE
                          !pflux(iotherside,2,ineighbor)%flux(ix1,1,ix3,1:nwfluxin) * CoFiratio
-                     end do
-                   end do
 
                    !!error_flag = .false.
                    do iw = 1, nwfluxin
                       if (pflux(iotherside,2)%flux(ix1,1,ix3,ineighbor,iw) /= &
                           pflux(iotherside,2)%flux(ix1,1,ix3,ineighbor,iw)) then
-                          error_flag = .true.
+                          !!error_flag = .true.
                           print *, "NaN in component", iw
                           print *, "ineighbor =", ineighbor
                           print *, "ix =", ix1, ix3
@@ -1199,8 +1198,11 @@ pflux(2,2)%flux(1,1,1,igrid,1)
                           stop
                       endif
                    enddo
-
                    !!if (error_flag) stop
+
+                     end do
+                   end do
+
 
                  !  psb(igrid)%w(ixmin1:ixmax1,ixmin2:ixmax2,ixmin3:ixmax3,&
                  !     nw0:nw1) = psb(igrid)%w(ixmin1:ixmax1,ixmin2:ixmax2,&
@@ -1414,7 +1416,7 @@ pflux(2,2)%flux(1,1,1,igrid,1)
 
      integer :: idims, iside, i1,i2,i3, ic1,ic2,ic3, inc1,inc2,inc3, ix1,ix2,&
         ix3, ixCo1,ixCo2,ixCo3, nxCo1,nxCo2,nxCo3, iw
-
+!!
 !!     do idims = idimmin,idimmax
 !!       select case (idims)
 !!         case (1)
@@ -1563,7 +1565,7 @@ pflux(2,2)%flux(1,1,1,igrid,1)
 !!         end do
 !!       end select
 !!     end do
-
+!!
    end subroutine store_flux
 
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
