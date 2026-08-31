@@ -51,7 +51,6 @@ module mod_variables
   
   !> Maximum number of variables
   integer, parameter :: max_nw = 50
-  ${GPU_DECLARE_COPYIN('max_nw')}$
 
   !> Primitive variable names
   character(len=name_len) :: prim_wnames(max_nw)

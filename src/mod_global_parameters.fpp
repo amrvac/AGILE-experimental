@@ -67,19 +67,13 @@ module mod_global_parameters
 
   !> Number of spatial dimensions for grid variables
   integer, parameter :: ndim=3
-  ${GPU_DECLARE_COPYIN('ndim')}$
 
   !> Number of spatial dimensions (components) for vector variables
   integer :: ndir=ndim
   ${GPU_DECLARE_COPYIN('ndir')}$
 
-  !> starting dimension for electric field
-  
-  
-  
+  !> starting dimension for electric field 
   integer, parameter :: sdim=1
- 
-  ${GPU_DECLARE_COPYIN('sdim')}$
 
   !> Cartesian geometry or not
   logical :: slab = .true.
