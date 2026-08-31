@@ -1906,9 +1906,9 @@ contains
 
 
   subroutine fill_coarse_boundary(time,igrid,i1,i2,i3)
-    ${GPU_ROUTINE_VECTOR()}$
     use mod_global_parameters
     use mod_boundary_conditions, only: bc_phys
+    ${GPU_ROUTINE_VECTOR()}$
     integer, intent(in) :: igrid,i1,i2,i3
     double precision, intent(in) :: time
 
@@ -1982,9 +1982,9 @@ contains
 
   !> Physical boundary conditions
   subroutine fill_boundary_before_gc(s,igrid,time,qdt)
-    ${GPU_ROUTINE_VECTOR()}$
     use mod_global_parameters
     use mod_boundary_conditions, only: bc_phys
+    ${GPU_ROUTINE_VECTOR()}$
 
     type(state), intent(inout) :: s
     integer, intent(in) :: igrid
@@ -2045,9 +2045,9 @@ contains
 
   !> Physical boundary conditions
   subroutine fill_boundary_after_gc(s,igrid,time,qdt)
-    ${GPU_ROUTINE_VECTOR()}$
     use mod_global_parameters
     use mod_boundary_conditions, only: bc_phys
+    ${GPU_ROUTINE_VECTOR()}$
 
     type(state), intent(inout) :: s
     integer, intent(in) :: igrid

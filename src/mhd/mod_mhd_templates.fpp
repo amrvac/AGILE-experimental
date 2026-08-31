@@ -410,18 +410,18 @@
 
 #:def phys_get_dt()
   subroutine phys_get_dt(w, x, dx, dtnew)
-  ${GPU_ROUTINE_SEQ()}$
 #:if defined('GRAVITY')
   use mod_usr, only: gravity_field
 #:endif    
 #:if defined('RESISTIVE')
   use mod_global_parameters, only: dtdiffpar
 #:endif    
-    real(dp), intent(in)   :: w(nw_phys), x(1:ndim), dx(1:ndim)
-    real(dp), intent(out)  :: dtnew
-    ! .. local ..
-    integer                :: idim
-    real(dp)               :: field
+  ${GPU_ROUTINE_SEQ()}$
+  real(dp), intent(in)   :: w(nw_phys), x(1:ndim), dx(1:ndim)
+  real(dp), intent(out)  :: dtnew
+  ! .. local ..
+  integer                :: idim
+  real(dp)               :: field
 
     dtnew = huge(1.0d0)
     
@@ -445,7 +445,6 @@
 #:def addsource_local()
 subroutine addsource_local(qdt, dtfactor, qtC, wCT, wCTprim, qt, wnew, x, dr, &
     qsourcesplit)
-  ${GPU_ROUTINE_SEQ()}$
 #:if defined('SOURCE_USR')
   use mod_usr, only: addsource_usr
 #:endif
@@ -455,8 +454,8 @@ subroutine addsource_local(qdt, dtfactor, qtC, wCT, wCTprim, qt, wnew, x, dr, &
 #:if defined('COOLING')
   use mod_radiative_cooling, only: rc_fl, radiative_cooling_add_source
 #:endif
-
   use mod_global_parameters, only:cmax_global
+  ${GPU_ROUTINE_SEQ()}$
   real(dp), intent(in)     :: qdt, dtfactor, qtC, qt
   real(dp), intent(in)     :: wCT(nw_phys), wCTprim(nw_phys)
   real(dp), intent(in)     :: x(1:ndim), dr(ndim)
@@ -503,10 +502,10 @@ end subroutine addsource_local
 #:def addsource_compact()
 subroutine addsource_compact(qdt, dtfactor, qtC, wCTprim1, wCTprim2, wCTprim3, qt, wnew, x, dx, &
      qsourcesplit)
-  ${GPU_ROUTINE_SEQ()}$
 #:if defined('HYPERTC')
   use mod_global_parameters, only: dt, ndir, smalldouble, courantpar
 #:endif
+  ${GPU_ROUTINE_SEQ()}$
 
   real(dp), intent(in)     :: qdt, dtfactor, qtC, qt
   real(dp), intent(in)     :: wCTprim1(nw_phys,3),wCTprim2(nw_phys,3),wCTprim3(nw_phys,3)

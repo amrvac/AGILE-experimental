@@ -12,11 +12,11 @@ contains
   !> fill ghost cells at a physical boundary
   subroutine bc_phys(iside,idims,time,qdt,s,ixGmin1,ixGmin2,ixGmin3,ixGmax1,&
        ixGmax2,ixGmax3,ixBmin1,ixBmin2,ixBmin3,ixBmax1,ixBmax2,ixBmax3)
-    ${GPU_ROUTINE_VECTOR()}$
 #:if defined('SPECIALBOUNDARY')    
     use mod_usr, only: specialbound_usr
 #:endif
     use mod_global_parameters
+    ${GPU_ROUTINE_VECTOR()}$
 
     integer, intent(in) :: iside, idims, ixGmin1,ixGmin2,ixGmin3,ixGmax1,&
        ixGmax2,ixGmax3,ixBmin1,ixBmin2,ixBmin3,ixBmax1,ixBmax2,ixBmax3

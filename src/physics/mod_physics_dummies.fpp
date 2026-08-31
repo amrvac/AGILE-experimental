@@ -5,10 +5,10 @@
 
 #:def estimate_speeds_minmax()
 subroutine estimate_speeds_minmax(uL, uR, xC, flux_dim, wL, wR)
-  ${GPU_ROUTINE_SEQ()}$
 #ifndef _CRAYFTN
   use mod_comm_lib, only: mpistop
 #endif
+  ${GPU_ROUTINE_SEQ()}$
   real(dp), intent(in)  :: uL(nw_phys), uR(nw_phys)
   real(dp), intent(in)  :: xC(ndim)
   integer, intent(in)   :: flux_dim
@@ -26,10 +26,10 @@ end subroutine estimate_speeds_minmax
 
 #:def estimate_speeds_toro_pvrs()
 subroutine estimate_speeds_toro_pvrs(uL, uR, xC, flux_dim, sL, sR)
-  ${GPU_ROUTINE_SEQ()}$
 #ifndef _CRAYFTN
   use mod_comm_lib, only: mpistop
 #endif
+  ${GPU_ROUTINE_SEQ()}$
   real(dp), intent(in)  :: uL(nw_phys), uR(nw_phys)
   real(dp), intent(in)  :: xC(ndim)
   integer,  intent(in)  :: flux_dim

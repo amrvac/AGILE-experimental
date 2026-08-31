@@ -227,10 +227,10 @@ contains
   !> Exit MPI-AMRVAC with an error message
   ! cray does not allow char type on the GPU
   subroutine mpistop(message)
+    use mod_global_parameters
 #ifndef _CRAYFTN
     ${GPU_ROUTINE()}$
 #endif
-    use mod_global_parameters
 
     character(len=*), intent(in) :: message !< The error message
     integer                      :: ierrcode
@@ -248,8 +248,8 @@ contains
   end subroutine mpistop
 
   subroutine mpistop_gpu()
-    ${GPU_ROUTINE_SEQ()}$
     use mod_global_parameters
+    ${GPU_ROUTINE_SEQ()}$
 
     integer                      :: ierrcode
 

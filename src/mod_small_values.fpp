@@ -30,8 +30,8 @@ contains
 #if defined(_CRAYFTN) && defined(_OPENACC)
   subroutine small_values_error_gpu(wprim, x, ixImin1,ixImin2,ixImin3,ixImax1,&
      ixImax2,ixImax3, ixOmin1,ixOmin2,ixOmin3,ixOmax1,ixOmax2,ixOmax3, w_flag)
-    ${GPU_ROUTINE_SEQ()}$
     use mod_global_parameters
+    ${GPU_ROUTINE_SEQ()}$
     integer, intent(in)          :: ixImin1,ixImin2,ixImin3,ixImax1,ixImax2,&
        ixImax3, ixOmin1,ixOmin2,ixOmin3,ixOmax1,ixOmax2,ixOmax3
     double precision, intent(in) :: wprim(ixImin1:ixImax1,ixImin2:ixImax2,&
@@ -78,10 +78,10 @@ contains
   subroutine small_values_error(wprim, x, ixImin1,ixImin2,ixImin3,ixImax1,&
      ixImax2,ixImax3, ixOmin1,ixOmin2,ixOmin3,ixOmax1,ixOmax2,ixOmax3, w_flag,&
       subname)
+    use mod_global_parameters
 #ifndef _CRAYFTN
     ${GPU_ROUTINE()}$
 #endif
-    use mod_global_parameters
     integer, intent(in)          :: ixImin1,ixImin2,ixImin3,ixImax1,ixImax2,&
        ixImax3, ixOmin1,ixOmin2,ixOmin3,ixOmax1,ixOmax2,ixOmax3
     double precision, intent(in) :: wprim(ixImin1:ixImax1,ixImin2:ixImax2,&
@@ -128,8 +128,8 @@ contains
   subroutine small_values_average(ixImin1,ixImin2,ixImin3,ixImax1,ixImax2,&
      ixImax3, ixOmin1,ixOmin2,ixOmin3,ixOmax1,ixOmax2,ixOmax3, w, x, w_flag,&
       windex)
-    ${GPU_ROUTINE_SEQ()}$
     use mod_global_parameters
+    ${GPU_ROUTINE_SEQ()}$
     integer, intent(in)             :: ixImin1,ixImin2,ixImin3,ixImax1,ixImax2,&
        ixImax3, ixOmin1,ixOmin2,ixOmin3,ixOmax1,ixOmax2,ixOmax3
     logical, intent(in)             :: w_flag(ixImin1:ixImax1,ixImin2:ixImax2,&

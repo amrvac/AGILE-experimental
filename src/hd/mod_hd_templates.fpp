@@ -283,15 +283,15 @@
 
 #:def phys_get_dt()
   subroutine phys_get_dt(w, x, dx, dtnew)
-  ${GPU_ROUTINE_SEQ()}$
 #:if defined('GRAVITY')
   use mod_usr, only: gravity_field
 #:endif    
-    real(dp), intent(in)   :: w(nw_phys), x(1:ndim), dx(1:ndim)
-    real(dp), intent(out)  :: dtnew
-    ! .. local ..
-    integer                :: idim
-    real(dp)               :: field
+  ${GPU_ROUTINE_SEQ()}$
+  real(dp), intent(in)   :: w(nw_phys), x(1:ndim), dx(1:ndim)
+  real(dp), intent(out)  :: dtnew
+  ! .. local ..
+  integer                :: idim
+  real(dp)               :: field
 
     dtnew = huge(1.0d0)
     
@@ -309,13 +309,13 @@
 #:def addsource_local()
 subroutine addsource_local(qdt, dtfactor, qtC, wCT, wCTprim, qt, wnew, x, dr, &
     qsourcesplit)
-  ${GPU_ROUTINE_SEQ()}$
 #:if defined('GRAVITY')
   use mod_usr, only: gravity_field
 #:endif    
 #:if defined('COOLING')
   use mod_radiative_cooling, only: rc_fl, radiative_cooling_add_source
 #:endif
+  ${GPU_ROUTINE_SEQ()}$
 
   real(dp), intent(in)     :: qdt, dtfactor, qtC, qt
   real(dp), intent(in)     :: wCT(nw_phys), wCTprim(nw_phys)

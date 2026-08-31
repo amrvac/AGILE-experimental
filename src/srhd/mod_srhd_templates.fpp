@@ -221,10 +221,10 @@
 #:def addsource_local()
 subroutine addsource_local(qdt, dtfactor, qtC, wCT, wCTprim, qt, wnew, x, dr, &
     qsourcesplit)
-  ${GPU_ROUTINE_SEQ()}$
 #:if defined('SOURCE_USR')
   use mod_usr, only: addsource_usr
 #:endif
+  ${GPU_ROUTINE_SEQ()}$
 
   real(dp), intent(in)     :: qdt, dtfactor, qtC, qt
   real(dp), intent(in)     :: wCT(nw_phys), wCTprim(nw_phys)
@@ -253,8 +253,8 @@ end subroutine addsource_local
 
 #:def to_primitive()
   pure subroutine to_primitive(u)
-    ${GPU_ROUTINE_SEQ()}$
     use mod_con2prim
+    ${GPU_ROUTINE_SEQ()}$
     real(dp), intent(inout) :: u(nw_phys)
 
     real(dp) :: rho,rhoh,pth,E

@@ -246,8 +246,8 @@ end subroutine finite_volume_local
   !> MUSCL reconstruction in primitive variables for two faces using a 5-point stencil.
   !> Returns uL(:,iface), uR(:,iface) for iface=1 (between cells 2-3) and iface=2 (between 3-4).
   pure subroutine muscl_reconstruct_prim(u, typelim, uL, uR)
-    ${GPU_ROUTINE_SEQ()}$
     use mod_limiter, only: limiter_minmod, limiter_vanleer, limiter_mcbeta, limiter_koren
+    ${GPU_ROUTINE_SEQ()}$
     real(dp), intent(in)  :: u(nw_phys,5)
     integer,  intent(in)  :: typelim
     real(dp), intent(out) :: uL(nw_phys,2), uR(nw_phys,2)

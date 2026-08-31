@@ -65,8 +65,8 @@ module mod_random_heating
   end subroutine rh_init
 
   subroutine rh_source(qt,lQgrid,x)
-    ${GPU_ROUTINE_SEQ()}$
     use mod_global_parameters
+    ${GPU_ROUTINE_SEQ()}$
 
     double precision, intent(in)    :: qt
     double precision, intent(inout) :: lQgrid

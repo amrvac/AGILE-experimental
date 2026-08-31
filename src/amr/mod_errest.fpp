@@ -138,12 +138,12 @@ contains
 
 
   subroutine forcedrefine_grid(igrid)
-    ${GPU_ROUTINE_VECTOR()}$
     #:if defined('REFINE_USR')
     use mod_usr, only: usr_refine_grid
     #:endif
     use mod_forest, only: coarsen, refine, buffer
     use mod_global_parameters
+    ${GPU_ROUTINE_VECTOR()}$
 
     integer, intent(in) :: igrid
 
