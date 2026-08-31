@@ -232,17 +232,8 @@ contains
     double precision, intent(in) :: qtC
     double precision, intent(in) :: qt
     integer, intent(in)          :: method(nlevelshi)
-
-    ! cell face flux
-    double precision             :: fC(ixGlo1:ixGhi1,ixGlo2:ixGhi2,&
-       ixGlo3:ixGhi3,1:nwflux,1:ndim)
-    ! cell edge flux
-    double precision             :: fE(ixGlo1:ixGhi1,ixGlo2:ixGhi2,&
-       ixGlo3:ixGhi3,sdim:3)
     double precision             :: qdt
     integer                      :: iigrid, igrid
-
-    ${GPU_ENTER_DATA_CREATE('fC,fE')}$
 
     istep = istep+1
 
@@ -268,8 +259,7 @@ contains
         qtC, &                          ! scalar related to time stepping
         bga, &                          ! first block grid
         qt,  &                          ! scalar related to time stepping
-        bgb, &                          ! second block grid
-        fC, fE &                        ! fluxes
+        bgb  &                          ! second block grid
         )
 
     ! AGILE: todo
@@ -290,8 +280,6 @@ contains
     
     ! For all grids: fill ghost cells
     call getbc(qt+qdt,qdt,psb,iwstart,nwgc,phys_req_diagonal)
-
-    ${GPU_EXIT_DATA_DELETE('fC,fE')}$
 
   end subroutine advect1
 

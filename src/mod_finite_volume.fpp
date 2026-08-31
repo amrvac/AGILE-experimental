@@ -41,7 +41,7 @@ contains
 
   subroutine finite_volume_local(qdt, dtfactor, ixImin1,ixImin2,&
     ixImin3,ixImax1,ixImax2,ixImax3, ixOmin1,ixOmin2,ixOmin3,ixOmax1,ixOmax2,&
-    ixOmax3, idimsmin,idimsmax, qtC, bga, qt, bgb, fC, fE)
+    ixOmax3, idimsmin,idimsmax, qtC, bga, qt, bgb)
     use mod_global_parameters
     use mod_comm_lib, only: mpistop
 
@@ -53,10 +53,6 @@ contains
     ! remember, old names map as: wCT => bga, wnew => bgb
     type(block_grid_t)                                    :: bga
     type(block_grid_t)                                    :: bgb
-    double precision, dimension(ixImin1:ixImax1,ixImin2:ixImax2,&
-      ixImin3:ixImax3, 1:nwflux, 1:ndim)  :: fC !not yet provided
-    double precision, dimension(ixImin1:ixImax1,ixImin2:ixImax2,&
-      ixImin3:ixImax3, sdim:3)            :: fE !not yet provided
     ! .. local ..
     integer                :: n, iigrid, ix1,ix2,ix3
     double precision       :: uprim(nw_phys, ixImin1:ixImax1,ixImin2:ixImax2,&
@@ -78,7 +74,7 @@ contains
     case (${method_enum}$)
       call finite_volume_local_${scheme_tag}$(qdt, dtfactor, ixImin1,ixImin2,&
             ixImin3,ixImax1,ixImax2,ixImax3, ixOmin1,ixOmin2,ixOmin3,ixOmax1,ixOmax2,&
-            ixOmax3, idimsmin,idimsmax, qtC, bga, qt, bgb, fC, fE)
+            ixOmax3, idimsmin,idimsmax, qtC, bga, qt, bgb)
 #:endfor
     case default
       call mpistop("finite_volume_local: unknown flux scheme")
@@ -88,7 +84,7 @@ end subroutine finite_volume_local
 #:def FV_KERNEL(scheme_tag, faceflux_proc)
   subroutine finite_volume_local_${scheme_tag}$(qdt, dtfactor, ixImin1,ixImin2,&
      ixImin3,ixImax1,ixImax2,ixImax3, ixOmin1,ixOmin2,ixOmin3,ixOmax1,ixOmax2,&
-     ixOmax3, idimsmin,idimsmax, qtC, bga, qt, bgb, fC, fE)
+     ixOmax3, idimsmin,idimsmax, qtC, bga, qt, bgb)
     use mod_global_parameters
 
     double precision, intent(in)                                       :: qdt,&
@@ -99,10 +95,6 @@ end subroutine finite_volume_local
     ! remember, old names map as: wCT => bga, wnew => bgb
     type(block_grid_t)                                    :: bga
     type(block_grid_t)                                    :: bgb
-    double precision, dimension(ixImin1:ixImax1,ixImin2:ixImax2,&
-       ixImin3:ixImax3, 1:nwflux, 1:ndim)  :: fC !not yet provided
-    double precision, dimension(ixImin1:ixImax1,ixImin2:ixImax2,&
-       ixImin3:ixImax3, sdim:3)            :: fE !not yet provided
     ! .. local ..
     integer                :: n, iigrid, ix1,ix2,ix3
     double precision       :: uprim(nw_phys, ixImin1:ixImax1,ixImin2:ixImax2,&
