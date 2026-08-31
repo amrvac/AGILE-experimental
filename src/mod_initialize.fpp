@@ -1,4 +1,6 @@
+#:mute
 #:include "mod_gpu_directives.fpp"
+#:endmute
 !> This module handles the initialization of various components of amrvac
 module mod_initialize
   use mod_comm_lib, only: mpistop

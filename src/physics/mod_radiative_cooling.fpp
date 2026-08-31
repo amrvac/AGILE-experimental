@@ -1,4 +1,6 @@
+#:mute
 #:include "../mod_gpu_directives.fpp"
+#:endmute
 module mod_radiative_cooling
 
 #:if defined('COOLING')

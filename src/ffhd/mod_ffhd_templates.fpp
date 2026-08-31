@@ -1,4 +1,6 @@
+#:mute
 #:include "../mod_gpu_directives.fpp"
+#:endmute
 #:if PHYS == 'ffhd'
 
 #:def phys_vars()

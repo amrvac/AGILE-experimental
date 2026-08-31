@@ -1,4 +1,6 @@
+#:mute
 #:include "../mod_gpu_directives.fpp"
+#:endmute
 !> Module for reading input and writing output
 module mod_input_output
 #ifdef USE_MPIWRAPPERS

@@ -1,4 +1,6 @@
+#:mute
 #:include "../mod_gpu_directives.fpp"
+#:endmute
 !> Module with basic grid data structures
 module mod_forest
    implicit none

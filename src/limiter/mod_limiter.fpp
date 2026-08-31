@@ -1,4 +1,6 @@
+#:mute
 #:include "../mod_gpu_directives.fpp"
+#:endmute
 !> Module with slope/flux limiters
 module mod_limiter
   implicit none

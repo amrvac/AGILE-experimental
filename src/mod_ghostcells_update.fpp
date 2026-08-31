@@ -1,4 +1,6 @@
+#:mute
 #:include "mod_gpu_directives.fpp"
+#:endmute
 #ifdef _CRAYFTN
 ! locally switch off gpudirect since it does not work reliably with the nested datastructures on LUMI
 #ifndef NOGPUDIRECT

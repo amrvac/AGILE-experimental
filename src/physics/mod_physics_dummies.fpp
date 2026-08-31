@@ -1,4 +1,6 @@
+#:mute
 #:include "../mod_gpu_directives.fpp"
+#:endmute
 ! Dummy routines which can be overwritten by a physics-dependent implementation
 ! On non-Cray compilers, these call mpistop with a descriptive message.
 ! On Cray, STOP cannot be inlined into OpenACC kernels, so dummies just return -1. 

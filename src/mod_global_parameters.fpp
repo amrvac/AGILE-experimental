@@ -1,4 +1,6 @@
+#:mute
 #:include "mod_gpu_directives.fpp"
+#:endmute
 !> This module contains definitions of global parameters and variables and some
 !> generic functions/subroutines used in AMRVAC.
 !>

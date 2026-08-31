@@ -1,4 +1,6 @@
+#:mute
 #:include "mod_gpu_directives.fpp"
+#:endmute
 !> Module containing all the time stepping schemes
 module mod_advance
 

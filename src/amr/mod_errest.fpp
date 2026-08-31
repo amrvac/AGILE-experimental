@@ -1,4 +1,6 @@
+#:mute
 #:include "../mod_gpu_directives.fpp"
+#:endmute
 module mod_errest
   use mod_comm_lib, only: mpistop
   implicit none

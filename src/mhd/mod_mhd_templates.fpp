@@ -1,4 +1,6 @@
+#:mute
 #:include "../mod_gpu_directives.fpp"
+#:endmute
 #:if PHYS == 'mhd'
 
 #:if defined('N_TRACER')

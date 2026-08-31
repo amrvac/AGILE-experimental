@@ -1,4 +1,6 @@
+#:mute
 #:include "../mod_gpu_directives.fpp"
+#:endmute
 ! This module is for imposing randomized heating in 3D setup
 ! Users can define the parameters "trelax,tramp,ntimes,vlim^D,periods,variation,nwaves" in the mod_usr.t file.
 

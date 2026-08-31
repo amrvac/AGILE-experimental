@@ -1,4 +1,6 @@
+#:mute
 #:include "../mod_gpu_directives.fpp"
+#:endmute
 !> Module to coarsen and refine grids for AMR
 module mod_coarsen_refine
 #ifdef USE_MPIWRAPPERS

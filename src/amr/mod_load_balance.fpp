@@ -1,4 +1,6 @@
+#:mute
 #:include "../mod_gpu_directives.fpp"
+#:endmute
 module mod_load_balance
 #ifdef USE_MPIWRAPPERS
   use mod_mpi_wrapper

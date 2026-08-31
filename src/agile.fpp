@@ -1,4 +1,6 @@
+#:mute
 #:include "mod_gpu_directives.fpp"
+#:endmute
 !> AMRVAC solves a set of hyperbolic equations
 !> \f$\vec{u}_t + \nabla_x \cdot \vec{f}(\vec{u}) = \vec{s}\f$
 !> using adaptive mesh refinement.

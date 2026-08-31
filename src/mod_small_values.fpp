@@ -1,4 +1,6 @@
+#:mute
 #:include "mod_gpu_directives.fpp"
+#:endmute
 !> Module for handling problematic values in simulations, such as negative
 !> pressures
 module mod_small_values

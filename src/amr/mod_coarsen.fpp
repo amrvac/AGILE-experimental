@@ -1,4 +1,6 @@
+#:mute
 #:include "../mod_gpu_directives.fpp"
+#:endmute
 module mod_coarsen
   use mod_global_parameters
   use mod_physics

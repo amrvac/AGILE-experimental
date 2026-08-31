@@ -1,4 +1,3 @@
-#:mute
 !=====================================================================
 ! GPU offload directive macros.
 !
@@ -309,4 +308,3 @@ use, intrinsic :: iso_c_binding, only: c_loc
 #:enddef
 
 #:endif
-#:endmute

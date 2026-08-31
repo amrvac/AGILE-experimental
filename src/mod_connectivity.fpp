@@ -1,4 +1,6 @@
+#:mute
 #:include "mod_gpu_directives.fpp"
+#:endmute
 !> This module contains variables that describe the connectivity of the mesh and
 !> also data structures for connectivity-related communication.
 module mod_connectivity
