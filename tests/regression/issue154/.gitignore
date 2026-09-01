@@ -1,0 +1,7 @@
+# repro154.f90 is hand-written, not generated - the repo root ignores *.f90
+!repro154.f90
+repro154.gnu
+repro154.nvhost
+repro154.nvgpu
+*.mod
+*.o
