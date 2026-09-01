@@ -23,9 +23,9 @@
 !                            collapse, outer loops sequential   (call kept)
 !     variant 3  WORKAROUND  !$acc loop collapse(3), analytic_state inlined
 !                            so the collapsed body has no call
-!     variant 4  WORKAROUND  identical to variant 1 (collapse(3) + call) except
-!                            the slab/wpt are sized by a compile-time parameter
-!                            nw_phys instead of the runtime nw
+!     variant 4  FIX         identical to variant 1 (collapse(3) + call) except
+!                            the wpt PRIVATE buffer is sized by the compile-
+!                            time parameter nw_phys, not the runtime nw
 !
 !   gfortran -fopenacc and nvfortran without -acc are exact for all four
 !   variants - which is what makes the failures a compiler bug, not a bad
@@ -38,26 +38,26 @@
 !       trip-2 radial `!$acc loop vector`.  With radius_dependent_flow =
 !       .false. - the *_pole cases' situation, where the boundary state does
 !       not vary with radius - i1=1 and i1=2 hold the same value, the swap is
-!       invisible, and variant 2 passes.  That is why dropping the collapse
-!       is the fix those cases ship; it is not robust in general.
+!       invisible, and variant 2 passes.  That is why the first fix shipped
+!       for those cases was "drop the collapse"; it is not robust in general.
 !     - variant 3  inlines the callee: no `call` in the vector loop, exact
-!       either way.  Removing the call is the robust fix.
-!     - variant 4  is variant 1 with the slab/wpt sized by a compile-time
-!       parameter (nw_phys) instead of the runtime nw.  Not a practical fix
-!       for AGILE (nw is genuinely runtime), but it isolates the trigger: a
-!       runtime extent inside the collapsed nest is part of what nvfortran
-!       gets wrong.
+!       either way.
+!     - variant 4  keeps collapse(3) AND the call and is still exact.  The
+!       only change from variant 1 is  wpt(nw)  ->  wpt(nw_phys)  (a compile-
+!       time parameter, = nw): the w/x dummies and the section assignment
+!       still use the runtime nw.  So the trigger is specifically a
+!       RUNTIME-SIZED PRIVATE automatic array in a collapsed loop body that
+!       also contains a call - nvfortran gets that array's per-lane stride
+!       wrong.  This is the minimal fix and what the *_pole cases now use.
 !
-!   So the `call` from inside the vectorised loop is the real trigger, not
-!   the `collapse` on its own:
+!   So two things have to coincide: a `call` inside the vectorised loop, and
+!   a runtime-sized private buffer.  Remove either and it is correct:
 !
 !                          | collapse(3)          | vector on innermost loop
 !       ------------------- | -------------------- | ------------------------
-!       call analytic_state | FAIL (index rotate)  | FAIL (adjacent-cell swap)
+!       call, wpt(nw)       | FAIL (index rotate)  | FAIL (adjacent-cell swap)
+!       call, wpt(nw_phys)  | pass                 | pass
 !       callee inlined      | pass                 | pass
-!
-!   Variants 2 and 3 are the two fixes noted in CLAUDE.md ("Bug-hunting
-!   notes"), variant 2 being what the *_pole cases now use.
 !
 ! BUILD & RUN  (see run.sh)
 !   gfortran  -O2 -fopenacc                                repro154.f90 -o r && ./r
@@ -184,28 +184,30 @@ contains
     end do
   end subroutine sb_collapse_inline
 
-  !> variant 4  WORKAROUND: byte-for-byte variant 1 (collapse(3) + call), the
-  !> ONLY change being that the ghost-slab array and the wpt private buffer
-  !> are sized by the compile-time parameter nw_phys instead of the runtime
-  !> nw.  That is enough to make nvfortran generate the collapsed index
-  !> arithmetic correctly - a runtime trip/extent in the collapsed nest is
-  !> part of what trips it.
+  !> variant 4  WORKAROUND: byte-for-byte variant 1 (collapse(3) + call).  The
+  !> ONLY change is that the wpt PRIVATE buffer is sized by the compile-time
+  !> parameter nw_phys instead of the runtime nw - the w/x dummies and the
+  !> section assignment still use the runtime nw.  That one change is enough
+  !> to make nvfortran generate the collapsed index arithmetic correctly, so
+  !> the trigger is specifically a runtime-sized private automatic array in a
+  !> collapsed loop body that also contains a call.  This is the minimal fix
+  !> now used by the *_pole cases (wpt(1:nw_phys), collapse kept).
   subroutine sb_collapse_param(ilo1,ihi1,ilo2,ihi2,ilo3,ihi3, &
                                olo1,ohi1,olo2,ohi2,olo3,ohi3, w, x)
     !$acc routine vector
     integer,  intent(in)    :: ilo1,ihi1,ilo2,ihi2,ilo3,ihi3
     integer,  intent(in)    :: olo1,ohi1,olo2,ohi2,olo3,ohi3
-    real(dp), intent(inout) :: w(ilo1:ihi1,ilo2:ihi2,ilo3:ihi3,1:nw_phys)
+    real(dp), intent(inout) :: w(ilo1:ihi1,ilo2:ihi2,ilo3:ihi3,1:nw)
     real(dp), intent(in)    :: x(ilo1:ihi1,ilo2:ihi2,ilo3:ihi3,1:3)
     integer  :: ix1, ix2, ix3
-    real(dp) :: wpt(nw_phys), x_loc(3)
+    real(dp) :: wpt(nw_phys), x_loc(3)         ! <- compile-time size, was wpt(nw)
     !$acc loop collapse(3) vector private(wpt, x_loc)
     do ix3 = olo3, ohi3
        do ix2 = olo2, ohi2
           do ix1 = olo1, ohi1
-             x_loc(1:3)               = x(ix1,ix2,ix3,1:3)
+             x_loc(1:3)          = x(ix1,ix2,ix3,1:3)
              call analytic_state(x_loc, wpt)
-             w(ix1,ix2,ix3,1:nw_phys) = wpt(1:nw_phys)
+             w(ix1,ix2,ix3,1:nw) = wpt(1:nw)
           end do
        end do
     end do
