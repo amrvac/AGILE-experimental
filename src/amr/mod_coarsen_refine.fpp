@@ -150,7 +150,7 @@ contains
        ic2   = rcv_info_cf(3,ibuff)
        ic3   = rcv_info_cf(4,ibuff)
        !$acc loop collapse(4) vector
-       do iw = 1, nw
+       do iw = 1, nwgc  ! analytic extras past nwgc are set in alloc_node
           do ix3 = 1, block_nx3/2
              do ix2 = 1, block_nx2/2
                 do ix1 = 1, block_nx1/2
@@ -504,7 +504,7 @@ contains
                       call mpistop('coarsen_grid_siblings: max_buff too small in send')
                    end if
                    !$acc parallel loop gang
-                   do iw = 1, nw
+                   do iw = 1, nwgc  ! see above
                       !$acc loop collapse(3) vector
                       do ix3 = 1, block_nx3/2
                          do ix2 = 1, block_nx2/2

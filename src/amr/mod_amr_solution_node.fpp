@@ -5,9 +5,9 @@ module mod_amr_solution_node
   private
 
   public :: getnode, putnode
-  public :: alloc_node, alloc_state 
-  public :: dealloc_node 
- 
+  public :: alloc_node, alloc_state
+  public :: dealloc_node
+
 contains
 
 
@@ -176,7 +176,17 @@ contains
     ! of rnode alone, so this runs on the device and only the positions come
     ! back; see sync_geometry_host for the rest.
     call fill_geometry_device(igrid)
-  
+
+#:if defined('FILL_NWEXTRA_ANALYTIC')
+    ! Fill this block's analytic extra variables (past nwgc) the same way, from
+    ! the positions fill_geometry_device just wrote. This is the only place
+    ! they are set: getbc, prolongation and coarsening all stop at nwgc, so
+    ! every block that reaches alloc_node - a fresh root, a refined child, a
+    ! coarsened parent, a load-balanced arrival - gets them here and nothing
+    ! overwrites them afterwards.
+    call fill_nwextra_device(igrid)
+#:endif
+
     ! initialize background non-evolving solution; both of these read
     ! ps(igrid)%x on the host, so this block is the one place in alloc_node
     ! that still needs the positions back
@@ -285,6 +295,97 @@ contains
 
  end subroutine alloc_node
   
+#! ---------------------------------------------------------------------------
+#! Per-cell geometry helpers, shared by the three kernels of
+#! fill_geometry_device below.  They are fypp macros rather than
+#! `!$acc routine seq` procedures deliberately: an inlined call inside those
+#! kernels is what nvfortran's -Minline previously mis-hoisted, giving every
+#! cell of a block the position of the first one.
+#! ---------------------------------------------------------------------------
+
+#! Radial faces, face midpoint, physical extent and volume barycentre of one
+#! cell, from its logical centre `s` and logical spacing `d`.  Writes the
+#! fixed local names fL, fR, rc, ds1 and rbar.
+#!
+#! Under LOG_RADIUS the logical radial coordinate held in rnode is
+#! xi = ln(1 + r/r0), so the faces are the map r_of_s of the logical faces and
+#! every area and volume below follows unchanged.  With the default r0 = 0 that
+#! map is just the exponential.  Keeping rc (the midpoint of the
+#! faces) and ds1 (their separation) makes those expressions algebraically
+#! *exact* for any face pair whatsoever:  rc*ds1 is precisely
+#! (rR**2 - rL**2)/2, and (rc**2 + ds1**2/12)*ds1 is precisely
+#! (rR**3 - rL**3)/3.
+#!
+#! rbar, the volume barycentre, is what goes into bgeo%x.  It is written with
+#! the common factor (rR - rL) cancelled analytically, so it loses no accuracy
+#! however small ds1/rc becomes - the naive quotient of quartic differences
+#! would cancel away most of the mantissa on a fine grid.
+#:def RADIAL_CELL(s, d)
+             fL = ${s}$ - half*${d}$
+             fR = ${s}$ + half*${d}$
+#:if defined('LOG_RADIUS')
+             ! r_of_s, written out because this has to be a macro rather than
+             ! an !$acc routine (see above).  The odd form is what makes the
+             ! mesh beyond a cylindrical axis the exact mirror of the mesh
+             ! inside it, which is what the pole copy in getbc assumes; it is
+             ! taken only for log_r0 > 0, where s = 0 is r = 0.  With
+             ! log_r0 = 0 there is no axis and s < 0 is an ordinary small
+             ! radius, so the plain exponential is the only correct branch.
+             ! The condition is a scalar uniform across the whole kernel.
+             if (log_r0 > zero) then
+                fL = dsign(one,fL)*log_r0*(dexp(dabs(fL)) - one)
+                fR = dsign(one,fR)*log_r0*(dexp(dabs(fR)) - one)
+             else
+                fL = dexp(fL)
+                fR = dexp(fR)
+             end if
+             ds1 = fR - fL
+             rc  = half*(fL + fR)
+#:else
+             ! without stretching the logical coordinate *is* r, so the extent
+             ! and the midpoint are exactly the two values passed in. Taking
+             ! them directly rather than rebuilding them from the faces keeps a
+             ! uniform build's areas and volumes bit-for-bit what they were
+             ! before the faces became primary, which is what lets any change
+             ! in those cases be attributed to the barycentre and the source
+             ! terms alone.
+             ds1 = ${d}$
+             rc  = ${s}$
+#:endif
+#:if GEOM == 'cylindrical'
+             ! r_bar = 2/3 * (rR**3 - rL**3)/(rR**2 - rL**2)
+             rbar = (2.0d0/3.0d0)*(fL*fL + fL*fR + fR*fR)/(fL + fR)
+#:else
+             ! r_bar = 3/4 * (rR**4 - rL**4)/(rR**3 - rL**3)
+             rbar = 0.75d0*(fL + fR)*(fL*fL + fR*fR)/(fL*fL + fL*fR + fR*fR)
+#:endif
+#:enddef
+
+#! Polar volume barycentre of one cell, from its centre `s` and spacing `d`.
+#! Writes the fixed local names uu and tbar.
+#!
+#!   theta_bar = theta_c + cot(theta_c) * (sin(u) - u*cos(u))/sin(u),  u = d/2
+#!
+#! which is the sin(theta)-weighted centroid with the common factor sin(u)
+#! already cancelled - again so that the O(d**2) offset is not computed as the
+#! difference of two O(1) quantities.  The expression is correctly
+#! antisymmetric about theta = 0, which is what the mirrored ghost cells
+#! beyond the polar axis rely on.
+#:def POLAR_BARYCENTRE(s, d)
+             uu = half*${d}$
+             if (dabs(dsin(${s}$)) < smalldouble) then
+                ! a cell centred exactly on the axis has no weighted centroid.
+                ! It cannot arise with the usual staggering, where centres sit
+                ! at odd multiples of d/2 away from theta = 0, but the guard
+                ! costs nothing and a division by zero on the device does not
+                ! announce itself.
+                tbar = ${s}$
+             else
+                tbar = ${s}$ + dcos(${s}$)*(dsin(uu) - uu*dcos(uu)) &
+                     /(dsin(uu)*dsin(${s}$))
+             end if
+#:enddef
+
   !> Build block igrid's cell metrics directly on the device.
   !>
   !> A uniform block is an analytic function of nothing but its corner and its
@@ -295,13 +396,34 @@ contains
   !> system the build selected, and nothing is handed back to the host - see
   !> sync_positions_host and sync_geometry_host in mod_geometry for that.
   !>
-  !> The expressions reproduce what get_surface_area and alloc_node's
-  !> select(coordinate) used to do term for term, including the two distinct
-  !> radial coordinates: x uses the two-sided form (measured from rnode's lower
-  !> corner in the mesh and its upper corner in the outer ghost layer, so the
-  !> overlapping ghost cells of neighbouring blocks agree to the last bit),
-  !> while the volumes and cell sizes use the one-sided form over the extended
-  !> range that the old code called xext.
+  !> Two things about this routine are worth knowing before editing it.
+  !>
+  !> First, the cell *faces* are primary and everything else is derived from
+  !> them, via the RADIAL_CELL macro above.  That is what lets one body serve
+  !> both the uniformly spaced coordinate systems and the logarithmically
+  !> stretched ones: a log-radial grid is uniform in xi = ln(r), so it is still
+  !> exactly what this routine assumes - an analytic function of the block's
+  !> corner and a constant spacing - and only the step from logical faces to
+  !> physical ones differs.
+  !>
+  !> Second, the position written into bgeo%x is the volume *barycentre* of the
+  !> cell, not the midpoint of its faces.  The solution is stored as a cell
+  !> average, and a cell average equals the point value at the barycentre to
+  !> second order, because the linear term of the Taylor expansion integrates
+  !> to zero only about that point.  So the barycentre is where the state, the
+  !> initial condition and any position-dependent source term belong.  The
+  !> consequence to remember is that x +/- dx/2 is *not* a cell face any more:
+  !> the two places that need a face position rebuild it from rnode instead
+  !> (the face coordinates in mod_finite_volume, and calc_x's corner grid).
+  !> Only the radial direction, and spherical's polar direction, are affected -
+  !> phi and cylindrical z carry uniform weight, so their barycentres are their
+  !> midpoints.
+  !>
+  !> x uses the two-sided form (measured from rnode's lower corner in the mesh
+  !> and its upper corner in the outer ghost layer, so the overlapping ghost
+  !> cells of neighbouring blocks agree to the last bit), while the volumes and
+  !> cell sizes use the one-sided form over the extended range that the old
+  !> code called xext.
   subroutine fill_geometry_device(igrid)
     use mod_global_parameters
 
@@ -314,8 +436,18 @@ contains
     ! cell spacing of the block and of its coarse representative
     double precision :: d1,d2,d3, c1,c2,c3
     double precision :: xmin1,xmin2,xmin3, xmax1,xmax2,xmax3
-    ! cell centre (p), first-cell centre (q) and extended-range centre (e)
-    double precision :: p1,p2,p3, q1,q2, e1,e2
+    ! logical cell centre (p) and extended-range logical cell centre (e)
+    double precision :: p1,p2,p3, e1,e2
+#:if GEOM != 'Cartesian'
+    ! written by RADIAL_CELL: the two radial faces, their midpoint, the
+    ! physical radial extent, and the radial volume barycentre
+    double precision :: fL,fR, rc,ds1, rbar
+#:endif
+#:if GEOM == 'spherical'
+    ! written by POLAR_BARYCENTRE: half the polar spacing, and the polar
+    ! volume barycentre
+    double precision :: uu, tbar
+#:endif
 
     d1=rnode(rpdx1_,igrid); d2=rnode(rpdx2_,igrid); d3=rnode(rpdx3_,igrid)
     c1=2.0d0*d1; c2=2.0d0*d2; c3=2.0d0*d3
@@ -330,26 +462,17 @@ contains
     ixCoGmax2=(ixGhi2-2*nghostcells)/2+2*nghostcells
     ixCoGmax3=(ixGhi3-2*nghostcells)/2+2*nghostcells
 
-    ! q1 and q2 are the centres of the first cell in the radial and polar
-    ! directions.  They do not depend on the loop indices, so they are scalars
-    ! computed once here and read by the kernel, rather than recomputed inside
-    ! it.  (ixGlo is always inside the mesh, so only the lower-corner form of
-    ! the two-sided rule below can apply.)
-    q1 = xmin1 + (dble(ixGlo1-nghostcells)-half)*d1
-    q2 = xmin2 + (dble(ixGlo2-nghostcells)-half)*d2
-
     ! ---- positions, and (curvilinear only) the face areas built from them ----
     ! The three "if (ix==ixGlo)" branches fill the lower face of the first
     ! cell in each direction, which the flux update reaches as surfaceC(ix-1,.)
+    ! That lower face is just fL of the first cell, which the loop already has.
     ! A Cartesian build has no face areas to fill: its flux update divides by
     ! the uniform rnode spacing instead, so surfaceC is never allocated.
     ! The cell centre is measured from the block's lower corner inside the
     ! mesh, and from its upper corner in the outer ghost layer, so that the
     ! overlapping ghost cells of two neighbouring blocks come out identical to
-    ! the last bit.  Written out here rather than called as a helper: as an
-    ! !$acc routine seq inside this loop, nvfortran's -Minline hoisted the call
-    ! and gave every cell of the block the position of the first one.
-    !$acc parallel loop collapse(3) default(present) private(p1,p2,p3)
+    ! the last bit.
+    !$acc parallel loop collapse(3) default(present) private(p1,p2,p3#{if GEOM != 'Cartesian'}#, fL,fR,rc,ds1,rbar#{endif}##{if GEOM == 'spherical'}#, uu,tbar#{endif}#)
     do ix3=ixGlo3,ixGhi3
        do ix2=ixGlo2,ixGhi2
           do ix1=ixGlo1,ixGhi1
@@ -368,34 +491,51 @@ contains
              else
                 p3 = xmax3 + (dble(ix3-ixMhi3)-half)*d3
              end if
+
+#:if GEOM == 'Cartesian'
+             ! uniform weight in every direction, so the barycentre of a cell
+             ! is its midpoint and the logical coordinate is the physical one
              bgeo%x(ix1,ix2,ix3,1,igrid) = p1
              bgeo%x(ix1,ix2,ix3,2,igrid) = p2
              bgeo%x(ix1,ix2,ix3,3,igrid) = p3
-
-#:if GEOM != 'Cartesian'
-#:if GEOM == 'cylindrical'
+#:else
+             @:RADIAL_CELL(p1, d1)
+  #:if GEOM == 'cylindrical'
              ! 3D cylindrical is (r, z, phi): set_coordinate_system fixes
-             ! r_=1, z_=2, phi_=3, so the z and phi faces are named directly
-             bgeo%surfaceC(ix1,ix2,ix3,1,igrid) = dabs(p1+half*d1)*d2*d3
-             bgeo%surfaceC(ix1,ix2,ix3,2,igrid) = p1*d1*d3
-             bgeo%surfaceC(ix1,ix2,ix3,3,igrid) = d1*d2
+             ! r_=1, z_=2, phi_=3, so the z and phi faces are named directly.
+             ! z and phi carry uniform weight; only r is barycentred.
+             bgeo%x(ix1,ix2,ix3,1,igrid) = rbar
+             bgeo%x(ix1,ix2,ix3,2,igrid) = p2
+             bgeo%x(ix1,ix2,ix3,3,igrid) = p3
+
+             bgeo%surfaceC(ix1,ix2,ix3,1,igrid) = dabs(fR)*d2*d3
+             bgeo%surfaceC(ix1,ix2,ix3,2,igrid) = rc*ds1*d3
+             bgeo%surfaceC(ix1,ix2,ix3,3,igrid) = ds1*d2
              if (ix1==ixGlo1) bgeo%surfaceC(ixGlo1-1,ix2,ix3,1,igrid) = &
-                  dabs(q1-half*d1)*d2*d3
+                  dabs(fL)*d2*d3
              ! the z and phi face areas do not depend on the index being
              ! stepped back, so the extra plane repeats the same expression
-             if (ix2==ixGlo2) bgeo%surfaceC(ix1,ixGlo2-1,ix3,2,igrid) = p1*d1*d3
-             if (ix3==ixGlo3) bgeo%surfaceC(ix1,ix2,ixGlo3-1,3,igrid) = d1*d2
-#:else
-             bgeo%surfaceC(ix1,ix2,ix3,1,igrid) = (p1+half*d1)**2 &
+             if (ix2==ixGlo2) bgeo%surfaceC(ix1,ixGlo2-1,ix3,2,igrid) = rc*ds1*d3
+             if (ix3==ixGlo3) bgeo%surfaceC(ix1,ix2,ixGlo3-1,3,igrid) = ds1*d2
+  #:else
+             @:POLAR_BARYCENTRE(p2, d2)
+             bgeo%x(ix1,ix2,ix3,1,igrid) = rbar
+             bgeo%x(ix1,ix2,ix3,2,igrid) = tbar
+             bgeo%x(ix1,ix2,ix3,3,igrid) = p3
+
+             ! the polar factors stay on the coordinate midpoint p2, not on
+             ! tbar: 2*sin(p2)*sin(d2/2) is exactly cos(theta_L) - cos(theta_R),
+             ! so these areas and volumes are already exact as written
+             bgeo%surfaceC(ix1,ix2,ix3,1,igrid) = fR*fR &
                   *two*dsin(p2)*dsin(half*d2)*d3
-             bgeo%surfaceC(ix1,ix2,ix3,2,igrid) = p1*d1*dsin(p2+half*d2)*d3
-             bgeo%surfaceC(ix1,ix2,ix3,3,igrid) = p1*d1*d2
+             bgeo%surfaceC(ix1,ix2,ix3,2,igrid) = rc*ds1*dsin(p2+half*d2)*d3
+             bgeo%surfaceC(ix1,ix2,ix3,3,igrid) = rc*ds1*d2
              if (ix1==ixGlo1) bgeo%surfaceC(ixGlo1-1,ix2,ix3,1,igrid) = &
-                  (q1-half*d1)**2*two*dsin(p2)*dsin(half*d2)*d3
+                  fL*fL*two*dsin(p2)*dsin(half*d2)*d3
              if (ix2==ixGlo2) bgeo%surfaceC(ix1,ixGlo2-1,ix3,2,igrid) = &
-                  p1*d1*dsin(q2-half*d2)*d3
-             if (ix3==ixGlo3) bgeo%surfaceC(ix1,ix2,ixGlo3-1,3,igrid) = p1*d1*d2
-#:endif
+                  rc*ds1*dsin(p2-half*d2)*d3
+             if (ix3==ixGlo3) bgeo%surfaceC(ix1,ix2,ixGlo3-1,3,igrid) = rc*ds1*d2
+  #:endif
 #:endif
           end do
        end do
@@ -406,28 +546,40 @@ contains
     ! Curvilinear only: in a Cartesian build every one of these is the uniform
     ! rnode spacing, which its kernels read from rnode directly, so none of
     ! dx, dvolume or ds is allocated there.
-    !$acc parallel loop collapse(3) default(present) private(e1,e2)
+    ! dx is the extent of the cell in the same units as the matching component
+    ! of x, so its radial entry is the physical width ds1, not the logical one.
+    ! ds is the physical extent of the cell in each direction, and setdt turns
+    ! it into the CFL length. It is deliberately taken at the *midpoint* of the
+    ! cell, not at the barycentre stored in x: a cell size is a geometric
+    ! extent, so the argument that puts the state at the barycentre says
+    ! nothing about it, and using the barycentre would quietly relax the
+    ! timestep. That is not academic at the polar axis, where the barycentre
+    ! sits dtheta/6 further out than the midpoint and sin(theta_bar) runs about
+    ! a third above sin(theta_c) in the first cell - which is exactly the cell
+    ! whose vanishing ds(3) sets dt for the whole run.
+    !$acc parallel loop collapse(3) default(present) private(e1,e2,fL,fR,rc,ds1,rbar)
     do ix3=ixGextmin3,ixGextmax3
        do ix2=ixGextmin2,ixGextmax2
           do ix1=ixGextmin1,ixGextmax1
              e1 = xmin1 + (dble(ix1-nghostcells)-half)*d1
              e2 = xmin2 + (dble(ix2-nghostcells)-half)*d2
+             @:RADIAL_CELL(e1, d1)
 
-             bgeo%dx(ix1,ix2,ix3,1,igrid) = d1
+             bgeo%dx(ix1,ix2,ix3,1,igrid) = ds1
              bgeo%dx(ix1,ix2,ix3,2,igrid) = d2
              bgeo%dx(ix1,ix2,ix3,3,igrid) = d3
 
 #:if GEOM == 'cylindrical'
-             bgeo%dvolume(ix1,ix2,ix3,igrid) = dabs(e1)*d1*d2*d3
-             bgeo%ds(ix1,ix2,ix3,1,igrid)  = d1
+             bgeo%dvolume(ix1,ix2,ix3,igrid) = dabs(rc)*ds1*d2*d3
+             bgeo%ds(ix1,ix2,ix3,1,igrid)  = ds1
              bgeo%ds(ix1,ix2,ix3,2,igrid)  = d2
-             bgeo%ds(ix1,ix2,ix3,3,igrid)  = e1*d3
+             bgeo%ds(ix1,ix2,ix3,3,igrid)  = rc*d3
 #:else
-             bgeo%dvolume(ix1,ix2,ix3,igrid) = (e1**2+d1**2/12.0d0)*d1 &
+             bgeo%dvolume(ix1,ix2,ix3,igrid) = (rc*rc+ds1*ds1/12.0d0)*ds1 &
                   *two*dabs(dsin(e2))*dsin(half*d2)*d3
-             bgeo%ds(ix1,ix2,ix3,1,igrid)  = d1
-             bgeo%ds(ix1,ix2,ix3,2,igrid)  = e1*d2
-             bgeo%ds(ix1,ix2,ix3,3,igrid)  = e1*dsin(e2)*d3
+             bgeo%ds(ix1,ix2,ix3,1,igrid)  = ds1
+             bgeo%ds(ix1,ix2,ix3,2,igrid)  = rc*d2
+             bgeo%ds(ix1,ix2,ix3,3,igrid)  = rc*dsin(e2)*d3
 #:endif
           end do
        end do
@@ -439,58 +591,60 @@ contains
     ! neighbouring coarse block whose ghost cells have to match - and its
     ! spacing is doubled, so one loop covers positions, volumes and areas.
     ! As above, only the positions exist in a Cartesian build.
-    !$acc parallel loop collapse(3) default(present) private(p1,p2,q1,q2)
+    !$acc parallel loop collapse(3) default(present) private(p1,p2,p3#{if GEOM != 'Cartesian'}#, fL,fR,rc,ds1,rbar#{endif}##{if GEOM == 'spherical'}#, uu,tbar#{endif}#)
     do ix3=1,ixCoGmax3
        do ix2=1,ixCoGmax2
           do ix1=1,ixCoGmax1
              p1 = xmin1 + (dble(ix1-nghostcells)-half)*c1
              p2 = xmin2 + (dble(ix2-nghostcells)-half)*c2
+             p3 = xmin3 + (dble(ix3-nghostcells)-half)*c3
+
+#:if GEOM == 'Cartesian'
              bgeoc%x(ix1,ix2,ix3,1,igrid) = p1
              bgeoc%x(ix1,ix2,ix3,2,igrid) = p2
-             bgeoc%x(ix1,ix2,ix3,3,igrid) = &
-                  xmin3 + (dble(ix3-nghostcells)-half)*c3
+             bgeoc%x(ix1,ix2,ix3,3,igrid) = p3
+#:else
+             @:RADIAL_CELL(p1, c1)
 
-#:if GEOM != 'Cartesian'
-             bgeoc%dx(ix1,ix2,ix3,1,igrid) = c1
+             bgeoc%dx(ix1,ix2,ix3,1,igrid) = ds1
              bgeoc%dx(ix1,ix2,ix3,2,igrid) = c2
              bgeoc%dx(ix1,ix2,ix3,3,igrid) = c3
              ! nothing reads the coarse ds today, but leaving it
              ! uninitialised would be a trap for whoever first does
-             bgeoc%ds(ix1,ix2,ix3,1,igrid)  = c1
+             bgeoc%ds(ix1,ix2,ix3,1,igrid)  = ds1
              bgeoc%ds(ix1,ix2,ix3,2,igrid)  = c2
              bgeoc%ds(ix1,ix2,ix3,3,igrid)  = c3
-#:endif
 
-#:if GEOM != 'Cartesian'
-#:if GEOM == 'cylindrical'
-             bgeoc%dvolume(ix1,ix2,ix3,igrid)    = dabs(p1)*c1*c2*c3
-             bgeoc%surfaceC(ix1,ix2,ix3,1,igrid) = dabs(p1+half*c1)*c2*c3
-             bgeoc%surfaceC(ix1,ix2,ix3,2,igrid) = p1*c1*c3
-             bgeoc%surfaceC(ix1,ix2,ix3,3,igrid) = c1*c2
-             if (ix1==1) then
-                q1 = xmin1 + (dble(1-nghostcells)-half)*c1
-                bgeoc%surfaceC(0,ix2,ix3,1,igrid) = dabs(q1-half*c1)*c2*c3
-             end if
-             if (ix2==1) bgeoc%surfaceC(ix1,0,ix3,2,igrid) = p1*c1*c3
-             if (ix3==1) bgeoc%surfaceC(ix1,ix2,0,3,igrid) = c1*c2
-#:else
-             bgeoc%dvolume(ix1,ix2,ix3,igrid) = (p1**2+c1**2/12.0d0)*c1 &
+  #:if GEOM == 'cylindrical'
+             bgeoc%x(ix1,ix2,ix3,1,igrid) = rbar
+             bgeoc%x(ix1,ix2,ix3,2,igrid) = p2
+             bgeoc%x(ix1,ix2,ix3,3,igrid) = p3
+
+             bgeoc%dvolume(ix1,ix2,ix3,igrid)    = dabs(rc)*ds1*c2*c3
+             bgeoc%surfaceC(ix1,ix2,ix3,1,igrid) = dabs(fR)*c2*c3
+             bgeoc%surfaceC(ix1,ix2,ix3,2,igrid) = rc*ds1*c3
+             bgeoc%surfaceC(ix1,ix2,ix3,3,igrid) = ds1*c2
+             if (ix1==1) bgeoc%surfaceC(0,ix2,ix3,1,igrid) = dabs(fL)*c2*c3
+             if (ix2==1) bgeoc%surfaceC(ix1,0,ix3,2,igrid) = rc*ds1*c3
+             if (ix3==1) bgeoc%surfaceC(ix1,ix2,0,3,igrid) = ds1*c2
+  #:else
+             @:POLAR_BARYCENTRE(p2, c2)
+             bgeoc%x(ix1,ix2,ix3,1,igrid) = rbar
+             bgeoc%x(ix1,ix2,ix3,2,igrid) = tbar
+             bgeoc%x(ix1,ix2,ix3,3,igrid) = p3
+
+             bgeoc%dvolume(ix1,ix2,ix3,igrid) = (rc*rc+ds1*ds1/12.0d0)*ds1 &
                   *two*dabs(dsin(p2))*dsin(half*c2)*c3
-             bgeoc%surfaceC(ix1,ix2,ix3,1,igrid) = (p1+half*c1)**2 &
+             bgeoc%surfaceC(ix1,ix2,ix3,1,igrid) = fR*fR &
                   *two*dsin(p2)*dsin(half*c2)*c3
-             bgeoc%surfaceC(ix1,ix2,ix3,2,igrid) = p1*c1*dsin(p2+half*c2)*c3
-             bgeoc%surfaceC(ix1,ix2,ix3,3,igrid) = p1*c1*c2
-             if (ix1==1) then
-                q1 = xmin1 + (dble(1-nghostcells)-half)*c1
-                bgeoc%surfaceC(0,ix2,ix3,1,igrid) = (q1-half*c1)**2 &
-                     *two*dsin(p2)*dsin(half*c2)*c3
-             end if
-             if (ix2==1) then
-                q2 = xmin2 + (dble(1-nghostcells)-half)*c2
-                bgeoc%surfaceC(ix1,0,ix3,2,igrid) = p1*c1*dsin(q2-half*c2)*c3
-             end if
-             if (ix3==1) bgeoc%surfaceC(ix1,ix2,0,3,igrid) = p1*c1*c2
-#:endif
+             bgeoc%surfaceC(ix1,ix2,ix3,2,igrid) = rc*ds1*dsin(p2+half*c2)*c3
+             bgeoc%surfaceC(ix1,ix2,ix3,3,igrid) = rc*ds1*c2
+             if (ix1==1) bgeoc%surfaceC(0,ix2,ix3,1,igrid) = &
+                  fL*fL*two*dsin(p2)*dsin(half*c2)*c3
+             if (ix2==1) bgeoc%surfaceC(ix1,0,ix3,2,igrid) = &
+                  rc*ds1*dsin(p2-half*c2)*c3
+             if (ix3==1) bgeoc%surfaceC(ix1,ix2,0,3,igrid) = rc*ds1*c2
+  #:endif
 #:endif
           end do
        end do
@@ -502,6 +656,63 @@ contains
     ! that needs ps(igrid)%x, sync_geometry_host before output.
 
   end subroutine fill_geometry_device
+
+#:if defined('FILL_NWEXTRA_ANALYTIC')
+  !> Fill this block's extra w-variables on the device from usr_set_nwextra.
+  !>
+  !> The `nwextra` variables (registered by var_set_extravar) are not advected,
+  !> carry no boundary condition, and here are taken to be analytic functions
+  !> of position alone. Rather than exchange them through getbc or interpolate
+  !> them in prolongation and coarsening - all of which stop at nwgc - they are
+  !> re-derived from the user's usr_set_nwextra in every cell of every block,
+  !> the full ixG range with ghost cells included. `alloc_node` is the sole
+  !> caller: it runs for every block that comes into existence (a fresh root, a
+  !> refined child, a coarsened parent, a load-balanced arrival), right after
+  !> fill_geometry_device has written this block's positions, and nothing
+  !> overwrites the extra slots afterwards.
+  !>
+  !> Filling the ghost cells this way is also what lets a build with such a
+  !> variable reach the polar axis: bgeo%x in the ghost layer beyond theta=0
+  !> (or r=0) carries the mirrored coordinate, so evaluating the user's
+  !> analytic field there reproduces on its own the sign flips a vector picks
+  !> up across the axis, with no entry in typeboundary and no pole branch in
+  !> getbc.
+  !>
+  !> This flag is set by config_schema.toml's `implies` for phys='ffhd', whose
+  !> frozen field b1,b2,b3 is exactly such a variable.
+  !>
+  !> Runs on the device: bgeo%x and bg(1)%w are both resident for all
+  !> max_blocks from initialize_vars, so the kernel indexes them directly.
+  !> mod_variables tracks nwextra and, via var_set_extravar, the w indices
+  !> iw_extra(1:nwextra) the extra variables actually occupy - this routine
+  !> makes no assumption about where in w they live.
+  subroutine fill_nwextra_device(igrid)
+    use mod_global_parameters
+    use mod_usr, only: usr_set_nwextra
+
+    integer, intent(in) :: igrid
+
+    integer          :: ix1, ix2, ix3, iwx
+    ! wx is sized by the compile-time max_nw, not the runtime nwextra: a
+    ! variable-length private array in an !$acc parallel loop is a fragile
+    ! corner across OpenACC compilers. Only wx(1:nwextra) is passed and used.
+    double precision :: xloc(1:ndim), wx(max_nw)
+
+    !$acc parallel loop collapse(3) default(present) private(xloc, wx)
+    do ix3 = ixGlo3, ixGhi3
+       do ix2 = ixGlo2, ixGhi2
+          do ix1 = ixGlo1, ixGhi1
+             xloc(1:ndim) = bgeo%x(ix1,ix2,ix3,1:ndim,igrid)
+             call usr_set_nwextra(xloc, wx(1:nwextra))
+             do iwx = 1, nwextra
+                bg(1)%w(ix1,ix2,ix3, iw_extra(iwx), igrid) = wx(iwx)
+             end do
+          end do
+       end do
+    end do
+
+  end subroutine fill_nwextra_device
+#:endif
 
   !> allocate memory to physical state of igrid node
   subroutine alloc_state(igrid, s, ixGmin1,ixGmin2,ixGmin3,ixGmax1,ixGmax2,&
