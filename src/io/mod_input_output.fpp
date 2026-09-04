@@ -290,7 +290,8 @@ contains
         block_nx1,block_nx2,block_nx3,domain_nx1,&
        domain_nx2,domain_nx3,iprob,xprobmin1,xprobmin2,xprobmin3,xprobmax1,&
        xprobmax2,xprobmax3, w_refine_weight, prolongprimitive,coarsenprimitive,&
-        typeprolonglimit, logflag,tfixgrid,itfixgrid,ditregrid, refine_usr
+        typeprolonglimit, logflag,tfixgrid,itfixgrid,ditregrid, refine_usr,&
+        geometry
     namelist /paramlist/  courantpar, dtpar, dtdiffpar, typecourant, slowsteps
 
     namelist /emissionlist/ filename_euv,wavelength,filename_sxr,emin_sxr,&
@@ -2107,6 +2108,7 @@ contains
     use mod_convert_files, only: generate_plotfile
     use mod_physics, only: phys_req_diagonal
     use mod_ghostcells_update
+    use mod_geometry, only: sync_geometry_host
     integer:: ifile, iigrid, igrid
 
     ! update (diagonal) ghostcells before moving to host:
@@ -2114,9 +2116,16 @@ contains
       call getbc(global_time,0.d0,ps,iwstart,nwgc)
     end if
 
-    do iigrid=1,igridstail; igrid=igrids(iigrid);
-       !$acc update host(ps(igrid)%w)
+    ! Index igrids(iigrid) directly: a local whose only uses are inside !$acc
+    ! directives can have its assignment dropped as dead code, leaving the
+    ! directive to run with an unset index.
+    do iigrid=1,igridstail
+       !$acc update host(ps(igrids(iigrid))%w)
     end do
+
+    ! Same idea for the cell metrics: everything below here that weights by
+    ! dvolume, or builds corner positions from dx, reads them on the host.
+    call sync_geometry_host()
 
     select case (ifile)
     case (fileout_)
@@ -3158,25 +3167,45 @@ contains
     double precision, intent(out) :: mode(nw)  !< The computed mode
     double precision, intent(out) :: volume    !< The total grid volume
     integer                       :: iigrid, igrid, iw
+    integer                       :: ncells
     double precision              :: wsum(nw+1)
+    double precision              :: dvol
     double precision              :: dsum_recv(1:nw+1)
 
     wsum(:) = 0
+    ncells = (ixMhi1-ixMlo1+1)*(ixMhi2-ixMlo2+1)*(ixMhi3-ixMlo3+1)
 
     ! Loop over all the grids
     do iigrid = 1, igridstail
        igrid = igrids(iigrid)
 
-       ! Store total volume in last element
-       wsum(nw+1) = wsum(nw+1) + sum(ps(igrid)%dvolume(ixMlo1:ixMhi1,&
-          ixMlo2:ixMhi2,ixMlo3:ixMhi3))
+       if (slab_uniform) then
+          ! Every cell of the block has the same volume, and ps(igrid)%dvolume
+          ! is not even allocated in a Cartesian build - take the one value
+          ! from the block's spacing in rnode and factor it out of the sums.
+          dvol = rnode(rpdx1_,igrid)*rnode(rpdx2_,igrid)*rnode(rpdx3_,igrid)
 
-       ! Compute the modes of the cell-centered variables, weighted by volume
-       do iw = 1, nw
-          wsum(iw) = wsum(iw) + sum(ps(igrid)%dvolume(ixMlo1:ixMhi1,&
-             ixMlo2:ixMhi2,ixMlo3:ixMhi3)*ps(igrid)%w(ixMlo1:ixMhi1,&
-             ixMlo2:ixMhi2,ixMlo3:ixMhi3,iw)**power)
-       end do
+          wsum(nw+1) = wsum(nw+1) + dvol*dble(ncells)
+
+          do iw = 1, nw
+             wsum(iw) = wsum(iw) + dvol*sum(ps(igrid)%w(ixMlo1:ixMhi1,&
+                ixMlo2:ixMhi2,ixMlo3:ixMhi3,iw)**power)
+          end do
+       else
+          ! Read the metric out of bgeo directly rather than through the
+          ! ps(igrid)%dvolume pointer view: bgeo is where the data actually
+          ! lives, and the view is a bounds-remapped pointer into it.
+          ! Store total volume in last element
+          wsum(nw+1) = wsum(nw+1) + sum(bgeo%dvolume(ixMlo1:ixMhi1,&
+             ixMlo2:ixMhi2,ixMlo3:ixMhi3,igrid))
+
+          ! Compute the modes of the cell-centered variables, weighted by volume
+          do iw = 1, nw
+             wsum(iw) = wsum(iw) + sum(bgeo%dvolume(ixMlo1:ixMhi1,&
+                ixMlo2:ixMhi2,ixMlo3:ixMhi3,igrid)*ps(igrid)%w(ixMlo1:ixMhi1,&
+                ixMlo2:ixMhi2,ixMlo3:ixMhi3,iw)**power)
+          end do
+       end if
     end do
 
     ! Make the information available on all tasks

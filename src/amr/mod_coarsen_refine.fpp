@@ -442,6 +442,7 @@ contains
     ! New passive cell, coarsen from initial condition:
     if (.not. active) then
        if (ipe == mype) then
+          ! initial_condition fetches this block's positions back itself
           call initial_condition(igrid)
           do ic3=1,2
              do ic2=1,2
@@ -479,7 +480,7 @@ contains
                    call coarsen_grid(ps(igridFi),ixGlo1,ixGlo2,ixGlo3,ixGhi1,ixGhi2,&
                         ixGhi3,ixMlo1,ixMlo2,ixMlo3,ixMhi1,ixMhi2,ixMhi3,ps(igrid),&
                         ixGlo1,ixGlo2,ixGlo3,ixGhi1,ixGhi2,ixGhi3,ixComin1,ixComin2,&
-                        ixComin3,ixComax1,ixComax2,ixComax3)
+                        ixComin3,ixComax1,ixComax2,ixComax3,bgeo,igridFi,bgeo,igrid)
                    ! remove solution space of child
                    !call dealloc_node(igridFi)
                 else
@@ -492,7 +493,8 @@ contains
                    call coarsen_grid(ps(igridFi),ixGlo1,ixGlo2,ixGlo3,ixGhi1,ixGhi2,&
                         ixGhi3,ixMlo1,ixMlo2,ixMlo3,ixMhi1,ixMhi2,ixMhi3,psc(igridFi),&
                         ixCoGmin1,ixCoGmin2,ixCoGmin3,ixCoGmax1,ixCoGmax2,ixCoGmax3,&
-                        ixCoMmin1,ixCoMmin2,ixCoMmin3,ixCoMmax1,ixCoMmax2,ixCoMmax3)
+                        ixCoMmin1,ixCoMmin2,ixCoMmin3,ixCoMmax1,ixCoMmax2,ixCoMmax3,&
+                        bgeo,igridFi,bgeoc,igridFi)
 
                    !itag=ipeFi*max_blocks+igridFi
                    itag=ipeFi+igridFi

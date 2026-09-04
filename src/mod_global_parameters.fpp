@@ -118,6 +118,12 @@ module mod_global_parameters
   integer :: ixGshi1,ixGshi2,ixGshi3
   !$acc declare create(ixGshi1,ixGshi2,ixGshi3)
 
+  !> Index range over which the cell metrics (dvolume, ds) are known.  This is
+  !> the ghosted block range ixG, plus one extra layer on either side when the
+  !> number of ghost cells is odd (or the grid is staggered), because ghost
+  !> cell prolongation then needs volumes and dx-intervals one cell beyond it.
+  integer :: ixGextmin1,ixGextmin2,ixGextmin3,ixGextmax1,ixGextmax2,ixGextmax3
+
   !> Number of ghost cells surrounding a grid
   integer :: nghostcells = 2
   !$acc declare copyin(nghostcells)
@@ -335,6 +341,11 @@ module mod_global_parameters
   
   !> type of physics to build
   character(len=std_len) :: phys
+
+  !> coordinate system to build for, one of 'Cartesian' or 'spherical'.
+  !> Read from &meshlist and turned into the GEOM fypp define by the config
+  !> system; must be consistent with the set_coordinate_system call in mod_usr.
+  character(len=std_len) :: geometry='Cartesian'
   
   ! Physics factors
 

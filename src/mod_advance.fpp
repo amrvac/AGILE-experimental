@@ -305,6 +305,7 @@ contains
   subroutine process(iit,qt)
     use mod_usr_methods, only: usr_process_grid, usr_process_global
     use mod_global_parameters
+    use mod_geometry, only: sync_positions_host
     use mod_ghostcells_update
     use mod_physics, only: phys_req_diagonal
     ! .. scalars ..
@@ -318,6 +319,8 @@ contains
     end if
 
     if (associated(usr_process_grid)) then
+      ! usr_process_grid reads ps(igrid)%x on the host
+      call sync_positions_host()
       !$OMP PARALLEL DO PRIVATE(igrid)
       do iigrid=1,igridstail; igrid=igrids(iigrid);
          ! next few lines ensure correct usage of routines like divvector etc
@@ -340,6 +343,7 @@ contains
   subroutine process_advanced(iit,qt)
     use mod_usr_methods, only: usr_process_adv_grid, usr_process_adv_global
     use mod_global_parameters
+    use mod_geometry, only: sync_positions_host
     use mod_ghostcells_update
     use mod_physics, only: phys_req_diagonal
     ! .. scalars ..
@@ -353,6 +357,8 @@ contains
     end if
 
     if (associated(usr_process_adv_grid)) then
+      ! usr_process_adv_grid reads ps(igrid)%x on the host
+      call sync_positions_host()
       !$OMP PARALLEL DO PRIVATE(igrid)
       do iigrid=1,igridstail; igrid=igrids(iigrid);
          ! next few lines ensure correct usage of routines like divvector etc
