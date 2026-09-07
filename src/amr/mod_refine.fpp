@@ -1,3 +1,6 @@
+#:mute
+#:include "../mod_gpu_directives.fpp"
+#:endmute
 module mod_refine
 
   implicit none
@@ -114,7 +117,7 @@ contains
   subroutine prolong_2nd(sCo,ixComin1,ixComin2,ixComin3,ixComax1,ixComax2,&
      ixComax3,sFi,dxCo1,dxCo2,dxCo3,xComin1,xComin2,xComin3,dxFi1,dxFi2,dxFi3,&
      xFimin1,xFimin2,xFimin3,igridCo,igridFi)
-    use mod_physics, only: phys_to_conserved, phys_handle_small_values
+    use mod_physics, only: phys_to_conserved, phys_handle_small_values, nw_phys
     use mod_global_parameters
     use mod_amr_fct, only: already_fine, prolong_2nd_stg
 
@@ -129,14 +132,14 @@ contains
        ixFi2,ixFi3, ix1,ix2,ix3, idim, iw, ixCgmin1,ixCgmin2,ixCgmin3,ixCgmax1,&
        ixCgmax2,ixCgmax3, el
     double precision :: slopeL, slopeR, slopeC, signC, signR
-    double precision :: slope(nw,ndim)
+    double precision :: slope(nw_phys,ndim)
     double precision :: eta1,eta2,eta3
     logical :: fine_min1,fine_min2,fine_min3,fine_max1,fine_max2,fine_max3
 
     ixCgmin1=ixComin1;ixCgmin2=ixComin2;ixCgmin3=ixComin3;ixCgmax1=ixComax1
     ixCgmax2=ixComax2;ixCgmax3=ixComax3;
 
-    !$acc parallel loop collapse(3) private(slope)
+    ${GPU_PARALLEL_LOOP("collapse(3) private(slope, ixFi1,ixFi2,ixFi3, idim, hxCo1,hxCo2,hxCo3, jxCo1,jxCo2,jxCo3, iw, slopeL,slopeR,slopeC,signC,signR, ix1,ix2,ix3, eta1,eta2,eta3)")}$
     do ixCo3 = ixCgmin3,ixCgmax3
        do ixCo2 = ixCgmin2,ixCgmax2
           do ixCo1 = ixCgmin1,ixCgmax1
@@ -251,7 +254,7 @@ contains
     integer :: ixCo1,ixCo2,ixCo3, ixFi1,ixFi2,ixFi3, iw
     integer :: ixFimin1,ixFimin2,ixFimin3,ixFimax1,ixFimax2,ixFimax3
 
-    !$acc parallel loop collapse(3)
+    ${GPU_PARALLEL_LOOP("collapse(3) private(ixFi1,ixFi2,ixFi3,iw)")}$
     do ixCo3 = ixComin3,ixComax3
        do ixCo2 = ixComin2,ixComax2
           do ixCo1 = ixComin1,ixComax1
