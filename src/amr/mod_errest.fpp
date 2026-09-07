@@ -23,7 +23,7 @@ contains
   threshold   = refine_threshold(level)
   refineflag  = .false.
   coarsenflag = .true.
-  ${GPU_LOOP_VECTOR("collapse(3) reduction(.or.:refineflag) reduction(.and.:coarsenflag) private(error,numerator,denominator)")}$
+  ${GPU_LOOP_VECTOR("collapse(3) reduction(.or.:refineflag) reduction(.and.:coarsenflag) private(error,numerator,denominator,iflag,idims1,idims2)")}$
   do ix3 = ixMlo3, ixMhi3
      do ix2 = ixMlo2, ixMhi2
         do ix1 = ixMlo1, ixMhi1
@@ -170,7 +170,7 @@ contains
        ! Error estimation is based on Lohner's scheme
        block
           @:lohner_grid_header()
-          ${GPU_PARALLEL_LOOP_GANG("private(igrid)")}$
+          ${GPU_PARALLEL_LOOP_GANG("private(igrid, level, threshold, refineflag, coarsenflag)")}$
           do iigrid=1,igridstail; igrid=igrids(iigrid);
              @:lohner_grid()
           end do
@@ -182,7 +182,7 @@ contains
     if ( refine_usr ) then
        block
           @:forcedrefine_grid_header()
-          ${GPU_PARALLEL_LOOP_GANG("private(igrid)")}$
+          ${GPU_PARALLEL_LOOP_GANG("private(igrid, level, my_refine, my_coarsen, qt)")}$
           do iigrid=1,igridstail; igrid=igrids(iigrid);
              @:forcedrefine_grid()
           end do

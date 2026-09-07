@@ -34,7 +34,7 @@ contains
     if (dtpar<=zero) then
        dtmin_mype=bigdouble
 
-       ${GPU_PARALLEL_LOOP_GANG("PRIVATE(igrid,dxinv) REDUCTION(min:dtmin_mype)")}$
+       ${GPU_PARALLEL_LOOP_GANG("private(igrid,dxinv,dx1,dx2,dx3) reduction(min:dtmin_mype)")}$
        do iigrid=1,igridstail_active; igrid=igrids_active(iigrid)
 
           dx1=rnode(rpdx1_,igrid);dx2=rnode(rpdx2_,igrid)
@@ -42,7 +42,7 @@ contains
 
           dxinv(1)=one/dx1;dxinv(2)=one/dx2;dxinv(3)=one/dx3;
 
-          ${GPU_LOOP_VECTOR("collapse(ndim) REDUCTION(min:dtmin_mype) private(u, xloc)")}$
+          ${GPU_LOOP_VECTOR("collapse(ndim) reduction(min:dtmin_mype) private(u, xloc, cmaxtot, cmax, idims, qdtnew)")}$
           do ix3=ixMlo3,ixMhi3 
              do ix2=ixMlo2,ixMhi2 
                 do ix1=ixMlo1,ixMhi1 
@@ -80,10 +80,10 @@ contains
     if (need_global_cmax) then
        cmax_mype=-bigdouble
 
-       ${GPU_PARALLEL_LOOP_GANG("PRIVATE(igrid) REDUCTION(max:cmax_mype)")}$
+       ${GPU_PARALLEL_LOOP_GANG("private(igrid) reduction(max:cmax_mype)")}$
        do iigrid=1,igridstail_active; igrid=igrids_active(iigrid)
 
-          ${GPU_LOOP_VECTOR("collapse(ndim) REDUCTION(max:cmax_mype) private(u, xloc)")}$
+          ${GPU_LOOP_VECTOR("collapse(ndim) reduction(max:cmax_mype) private(u, xloc, cmax, idims)")}$
           do ix3=ixMlo3,ixMhi3 
              do ix2=ixMlo2,ixMhi2 
                 do ix1=ixMlo1,ixMhi1

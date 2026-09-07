@@ -116,7 +116,7 @@ contains
    ${GPU_UPDATE_DEVICE('rcv_buff_lb(:,:,:,:,1:irecv)')}$
 #endif
     ${GPU_UPDATE_DEVICE('rcv_info_lb(1:irecv)')}$
-    ${GPU_PARALLEL_LOOP_GANG()}$
+    ${GPU_PARALLEL_LOOP_GANG("private(recv_igrid)")}$
     do ibuff = 1, irecv
        recv_igrid = rcv_info_lb(ibuff)
        ${GPU_LOOP_VECTOR("collapse(4)")}$

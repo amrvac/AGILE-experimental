@@ -121,7 +121,7 @@ end subroutine finite_volume_local
        igrid_beg = (ibatch-1) * max_batch + 1
        igrid_end = min(ibatch * max_batch, igridstail_active)
 
-       ${GPU_PARALLEL_LOOP_GANG("private(inv_dr, dr, n)")}$ ${GPU_DEFAULT_PRESENT()}$
+       ${GPU_PARALLEL_LOOP_GANG("private(inv_dr, dr, n, typelim)")}$ ${GPU_DEFAULT_PRESENT()}$
        do iigrid = igrid_beg, igrid_end
           n = igrids_active(iigrid)
 

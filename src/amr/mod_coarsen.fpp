@@ -41,7 +41,7 @@ contains
        CoFiratio=one/dble(2**ndim)
        ${GPU_PARALLEL_LOOP_GANG()}$
        do iw=1,nw
-          ${GPU_LOOP_VECTOR("collapse(3)")}$
+          ${GPU_LOOP_VECTOR("collapse(3) private(ixFi1,ixFi2,ixFi3)")}$
           do ixCo3 = ixComin3,ixComax3
              do ixCo2 = ixComin2,ixComax2
                 do ixCo1 = ixComin1,ixComax1
@@ -57,7 +57,7 @@ contains
     else
        ${GPU_PARALLEL_LOOP_GANG()}$
        do iw=1,nw
-          ${GPU_LOOP_VECTOR("collapse(3)")}$
+          ${GPU_LOOP_VECTOR("collapse(3) private(ixFi1,ixFi2,ixFi3)")}$
           do ixCo3 = ixComin3,ixComax3
              do ixCo2 = ixComin2,ixComax2
                 do ixCo1 = ixComin1,ixComax1

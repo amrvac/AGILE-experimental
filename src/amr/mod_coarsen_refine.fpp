@@ -145,7 +145,7 @@ contains
 #endif
     ${GPU_UPDATE_DEVICE('rcv_info_cf(:,1:irecv)')}$
 
-    ${GPU_PARALLEL_LOOP_GANG()}$
+    ${GPU_PARALLEL_LOOP_GANG("private(igrid, ic1, ic2, ic3)")}$
     do ibuff = 1, irecv
        igrid = rcv_info_cf(1,ibuff)
        ic1   = rcv_info_cf(2,ibuff)
