@@ -119,6 +119,8 @@ end subroutine finite_volume_local
     real(dp)       :: fC3(2,ixImin1:ixOmax1,ixImin2:ixOmax2,1:nwflux)
     integer, parameter     :: max_batch=4096
     integer                :: nbatches, ibatch, igrid_beg, igrid_end
+    integer        :: neighbor_type_1m, neighbor_type_1p, neighbor_type_2m,&
+              neighbor_type_2p, neighbor_type_3m, neighbor_type_3p
     !-----------------------------------------------------------------------------
 
     nx1=ixMhi1-ixMlo1+1
@@ -137,13 +139,27 @@ end subroutine finite_volume_local
        igrid_beg = (ibatch-1) * max_batch + 1
        igrid_end = min(ibatch * max_batch, igridstail_active)
 
-       !$acc parallel loop gang private(uprim, inv_dr, dr, n, ix1, ix2, ix3, fC1, fC2, fC3) default(present)
+!!!!     !$acc parallel loop gang private(uprim, inv_dr, dr, n, ix1, ix2, ix3, fC1, fC2, fC3) default(present)
+       !$acc parallel loop gang private(uprim, inv_dr, dr, n, ix1, ix2, ix3, fC1, fC2, fC3, &
+       !$acc& neighbor_type_1m, neighbor_type_1p, neighbor_type_2m, neighbor_type_2p, neighbor_type_3m, &
+       !$acc& neighbor_type_3p) default(present)
        do iigrid = igrid_beg, igrid_end
           n = igrids_active(iigrid)
 
           dr  = rnode(rpdx1_:rnodehi, n)
           inv_dr  = 1/dr
           typelim = type_limiter(node(plevel_, n))
+
+          !JESSENEW These were called many times in the 3D loop below
+          !but they technically only have an igrid dependence so I
+          !thought it would be better to simply declare them via local
+          !variable which will reduce the call overhead ~NX^3
+          neighbor_type_1m = neighbor_type(-1,0,0,n)
+          neighbor_type_1p = neighbor_type( 1,0,0,n)
+          neighbor_type_2m = neighbor_type(0,-1,0,n)
+          neighbor_type_2p = neighbor_type(0, 1,0,n)
+          neighbor_type_3m = neighbor_type(0,0,-1,n)
+          neighbor_type_3p = neighbor_type(0,0, 1,n)
 
           !$acc loop collapse(ndim) vector
           do ix3=ixImin3,ixImax3 
@@ -172,6 +188,7 @@ end subroutine finite_volume_local
                         n) + qdt * (f(:, 1) - f(:, 2)) * inv_dr(1)
 
                    !!!TODO JESSE FIRST SET ALL PFLUX TO ZERO???
+                   !!NO NOT CORRECT
                    !!pflux(1,1,n)%flux = 0.0d0 
                    !!pflux(2,1,n)%flux = 0.0d0 
                    !!pflux(1,2,n)%flux = 0.0d0 
@@ -180,17 +197,19 @@ end subroutine finite_volume_local
                    !!pflux(2,3,n)%flux = 0.0d0 
 
                    ! Store fluxes for flux fixing in direction 1
-                   select case (neighbor_type(-1,0,0,n))
+                   !select case (neighbor_type(-1,0,0,n))
+                   select case (neighbor_type_1m)
                    case (neighbor_fine)
-                       if (ix1.eq.ixOmin1) pflux(1,1,n)%flux(1,ix2-nghostcells,ix3-nghostcells,1:nw_flux) &
+                       if (ix1.eq.ixOmin1) pflux(1,1)%flux(1,ix2-nghostcells,ix3-nghostcells,1:nw_flux,n) &
                                = qdt * inv_dr(1) * f(:,1)
                    case (neighbor_coarse)
                        if (ix1.eq.ixOmin1) fC1(1,ix2,ix3,1:nw_flux) = - qdt * inv_dr(1) * f(:,1)
                    end select
 
-                   select case (neighbor_type(1,0,0,n))
+                   !select case (neighbor_type(1,0,0,n))
+                   select case (neighbor_type_1p)
                    case (neighbor_fine)
-                       if (ix1.eq.ixOmax1) pflux(2,1,n)%flux(1,ix2-nghostcells,ix3-nghostcells,1:nw_flux) =  &
+                       if (ix1.eq.ixOmax1) pflux(2,1)%flux(1,ix2-nghostcells,ix3-nghostcells,1:nw_flux,n) =  &
                                - qdt * inv_dr(1) * f(:,2)
                    case (neighbor_coarse)
                        if (ix1.eq.ixOmax1) fC1(2,ix2,ix3,1:nw_flux) = qdt * inv_dr(1) * f(:,2)
@@ -206,17 +225,19 @@ end subroutine finite_volume_local
                         n) + qdt * (f(:, 1) - f(:, 2)) * inv_dr(2)
 
                    ! Store fluxes for flux fixing in direction 2
-                   select case (neighbor_type(0,-1,0,n))
+                   !select case (neighbor_type(0,-1,0,n))
+                   select case (neighbor_type_2m)
                    case (neighbor_fine)
-                       if (ix2.eq.ixOmin2) pflux(1,2,n)%flux(ix1-nghostcells,1,ix3-nghostcells,1:nw_flux) &
+                       if (ix2.eq.ixOmin2) pflux(1,2)%flux(ix1-nghostcells,1,ix3-nghostcells,1:nw_flux,n) &
                                 = qdt * inv_dr(2) * f(:,1)
                    case (neighbor_coarse)
                        if (ix2.eq.ixOmin2) fC2(1,ix1,ix3,1:nw_flux) = - qdt * inv_dr(2) * f(:,1)
                    end select
 
-                   select case (neighbor_type(0,1,0,n))
+                   !select case (neighbor_type(0,1,0,n))
+                   select case (neighbor_type_2p)
                    case (neighbor_fine)
-                       if (ix2.eq.ixOmax2) pflux(2,2,n)%flux(ix1-nghostcells,1,ix3-nghostcells,1:nw_flux) &
+                       if (ix2.eq.ixOmax2) pflux(2,2)%flux(ix1-nghostcells,1,ix3-nghostcells,1:nw_flux,n) &
                                = - qdt * inv_dr(2) * f(:,2)
                    case (neighbor_coarse)
                        if (ix2.eq.ixOmax2) fC2(2,ix1,ix3,1:nw_flux) = qdt * inv_dr(2) * f(:,2)
@@ -232,17 +253,19 @@ end subroutine finite_volume_local
                         n) + qdt * (f(:, 1) - f(:, 2)) * inv_dr(3)
 
                    ! Store fluxes for flux fixing in direction 3               
-                   select case (neighbor_type(0,0,-1,n))
+                   !select case (neighbor_type(0,0,-1,n))
+                   select case (neighbor_type_3m)
                    case (neighbor_fine)
-                       if (ix3.eq.ixOmin3) pflux(1,3,n)%flux(ix1-nghostcells,ix2-nghostcells,1,1:nw_flux) &
+                       if (ix3.eq.ixOmin3) pflux(1,3)%flux(ix1-nghostcells,ix2-nghostcells,1,1:nw_flux,n) &
                                = qdt * inv_dr(3) * f(:,1)
                    case (neighbor_coarse)
                        if (ix3.eq.ixOmin3) fC3(1,ix1,ix2,1:nw_flux) = - qdt * inv_dr(3) * f(:,1)
                    end select
 
-                   select case (neighbor_type(0,0,1,n))
+                   !select case (neighbor_type(0,0,1,n))
+                   select case (neighbor_type_3p)
                    case (neighbor_fine)
-                       if (ix3.eq.ixOmax3) pflux(2,3,n)%flux(ix1-nghostcells,ix2-nghostcells,1,1:nw_flux) &
+                       if (ix3.eq.ixOmax3) pflux(2,3)%flux(ix1-nghostcells,ix2-nghostcells,1,1:nw_flux,n) &
                                = - qdt * inv_dr(3) * f(:,2)
                    case (neighbor_coarse)
                        if (ix3.eq.ixOmax3) fC3(2,ix1,ix2,1:nw_flux) = qdt * inv_dr(3) * f(:,2)
@@ -306,7 +329,7 @@ end subroutine finite_volume_local
                   !$acc loop vector collapse(ndim-1) 
                   do ix3=1,nxCo3 
                     do ix2=1,nxCo2 
-                  pflux(1,1,n)%flux(1,ix2,ix3,1:nw_flux) = &
+                  pflux(1,1)%flux(1,ix2,ix3,1:nw_flux,n) = &
                     fC1(1,1+2*(ix2-1)+nghostcells,1+2*(ix3-1)+nghostcells,1:nw_flux) &
                    +fC1(1,2+2*(ix2-1)+nghostcells,1+2*(ix3-1)+nghostcells,1:nw_flux) &
                    +fC1(1,1+2*(ix2-1)+nghostcells,2+2*(ix3-1)+nghostcells,1:nw_flux) &
@@ -320,7 +343,7 @@ end subroutine finite_volume_local
                   !$acc loop vector collapse(ndim-1)
                   do ix3=1,nxCo3 
                      do ix2=1,nxCo2 
-                  pflux(2,1,n)%flux(1,ix2,ix3,1:nw_flux) = &
+                  pflux(2,1)%flux(1,ix2,ix3,1:nw_flux,n) = &
                     fC1(2,1+2*(ix2-1)+nghostcells,1+2*(ix3-1)+nghostcells,1:nw_flux) &
                    +fC1(2,2+2*(ix2-1)+nghostcells,1+2*(ix3-1)+nghostcells,1:nw_flux) &
                    +fC1(2,1+2*(ix2-1)+nghostcells,2+2*(ix3-1)+nghostcells,1:nw_flux) &
@@ -335,7 +358,7 @@ end subroutine finite_volume_local
                   !$acc loop vector collapse(ndim-1) 
                   do ix3=1,nxCo3 
                     do ix1=1,nxCo1 
-                  pflux(1,2,n)%flux(ix1,1,ix3,1:nw_flux) = &
+                  pflux(1,2)%flux(ix1,1,ix3,1:nw_flux,n) = &
                     fC2(1,1+2*(ix1-1)+nghostcells,1+2*(ix3-1)+nghostcells,1:nw_flux) &
                    +fC2(1,2+2*(ix1-1)+nghostcells,1+2*(ix3-1)+nghostcells,1:nw_flux) &
                    +fC2(1,1+2*(ix1-1)+nghostcells,2+2*(ix3-1)+nghostcells,1:nw_flux) &
@@ -349,7 +372,7 @@ end subroutine finite_volume_local
                   !$acc loop vector collapse(ndim-1)
                   do ix3=1,nxCo3 
                      do ix1=1,nxCo1 
-                  pflux(2,2,n)%flux(ix1,1,ix3,1:nw_flux) = &
+                  pflux(2,2)%flux(ix1,1,ix3,1:nw_flux,n) = &
                     fC2(2,1+2*(ix1-1)+nghostcells,1+2*(ix3-1)+nghostcells,1:nw_flux) &
                    +fC2(2,2+2*(ix1-1)+nghostcells,1+2*(ix3-1)+nghostcells,1:nw_flux) &
                    +fC2(2,1+2*(ix1-1)+nghostcells,2+2*(ix3-1)+nghostcells,1:nw_flux) &
@@ -364,7 +387,7 @@ end subroutine finite_volume_local
                   !$acc loop vector collapse(ndim-1) 
                   do ix2=1,nxCo2 
                     do ix1=1,nxCo1 
-                  pflux(1,3,n)%flux(ix1,ix2,1,1:nw_flux) = &
+                  pflux(1,3)%flux(ix1,ix2,1,1:nw_flux,n) = &
                     fC3(1,1+2*(ix1-1)+nghostcells,1+2*(ix2-1)+nghostcells,1:nw_flux) &
                    +fC3(1,2+2*(ix1-1)+nghostcells,1+2*(ix2-1)+nghostcells,1:nw_flux) &
                    +fC3(1,1+2*(ix1-1)+nghostcells,2+2*(ix2-1)+nghostcells,1:nw_flux) &
@@ -378,7 +401,7 @@ end subroutine finite_volume_local
                   !$acc loop vector collapse(ndim-1)
                   do ix2=1,nxCo2 
                      do ix1=1,nxCo1 
-                  pflux(2,3,n)%flux(ix1,ix2,1,1:nw_flux) = &
+                  pflux(2,3)%flux(ix1,ix2,1,1:nw_flux,n) = &
                     fC3(2,1+2*(ix1-1)+nghostcells,1+2*(ix2-1)+nghostcells,1:nw_flux) &
                    +fC3(2,2+2*(ix1-1)+nghostcells,1+2*(ix2-1)+nghostcells,1:nw_flux) &
                    +fC3(2,1+2*(ix1-1)+nghostcells,2+2*(ix2-1)+nghostcells,1:nw_flux) &

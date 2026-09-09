@@ -9,13 +9,21 @@ module mod_fix_conserve
   implicit none
   private
 
+!!  type fluxalloc
+!!     double precision, dimension(:,:,:,:), allocatable :: flux
+!!     !!double precision, dimension(:,:,:,:), pointer:: flux => null()
+!!     !!double precision, dimension(:,:,:,:), pointer:: edge => null()
+!!  end type fluxalloc
+!!  !> store flux to fix conservation
+!!  type(fluxalloc), dimension(:,:,:), allocatable, public :: pflux
+
   type fluxalloc
-     double precision, dimension(:,:,:,:), allocatable :: flux
+     double precision, dimension(:,:,:,:,:), allocatable :: flux
      !!double precision, dimension(:,:,:,:), pointer:: flux => null()
      !!double precision, dimension(:,:,:,:), pointer:: edge => null()
   end type fluxalloc
   !> store flux to fix conservation
-  type(fluxalloc), dimension(:,:,:), allocatable, public :: pflux
+  type(fluxalloc), dimension(:,:), allocatable, public :: pflux
 
   integer, save                        :: nrecv, nsend
   double precision, allocatable, save  :: recvbuffer(:), sendbuffer(:)
@@ -233,128 +241,128 @@ module mod_fix_conserve
      integer :: ic1,ic2,ic3, inc1,inc2,inc3, ipe_neighbor
      integer :: pi1,pi2,pi3,mi1,mi2,mi3,ph1,ph2,ph3,mh1,mh2,mh3,idir
 
-     if (nrecv>0) then
-       fc_recvreq=MPI_REQUEST_NULL
-       ibuf=1
-       irecv=0
-
-       do iigrid=1,igridstail; igrid=igrids(iigrid);
-         do idims= idimmin,idimmax
-           do iside=1,2
-             i1=kr(1,idims)*(2*iside-3);i2=kr(2,idims)*(2*iside-3)
-             i3=kr(3,idims)*(2*iside-3);
-
-             if (neighbor_pole(i1,i2,i3,igrid)/=0) cycle
-
-             if (neighbor_type(i1,i2,i3,igrid)/=4) cycle
-             do ic3=1+int((1-i3)/2),2-int((1+i3)/2)
-               inc3=2*i3+ic3
-             do ic2=1+int((1-i2)/2),2-int((1+i2)/2)
-               inc2=2*i2+ic2
-             do ic1=1+int((1-i1)/2),2-int((1+i1)/2)
-               inc1=2*i1+ic1
-               ipe_neighbor=neighbor_child(2,inc1,inc2,inc3,igrid)
-               if (ipe_neighbor/=mype) then
-                 irecv=irecv+1
-                 itag=4**3*(igrid-1)+inc1*4**(1-1)+inc2*4**(2-1)+inc3*4**(3-1)
-                 call mpi_irecv_wrapper(recvbuffer(ibuf),isize(idims),&
-                     MPI_DOUBLE_PRECISION,ipe_neighbor,itag, icomm,&
-                    fc_recvreq(irecv),ierrmpi)
-                 ibuf=ibuf+isize(idims)
-               end if
-             end do
-             end do
-             end do
-           end do
-         end do
-       end do
-     end if
-
-     if(stagger_grid) then
-     ! receive corners
-       if (nrecv_ct>0) then
-         cc_recvreq=MPI_REQUEST_NULL
-         ibuf_cc=1
-         irecv_cc=0
-
-         do iigrid=1,igridstail; igrid=igrids(iigrid);
-           do idims= idimmin,idimmax
-             do iside=1,2
-               i1=kr(1,idims)*(2*iside-3);i2=kr(2,idims)*(2*iside-3)
-               i3=kr(3,idims)*(2*iside-3);
-               ! Check if there are special corners
-               ! (Coarse block diagonal to a fine block)
-               ! If there are, receive.
-               ! Tags are calculated in the same way as for
-               ! normal fluxes, but should not overlap because
-               ! inc^D are different
-               if (neighbor_type(i1,i2,i3,igrid)==3) then
-                 do idir=idims+1,ndim
-                   pi1=i1+kr(idir,1);pi2=i2+kr(idir,2);pi3=i3+kr(idir,3);
-                   mi1=i1-kr(idir,1);mi2=i2-kr(idir,2);mi3=i3-kr(idir,3);
-                   ph1=pi1-kr(idims,1)*(2*iside-3)
-                   ph2=pi2-kr(idims,2)*(2*iside-3)
-                   ph3=pi3-kr(idims,3)*(2*iside-3);
-                   mh1=mi1-kr(idims,1)*(2*iside-3)
-                   mh2=mi2-kr(idims,2)*(2*iside-3)
-                   mh3=mi3-kr(idims,3)*(2*iside-3);
-
-                   if (neighbor_type(pi1,pi2,pi3,&
-                      igrid)==4.and.neighbor_type(ph1,ph2,ph3,&
-                      igrid)==3.and.neighbor_pole(pi1,pi2,pi3,igrid)==0) then
-                      ! Loop on children (several in 3D)
-                    do ic3=1+int((1-pi3)/2),2-int((1+pi3)/2)
-                       inc3=2*pi3+ic3
-                    do ic2=1+int((1-pi2)/2),2-int((1+pi2)/2)
-                       inc2=2*pi2+ic2
-                    do ic1=1+int((1-pi1)/2),2-int((1+pi1)/2)
-                       inc1=2*pi1+ic1
-                       ipe_neighbor=neighbor_child(2,inc1,inc2,inc3,igrid)
-                       if (mype/=ipe_neighbor) then
-                         irecv_cc=irecv_cc+1
-                         itag_cc=4**3*(igrid-1)+inc1*4**(1-1)+inc2*4**(2-1)+&
-                            inc3*4**(3-1)
-                         call mpi_irecv_wrapper(recvbuffer_cc(ibuf_cc),&
-                            isize_stg(idims),MPI_DOUBLE_PRECISION,ipe_neighbor,&
-                            itag_cc,icomm,cc_recvreq(irecv_cc),ierrmpi)
-                         ibuf_cc=ibuf_cc+isize_stg(idims)
-                       end if
-                    end do
-                    end do
-                    end do
-                   end if
-
-                   if (neighbor_type(mi1,mi2,mi3,&
-                      igrid)==4.and.neighbor_type(mh1,mh2,mh3,&
-                      igrid)==3.and.neighbor_pole(mi1,mi2,mi3,igrid)==0) then
-                      ! Loop on children (several in 3D)
-                    do ic3=1+int((1-mi3)/2),2-int((1+mi3)/2)
-                        inc3=2*mi3+ic3
-                    do ic2=1+int((1-mi2)/2),2-int((1+mi2)/2)
-                        inc2=2*mi2+ic2
-                    do ic1=1+int((1-mi1)/2),2-int((1+mi1)/2)
-                        inc1=2*mi1+ic1
-                       ipe_neighbor=neighbor_child(2,inc1,inc2,inc3,igrid)
-                       if (mype/=ipe_neighbor) then
-                         irecv_cc=irecv_cc+1
-                         itag_cc=4**3*(igrid-1)+inc1*4**(1-1)+inc2*4**(2-1)+&
-                            inc3*4**(3-1)
-                         call mpi_irecv_wrapper(recvbuffer_cc(ibuf_cc),&
-                            isize_stg(idims),MPI_DOUBLE_PRECISION,ipe_neighbor,&
-                            itag_cc,icomm,cc_recvreq(irecv_cc),ierrmpi)
-                         ibuf_cc=ibuf_cc+isize_stg(idims)
-                       end if
-                    end do
-                    end do
-                    end do
-                   end if
-                 end do
-               end if
-             end do
-           end do
-         end do
-       end if
-     end if ! end if stagger grid
+!!     if (nrecv>0) then
+!!       fc_recvreq=MPI_REQUEST_NULL
+!!       ibuf=1
+!!       irecv=0
+!!
+!!       do iigrid=1,igridstail; igrid=igrids(iigrid);
+!!         do idims= idimmin,idimmax
+!!           do iside=1,2
+!!             i1=kr(1,idims)*(2*iside-3);i2=kr(2,idims)*(2*iside-3)
+!!             i3=kr(3,idims)*(2*iside-3);
+!!
+!!             if (neighbor_pole(i1,i2,i3,igrid)/=0) cycle
+!!
+!!             if (neighbor_type(i1,i2,i3,igrid)/=4) cycle
+!!             do ic3=1+int((1-i3)/2),2-int((1+i3)/2)
+!!               inc3=2*i3+ic3
+!!             do ic2=1+int((1-i2)/2),2-int((1+i2)/2)
+!!               inc2=2*i2+ic2
+!!             do ic1=1+int((1-i1)/2),2-int((1+i1)/2)
+!!               inc1=2*i1+ic1
+!!               ipe_neighbor=neighbor_child(2,inc1,inc2,inc3,igrid)
+!!               if (ipe_neighbor/=mype) then
+!!                 irecv=irecv+1
+!!                 itag=4**3*(igrid-1)+inc1*4**(1-1)+inc2*4**(2-1)+inc3*4**(3-1)
+!!                 call mpi_irecv_wrapper(recvbuffer(ibuf),isize(idims),&
+!!                     MPI_DOUBLE_PRECISION,ipe_neighbor,itag, icomm,&
+!!                    fc_recvreq(irecv),ierrmpi)
+!!                 ibuf=ibuf+isize(idims)
+!!               end if
+!!             end do
+!!             end do
+!!             end do
+!!           end do
+!!         end do
+!!       end do
+!!     end if
+!!
+!!     if(stagger_grid) then
+!!     ! receive corners
+!!       if (nrecv_ct>0) then
+!!         cc_recvreq=MPI_REQUEST_NULL
+!!         ibuf_cc=1
+!!         irecv_cc=0
+!!
+!!         do iigrid=1,igridstail; igrid=igrids(iigrid);
+!!           do idims= idimmin,idimmax
+!!             do iside=1,2
+!!               i1=kr(1,idims)*(2*iside-3);i2=kr(2,idims)*(2*iside-3)
+!!               i3=kr(3,idims)*(2*iside-3);
+!!               ! Check if there are special corners
+!!               ! (Coarse block diagonal to a fine block)
+!!               ! If there are, receive.
+!!               ! Tags are calculated in the same way as for
+!!               ! normal fluxes, but should not overlap because
+!!               ! inc^D are different
+!!               if (neighbor_type(i1,i2,i3,igrid)==3) then
+!!                 do idir=idims+1,ndim
+!!                   pi1=i1+kr(idir,1);pi2=i2+kr(idir,2);pi3=i3+kr(idir,3);
+!!                   mi1=i1-kr(idir,1);mi2=i2-kr(idir,2);mi3=i3-kr(idir,3);
+!!                   ph1=pi1-kr(idims,1)*(2*iside-3)
+!!                   ph2=pi2-kr(idims,2)*(2*iside-3)
+!!                   ph3=pi3-kr(idims,3)*(2*iside-3);
+!!                   mh1=mi1-kr(idims,1)*(2*iside-3)
+!!                   mh2=mi2-kr(idims,2)*(2*iside-3)
+!!                   mh3=mi3-kr(idims,3)*(2*iside-3);
+!!
+!!                   if (neighbor_type(pi1,pi2,pi3,&
+!!                      igrid)==4.and.neighbor_type(ph1,ph2,ph3,&
+!!                      igrid)==3.and.neighbor_pole(pi1,pi2,pi3,igrid)==0) then
+!!                      ! Loop on children (several in 3D)
+!!                    do ic3=1+int((1-pi3)/2),2-int((1+pi3)/2)
+!!                       inc3=2*pi3+ic3
+!!                    do ic2=1+int((1-pi2)/2),2-int((1+pi2)/2)
+!!                       inc2=2*pi2+ic2
+!!                    do ic1=1+int((1-pi1)/2),2-int((1+pi1)/2)
+!!                       inc1=2*pi1+ic1
+!!                       ipe_neighbor=neighbor_child(2,inc1,inc2,inc3,igrid)
+!!                       if (mype/=ipe_neighbor) then
+!!                         irecv_cc=irecv_cc+1
+!!                         itag_cc=4**3*(igrid-1)+inc1*4**(1-1)+inc2*4**(2-1)+&
+!!                            inc3*4**(3-1)
+!!                         call mpi_irecv_wrapper(recvbuffer_cc(ibuf_cc),&
+!!                            isize_stg(idims),MPI_DOUBLE_PRECISION,ipe_neighbor,&
+!!                            itag_cc,icomm,cc_recvreq(irecv_cc),ierrmpi)
+!!                         ibuf_cc=ibuf_cc+isize_stg(idims)
+!!                       end if
+!!                    end do
+!!                    end do
+!!                    end do
+!!                   end if
+!!
+!!                   if (neighbor_type(mi1,mi2,mi3,&
+!!                      igrid)==4.and.neighbor_type(mh1,mh2,mh3,&
+!!                      igrid)==3.and.neighbor_pole(mi1,mi2,mi3,igrid)==0) then
+!!                      ! Loop on children (several in 3D)
+!!                    do ic3=1+int((1-mi3)/2),2-int((1+mi3)/2)
+!!                        inc3=2*mi3+ic3
+!!                    do ic2=1+int((1-mi2)/2),2-int((1+mi2)/2)
+!!                        inc2=2*mi2+ic2
+!!                    do ic1=1+int((1-mi1)/2),2-int((1+mi1)/2)
+!!                        inc1=2*mi1+ic1
+!!                       ipe_neighbor=neighbor_child(2,inc1,inc2,inc3,igrid)
+!!                       if (mype/=ipe_neighbor) then
+!!                         irecv_cc=irecv_cc+1
+!!                         itag_cc=4**3*(igrid-1)+inc1*4**(1-1)+inc2*4**(2-1)+&
+!!                            inc3*4**(3-1)
+!!                         call mpi_irecv_wrapper(recvbuffer_cc(ibuf_cc),&
+!!                            isize_stg(idims),MPI_DOUBLE_PRECISION,ipe_neighbor,&
+!!                            itag_cc,icomm,cc_recvreq(irecv_cc),ierrmpi)
+!!                         ibuf_cc=ibuf_cc+isize_stg(idims)
+!!                       end if
+!!                    end do
+!!                    end do
+!!                    end do
+!!                   end if
+!!                 end do
+!!               end if
+!!             end do
+!!           end do
+!!         end do
+!!       end if
+!!     end if ! end if stagger grid
 
    end subroutine recvflux
 
@@ -369,339 +377,339 @@ module mod_fix_conserve
      integer :: idir, ibuf_cc_send_next, pi1,pi2,pi3, ph1,ph2,ph3, mi1,mi2,mi3,&
          mh1,mh2,mh3
 
-     fc_sendreq = MPI_REQUEST_NULL
-     isend      = 0
-     if(stagger_grid) then
-       ibuf_send  = 1
-       cc_sendreq=MPI_REQUEST_NULL
-       isend_cc=0
-       ibuf_cc_send=1
-     end if
-
-     do iigrid=1,igridstail; igrid=igrids(iigrid);
-       do idims = idimmin,idimmax
-         select case (idims)
-        case (1)
-           do iside=1,2
-             i1=kr(1,1)*(2*iside-3);i2=kr(2,1)*(2*iside-3)
-             i3=kr(3,1)*(2*iside-3);
-
-             if (neighbor_pole(i1,i2,i3,igrid)/=0) cycle
-
-             if (neighbor_type(i1,i2,i3,igrid)==neighbor_coarse) then
-               ! send flux to coarser neighbor
-               ineighbor=neighbor(1,i1,i2,i3,igrid)
-               ipe_neighbor=neighbor(2,i1,i2,i3,igrid)
-               if (ipe_neighbor/=mype) then
-                 ic1=1+modulo(node(pig1_,igrid)-1,2)
-                 ic2=1+modulo(node(pig2_,igrid)-1,2)
-                 ic3=1+modulo(node(pig3_,igrid)-1,2);
-                 inc1=-2*i1+ic1;inc2=ic2;inc3=ic3;
-                 itag=4**3*(ineighbor-1)+inc1*4**(1-1)+inc2*4**(2-1)+&
-                    inc3*4**(3-1)
-                 isend=isend+1
-
-                 if(stagger_grid) then
-                 !!  ibuf_send_next=ibuf_send+isize(1)
-                 !!  sendbuffer(ibuf_send:ibuf_send_next-isize_stg(1)-&
-                 !!     1)=reshape(pflux(iside,1,igrid)%flux,&
-                 !!     (/isize(1)-isize_stg(1)/))
-
-                 !!  sendbuffer(ibuf_send_next-isize_stg(1):ibuf_send_next-&
-                 !!     1)=reshape(pflux(iside,1,igrid)%edge,(/isize_stg(1)/))
-                 !!  call mpi_isend_wrapper(sendbuffer(ibuf_send),isize(1),&
-                 !!      MPI_DOUBLE_PRECISION,ipe_neighbor,itag, icomm,&
-                 !!     fc_sendreq(isend),ierrmpi)
-                 !!  ibuf_send=ibuf_send_next
-                 else
-                   call mpi_isend_wrapper(pflux(iside,1,igrid)%flux,isize(1),&
-                       MPI_DOUBLE_PRECISION,ipe_neighbor,itag, icomm,&
-                      fc_sendreq(isend),ierrmpi)
-                 end if
-               end if
-
-               !!if(stagger_grid) then
-               !!  ! If we are in a fine block surrounded by coarse blocks
-               !!  do idir=idims+1,ndim
-               !!    pi1=i1+kr(idir,1);pi2=i2+kr(idir,2);pi3=i3+kr(idir,3);
-               !!    mi1=i1-kr(idir,1);mi2=i2-kr(idir,2);mi3=i3-kr(idir,3);
-               !!    ph1=pi1-kr(idims,1)*(2*iside-3)
-               !!    ph2=pi2-kr(idims,2)*(2*iside-3)
-               !!    ph3=pi3-kr(idims,3)*(2*iside-3);
-               !!    mh1=mi1-kr(idims,1)*(2*iside-3)
-               !!    mh2=mi2-kr(idims,2)*(2*iside-3)
-               !!    mh3=mi3-kr(idims,3)*(2*iside-3);
-
-               !!    if (neighbor_type(pi1,pi2,pi3,&
-               !!       igrid)==2.and.neighbor_type(ph1,ph2,ph3,&
-               !!       igrid)==2.and.mype/=neighbor(2,pi1,pi2,pi3,&
-               !!       igrid).and.neighbor_pole(pi1,pi2,pi3,igrid)==0) then
-               !!      ! Get relative position in the grid for tags
-               !!      ineighbor=neighbor(1,pi1,pi2,pi3,igrid)
-               !!      ipe_neighbor=neighbor(2,pi1,pi2,pi3,igrid)
-               !!      ic1=1+modulo(node(pig1_,igrid)-1,2)
-               !!      ic2=1+modulo(node(pig2_,igrid)-1,2)
-               !!      ic3=1+modulo(node(pig3_,igrid)-1,2);
-               !!      inc1=-2*pi1+ic1;inc2=-2*pi2+ic2;inc3=-2*pi3+ic3;
-               !!      itag_cc=4**3*(ineighbor-1)+inc1*4**(1-1)+inc2*4**(2-1)+&
-               !!         inc3*4**(3-1)
-               !!      ! Reshape to buffer and send
-               !!      isend_cc=isend_cc+1
-               !!      ibuf_cc_send_next=ibuf_cc_send+isize_stg(1)
-               !!      sendbuffer_cc(ibuf_cc_send:ibuf_cc_send_next-&
-               !!         1)=reshape(pflux(iside,1,igrid)%edge,&
-               !!         shape=(/isize_stg(1)/))
-               !!      call mpi_isend_wrapper(sendbuffer_cc(ibuf_cc_send),isize_stg(1),&
-               !!         MPI_DOUBLE_PRECISION,ipe_neighbor,itag_cc,icomm,&
-               !!         cc_sendreq(isend_cc),ierrmpi)
-               !!      ibuf_cc_send=ibuf_cc_send_next
-               !!    end if
-
-               !!    if (neighbor_type(mi1,mi2,mi3,&
-               !!       igrid)==2.and.neighbor_type(mh1,mh2,mh3,&
-               !!       igrid)==2.and.mype/=neighbor(2,mi1,mi2,mi3,&
-               !!       igrid).and.neighbor_pole(mi1,mi2,mi3,igrid)==0) then
-               !!      ! Get relative position in the grid for tags
-               !!      ineighbor=neighbor(1,mi1,mi2,mi3,igrid)
-               !!      ipe_neighbor=neighbor(2,mi1,mi2,mi3,igrid)
-               !!      ic1=1+modulo(node(pig1_,igrid)-1,2)
-               !!      ic2=1+modulo(node(pig2_,igrid)-1,2)
-               !!      ic3=1+modulo(node(pig3_,igrid)-1,2);
-               !!      inc1=-2*pi1+ic1;inc2=-2*pi2+ic2;inc3=-2*pi3+ic3;
-               !!      inc1=-2*mi1+ic1;inc2=-2*mi2+ic2;inc3=-2*mi3+ic3;
-               !!      itag_cc=4**3*(ineighbor-1)+inc1*4**(1-1)+inc2*4**(2-1)+&
-               !!         inc3*4**(3-1)
-               !!      ! Reshape to buffer and send
-               !!      isend_cc=isend_cc+1
-               !!      ibuf_cc_send_next=ibuf_cc_send+isize_stg(1)
-               !!      sendbuffer_cc(ibuf_cc_send:ibuf_cc_send_next-&
-               !!         1)=reshape(pflux(iside,1,igrid)%edge,&
-               !!         shape=(/isize_stg(1)/))
-               !!      call mpi_isend_wrapper(sendbuffer_cc(ibuf_cc_send),isize_stg(1),&
-               !!         MPI_DOUBLE_PRECISION,ipe_neighbor,itag_cc,icomm,&
-               !!         cc_sendreq(isend_cc),ierrmpi)
-               !!      ibuf_cc_send=ibuf_cc_send_next
-               !!    end if
-               !!  end do
-               !!end if ! end if stagger grid
-
-             end if
-           end do
-        case (2)
-           do iside=1,2
-             i1=kr(1,2)*(2*iside-3);i2=kr(2,2)*(2*iside-3)
-             i3=kr(3,2)*(2*iside-3);
-
-             if (neighbor_pole(i1,i2,i3,igrid)/=0) cycle
-
-             if (neighbor_type(i1,i2,i3,igrid)==neighbor_coarse) then
-               ! send flux to coarser neighbor
-               ineighbor=neighbor(1,i1,i2,i3,igrid)
-               ipe_neighbor=neighbor(2,i1,i2,i3,igrid)
-               if (ipe_neighbor/=mype) then
-                 ic1=1+modulo(node(pig1_,igrid)-1,2)
-                 ic2=1+modulo(node(pig2_,igrid)-1,2)
-                 ic3=1+modulo(node(pig3_,igrid)-1,2);
-                 inc1=ic1;inc2=-2*i2+ic2;inc3=ic3;
-                 itag=4**3*(ineighbor-1)+inc1*4**(1-1)+inc2*4**(2-1)+&
-                    inc3*4**(3-1)
-                 isend=isend+1
-
-                 if(stagger_grid) then
-                 !!  ibuf_send_next=ibuf_send+isize(2)
-                 !!  sendbuffer(ibuf_send:ibuf_send_next-isize_stg(2)-&
-                 !!     1)=reshape(pflux(iside,2,igrid)%flux,&
-                 !!     (/isize(2)-isize_stg(2)/))
-
-                 !!  sendbuffer(ibuf_send_next-isize_stg(2):ibuf_send_next-&
-                 !!     1)=reshape(pflux(iside,2,igrid)%edge,(/isize_stg(2)/))
-                 !!  call mpi_isend_wrapper(sendbuffer(ibuf_send),isize(2),&
-                 !!      MPI_DOUBLE_PRECISION,ipe_neighbor,itag, icomm,&
-                 !!     fc_sendreq(isend),ierrmpi)
-                 !!  ibuf_send=ibuf_send_next
-                 else
-                   call mpi_isend_wrapper(pflux(iside,2,igrid)%flux,isize(2),&
-                       MPI_DOUBLE_PRECISION,ipe_neighbor,itag, icomm,&
-                      fc_sendreq(isend),ierrmpi)
-                 end if
-               end if
-
-               !!if(stagger_grid) then
-               !!  ! If we are in a fine block surrounded by coarse blocks
-               !!  do idir=idims+1,ndim
-               !!    pi1=i1+kr(idir,1);pi2=i2+kr(idir,2);pi3=i3+kr(idir,3);
-               !!    mi1=i1-kr(idir,1);mi2=i2-kr(idir,2);mi3=i3-kr(idir,3);
-               !!    ph1=pi1-kr(idims,1)*(2*iside-3)
-               !!    ph2=pi2-kr(idims,2)*(2*iside-3)
-               !!    ph3=pi3-kr(idims,3)*(2*iside-3);
-               !!    mh1=mi1-kr(idims,1)*(2*iside-3)
-               !!    mh2=mi2-kr(idims,2)*(2*iside-3)
-               !!    mh3=mi3-kr(idims,3)*(2*iside-3);
-
-               !!    if (neighbor_type(pi1,pi2,pi3,&
-               !!       igrid)==2.and.neighbor_type(ph1,ph2,ph3,&
-               !!       igrid)==2.and.mype/=neighbor(2,pi1,pi2,pi3,&
-               !!       igrid).and.neighbor_pole(pi1,pi2,pi3,igrid)==0) then
-               !!      ! Get relative position in the grid for tags
-               !!      ineighbor=neighbor(1,pi1,pi2,pi3,igrid)
-               !!      ipe_neighbor=neighbor(2,pi1,pi2,pi3,igrid)
-               !!      ic1=1+modulo(node(pig1_,igrid)-1,2)
-               !!      ic2=1+modulo(node(pig2_,igrid)-1,2)
-               !!      ic3=1+modulo(node(pig3_,igrid)-1,2);
-               !!      inc1=-2*pi1+ic1;inc2=-2*pi2+ic2;inc3=-2*pi3+ic3;
-               !!      itag_cc=4**3*(ineighbor-1)+inc1*4**(1-1)+inc2*4**(2-1)+&
-               !!         inc3*4**(3-1)
-               !!      ! Reshape to buffer and send
-               !!      isend_cc=isend_cc+1
-               !!      ibuf_cc_send_next=ibuf_cc_send+isize_stg(2)
-               !!      sendbuffer_cc(ibuf_cc_send:ibuf_cc_send_next-&
-               !!         1)=reshape(pflux(iside,2,igrid)%edge,&
-               !!         shape=(/isize_stg(2)/))
-               !!      call mpi_isend_wrapper(sendbuffer_cc(ibuf_cc_send),isize_stg(2),&
-               !!         MPI_DOUBLE_PRECISION,ipe_neighbor,itag_cc,icomm,&
-               !!         cc_sendreq(isend_cc),ierrmpi)
-               !!      ibuf_cc_send=ibuf_cc_send_next
-               !!    end if
-
-               !!    if (neighbor_type(mi1,mi2,mi3,&
-               !!       igrid)==2.and.neighbor_type(mh1,mh2,mh3,&
-               !!       igrid)==2.and.mype/=neighbor(2,mi1,mi2,mi3,&
-               !!       igrid).and.neighbor_pole(mi1,mi2,mi3,igrid)==0) then
-               !!      ! Get relative position in the grid for tags
-               !!      ineighbor=neighbor(1,mi1,mi2,mi3,igrid)
-               !!      ipe_neighbor=neighbor(2,mi1,mi2,mi3,igrid)
-               !!      ic1=1+modulo(node(pig1_,igrid)-1,2)
-               !!      ic2=1+modulo(node(pig2_,igrid)-1,2)
-               !!      ic3=1+modulo(node(pig3_,igrid)-1,2);
-               !!      inc1=-2*pi1+ic1;inc2=-2*pi2+ic2;inc3=-2*pi3+ic3;
-               !!      inc1=-2*mi1+ic1;inc2=-2*mi2+ic2;inc3=-2*mi3+ic3;
-               !!      itag_cc=4**3*(ineighbor-1)+inc1*4**(1-1)+inc2*4**(2-1)+&
-               !!         inc3*4**(3-1)
-               !!      ! Reshape to buffer and send
-               !!      isend_cc=isend_cc+1
-               !!      ibuf_cc_send_next=ibuf_cc_send+isize_stg(2)
-               !!      sendbuffer_cc(ibuf_cc_send:ibuf_cc_send_next-&
-               !!         1)=reshape(pflux(iside,2,igrid)%edge,&
-               !!         shape=(/isize_stg(2)/))
-               !!      call mpi_isend_wrapper(sendbuffer_cc(ibuf_cc_send),isize_stg(2),&
-               !!         MPI_DOUBLE_PRECISION,ipe_neighbor,itag_cc,icomm,&
-               !!         cc_sendreq(isend_cc),ierrmpi)
-               !!      ibuf_cc_send=ibuf_cc_send_next
-               !!    end if
-               !!  end do
-               !!end if ! end if stagger grid
-
-             end if
-           end do
-        case (3)
-           do iside=1,2
-             i1=kr(1,3)*(2*iside-3);i2=kr(2,3)*(2*iside-3)
-             i3=kr(3,3)*(2*iside-3);
-
-             if (neighbor_pole(i1,i2,i3,igrid)/=0) cycle
-
-             if (neighbor_type(i1,i2,i3,igrid)==neighbor_coarse) then
-               ! send flux to coarser neighbor
-               ineighbor=neighbor(1,i1,i2,i3,igrid)
-               ipe_neighbor=neighbor(2,i1,i2,i3,igrid)
-               if (ipe_neighbor/=mype) then
-                 ic1=1+modulo(node(pig1_,igrid)-1,2)
-                 ic2=1+modulo(node(pig2_,igrid)-1,2)
-                 ic3=1+modulo(node(pig3_,igrid)-1,2);
-                 inc1=ic1;inc2=ic2;inc3=-2*i3+ic3;
-                 itag=4**3*(ineighbor-1)+inc1*4**(1-1)+inc2*4**(2-1)+&
-                    inc3*4**(3-1)
-                 isend=isend+1
-
-                 if(stagger_grid) then
-                 !!  ibuf_send_next=ibuf_send+isize(3)
-                 !!  sendbuffer(ibuf_send:ibuf_send_next-isize_stg(3)-&
-                 !!     1)=reshape(pflux(iside,3,igrid)%flux,&
-                 !!     (/isize(3)-isize_stg(3)/))
-
-                 !!  sendbuffer(ibuf_send_next-isize_stg(3):ibuf_send_next-&
-                 !!     1)=reshape(pflux(iside,3,igrid)%edge,(/isize_stg(3)/))
-                 !!  call mpi_isend_wrapper(sendbuffer(ibuf_send),isize(3),&
-                 !!      MPI_DOUBLE_PRECISION,ipe_neighbor,itag, icomm,&
-                 !!     fc_sendreq(isend),ierrmpi)
-                 !!  ibuf_send=ibuf_send_next
-                 else
-                   call mpi_isend_wrapper(pflux(iside,3,igrid)%flux,isize(3),&
-                       MPI_DOUBLE_PRECISION,ipe_neighbor,itag, icomm,&
-                      fc_sendreq(isend),ierrmpi)
-                 end if
-               end if
-
-               !!if(stagger_grid) then
-               !!  ! If we are in a fine block surrounded by coarse blocks
-               !!  do idir=idims+1,ndim
-               !!    pi1=i1+kr(idir,1);pi2=i2+kr(idir,2);pi3=i3+kr(idir,3);
-               !!    mi1=i1-kr(idir,1);mi2=i2-kr(idir,2);mi3=i3-kr(idir,3);
-               !!    ph1=pi1-kr(idims,1)*(2*iside-3)
-               !!    ph2=pi2-kr(idims,2)*(2*iside-3)
-               !!    ph3=pi3-kr(idims,3)*(2*iside-3);
-               !!    mh1=mi1-kr(idims,1)*(2*iside-3)
-               !!    mh2=mi2-kr(idims,2)*(2*iside-3)
-               !!    mh3=mi3-kr(idims,3)*(2*iside-3);
-
-               !!    if (neighbor_type(pi1,pi2,pi3,&
-               !!       igrid)==2.and.neighbor_type(ph1,ph2,ph3,&
-               !!       igrid)==2.and.mype/=neighbor(2,pi1,pi2,pi3,&
-               !!       igrid).and.neighbor_pole(pi1,pi2,pi3,igrid)==0) then
-               !!      ! Get relative position in the grid for tags
-               !!      ineighbor=neighbor(1,pi1,pi2,pi3,igrid)
-               !!      ipe_neighbor=neighbor(2,pi1,pi2,pi3,igrid)
-               !!      ic1=1+modulo(node(pig1_,igrid)-1,2)
-               !!      ic2=1+modulo(node(pig2_,igrid)-1,2)
-               !!      ic3=1+modulo(node(pig3_,igrid)-1,2);
-               !!      inc1=-2*pi1+ic1;inc2=-2*pi2+ic2;inc3=-2*pi3+ic3;
-               !!      itag_cc=4**3*(ineighbor-1)+inc1*4**(1-1)+inc2*4**(2-1)+&
-               !!         inc3*4**(3-1)
-               !!      ! Reshape to buffer and send
-               !!      isend_cc=isend_cc+1
-               !!      ibuf_cc_send_next=ibuf_cc_send+isize_stg(3)
-               !!      sendbuffer_cc(ibuf_cc_send:ibuf_cc_send_next-&
-               !!         1)=reshape(pflux(iside,3,igrid)%edge,&
-               !!         shape=(/isize_stg(3)/))
-               !!      call mpi_isend_wrapper(sendbuffer_cc(ibuf_cc_send),isize_stg(3),&
-               !!         MPI_DOUBLE_PRECISION,ipe_neighbor,itag_cc,icomm,&
-               !!         cc_sendreq(isend_cc),ierrmpi)
-               !!      ibuf_cc_send=ibuf_cc_send_next
-               !!    end if
-
-               !!    if (neighbor_type(mi1,mi2,mi3,&
-               !!       igrid)==2.and.neighbor_type(mh1,mh2,mh3,&
-               !!       igrid)==2.and.mype/=neighbor(2,mi1,mi2,mi3,&
-               !!       igrid).and.neighbor_pole(mi1,mi2,mi3,igrid)==0) then
-               !!      ! Get relative position in the grid for tags
-               !!      ineighbor=neighbor(1,mi1,mi2,mi3,igrid)
-               !!      ipe_neighbor=neighbor(2,mi1,mi2,mi3,igrid)
-               !!      ic1=1+modulo(node(pig1_,igrid)-1,2)
-               !!      ic2=1+modulo(node(pig2_,igrid)-1,2)
-               !!      ic3=1+modulo(node(pig3_,igrid)-1,2);
-               !!      inc1=-2*pi1+ic1;inc2=-2*pi2+ic2;inc3=-2*pi3+ic3;
-               !!      inc1=-2*mi1+ic1;inc2=-2*mi2+ic2;inc3=-2*mi3+ic3;
-               !!      itag_cc=4**3*(ineighbor-1)+inc1*4**(1-1)+inc2*4**(2-1)+&
-               !!         inc3*4**(3-1)
-               !!      ! Reshape to buffer and send
-               !!      isend_cc=isend_cc+1
-               !!      ibuf_cc_send_next=ibuf_cc_send+isize_stg(3)
-               !!      sendbuffer_cc(ibuf_cc_send:ibuf_cc_send_next-&
-               !!         1)=reshape(pflux(iside,3,igrid)%edge,&
-               !!         shape=(/isize_stg(3)/))
-               !!      call mpi_isend_wrapper(sendbuffer_cc(ibuf_cc_send),isize_stg(3),&
-               !!         MPI_DOUBLE_PRECISION,ipe_neighbor,itag_cc,icomm,&
-               !!         cc_sendreq(isend_cc),ierrmpi)
-               !!      ibuf_cc_send=ibuf_cc_send_next
-               !!    end if
-               !!  end do
-               !!end if ! end if stagger grid
-
-             end if
-           end do
-         end select
-       end do
-     end do
+!!     fc_sendreq = MPI_REQUEST_NULL
+!!     isend      = 0
+!!     if(stagger_grid) then
+!!       ibuf_send  = 1
+!!       cc_sendreq=MPI_REQUEST_NULL
+!!       isend_cc=0
+!!       ibuf_cc_send=1
+!!     end if
+!!
+!!     do iigrid=1,igridstail; igrid=igrids(iigrid);
+!!       do idims = idimmin,idimmax
+!!         select case (idims)
+!!        case (1)
+!!           do iside=1,2
+!!             i1=kr(1,1)*(2*iside-3);i2=kr(2,1)*(2*iside-3)
+!!             i3=kr(3,1)*(2*iside-3);
+!!
+!!             if (neighbor_pole(i1,i2,i3,igrid)/=0) cycle
+!!
+!!             if (neighbor_type(i1,i2,i3,igrid)==neighbor_coarse) then
+!!               ! send flux to coarser neighbor
+!!               ineighbor=neighbor(1,i1,i2,i3,igrid)
+!!               ipe_neighbor=neighbor(2,i1,i2,i3,igrid)
+!!               if (ipe_neighbor/=mype) then
+!!                 ic1=1+modulo(node(pig1_,igrid)-1,2)
+!!                 ic2=1+modulo(node(pig2_,igrid)-1,2)
+!!                 ic3=1+modulo(node(pig3_,igrid)-1,2);
+!!                 inc1=-2*i1+ic1;inc2=ic2;inc3=ic3;
+!!                 itag=4**3*(ineighbor-1)+inc1*4**(1-1)+inc2*4**(2-1)+&
+!!                    inc3*4**(3-1)
+!!                 isend=isend+1
+!!
+!!                 if(stagger_grid) then
+!!                 !!  ibuf_send_next=ibuf_send+isize(1)
+!!                 !!  sendbuffer(ibuf_send:ibuf_send_next-isize_stg(1)-&
+!!                 !!     1)=reshape(pflux(iside,1,igrid)%flux,&
+!!                 !!     (/isize(1)-isize_stg(1)/))
+!!
+!!                 !!  sendbuffer(ibuf_send_next-isize_stg(1):ibuf_send_next-&
+!!                 !!     1)=reshape(pflux(iside,1,igrid)%edge,(/isize_stg(1)/))
+!!                 !!  call mpi_isend_wrapper(sendbuffer(ibuf_send),isize(1),&
+!!                 !!      MPI_DOUBLE_PRECISION,ipe_neighbor,itag, icomm,&
+!!                 !!     fc_sendreq(isend),ierrmpi)
+!!                 !!  ibuf_send=ibuf_send_next
+!!                 else
+!!                   call mpi_isend_wrapper(pflux(iside,1,igrid)%flux,isize(1),&
+!!                       MPI_DOUBLE_PRECISION,ipe_neighbor,itag, icomm,&
+!!                      fc_sendreq(isend),ierrmpi)
+!!                 end if
+!!               end if
+!!
+!!               !!if(stagger_grid) then
+!!               !!  ! If we are in a fine block surrounded by coarse blocks
+!!               !!  do idir=idims+1,ndim
+!!               !!    pi1=i1+kr(idir,1);pi2=i2+kr(idir,2);pi3=i3+kr(idir,3);
+!!               !!    mi1=i1-kr(idir,1);mi2=i2-kr(idir,2);mi3=i3-kr(idir,3);
+!!               !!    ph1=pi1-kr(idims,1)*(2*iside-3)
+!!               !!    ph2=pi2-kr(idims,2)*(2*iside-3)
+!!               !!    ph3=pi3-kr(idims,3)*(2*iside-3);
+!!               !!    mh1=mi1-kr(idims,1)*(2*iside-3)
+!!               !!    mh2=mi2-kr(idims,2)*(2*iside-3)
+!!               !!    mh3=mi3-kr(idims,3)*(2*iside-3);
+!!
+!!               !!    if (neighbor_type(pi1,pi2,pi3,&
+!!               !!       igrid)==2.and.neighbor_type(ph1,ph2,ph3,&
+!!               !!       igrid)==2.and.mype/=neighbor(2,pi1,pi2,pi3,&
+!!               !!       igrid).and.neighbor_pole(pi1,pi2,pi3,igrid)==0) then
+!!               !!      ! Get relative position in the grid for tags
+!!               !!      ineighbor=neighbor(1,pi1,pi2,pi3,igrid)
+!!               !!      ipe_neighbor=neighbor(2,pi1,pi2,pi3,igrid)
+!!               !!      ic1=1+modulo(node(pig1_,igrid)-1,2)
+!!               !!      ic2=1+modulo(node(pig2_,igrid)-1,2)
+!!               !!      ic3=1+modulo(node(pig3_,igrid)-1,2);
+!!               !!      inc1=-2*pi1+ic1;inc2=-2*pi2+ic2;inc3=-2*pi3+ic3;
+!!               !!      itag_cc=4**3*(ineighbor-1)+inc1*4**(1-1)+inc2*4**(2-1)+&
+!!               !!         inc3*4**(3-1)
+!!               !!      ! Reshape to buffer and send
+!!               !!      isend_cc=isend_cc+1
+!!               !!      ibuf_cc_send_next=ibuf_cc_send+isize_stg(1)
+!!               !!      sendbuffer_cc(ibuf_cc_send:ibuf_cc_send_next-&
+!!               !!         1)=reshape(pflux(iside,1,igrid)%edge,&
+!!               !!         shape=(/isize_stg(1)/))
+!!               !!      call mpi_isend_wrapper(sendbuffer_cc(ibuf_cc_send),isize_stg(1),&
+!!               !!         MPI_DOUBLE_PRECISION,ipe_neighbor,itag_cc,icomm,&
+!!               !!         cc_sendreq(isend_cc),ierrmpi)
+!!               !!      ibuf_cc_send=ibuf_cc_send_next
+!!               !!    end if
+!!
+!!               !!    if (neighbor_type(mi1,mi2,mi3,&
+!!               !!       igrid)==2.and.neighbor_type(mh1,mh2,mh3,&
+!!               !!       igrid)==2.and.mype/=neighbor(2,mi1,mi2,mi3,&
+!!               !!       igrid).and.neighbor_pole(mi1,mi2,mi3,igrid)==0) then
+!!               !!      ! Get relative position in the grid for tags
+!!               !!      ineighbor=neighbor(1,mi1,mi2,mi3,igrid)
+!!               !!      ipe_neighbor=neighbor(2,mi1,mi2,mi3,igrid)
+!!               !!      ic1=1+modulo(node(pig1_,igrid)-1,2)
+!!               !!      ic2=1+modulo(node(pig2_,igrid)-1,2)
+!!               !!      ic3=1+modulo(node(pig3_,igrid)-1,2);
+!!               !!      inc1=-2*pi1+ic1;inc2=-2*pi2+ic2;inc3=-2*pi3+ic3;
+!!               !!      inc1=-2*mi1+ic1;inc2=-2*mi2+ic2;inc3=-2*mi3+ic3;
+!!               !!      itag_cc=4**3*(ineighbor-1)+inc1*4**(1-1)+inc2*4**(2-1)+&
+!!               !!         inc3*4**(3-1)
+!!               !!      ! Reshape to buffer and send
+!!               !!      isend_cc=isend_cc+1
+!!               !!      ibuf_cc_send_next=ibuf_cc_send+isize_stg(1)
+!!               !!      sendbuffer_cc(ibuf_cc_send:ibuf_cc_send_next-&
+!!               !!         1)=reshape(pflux(iside,1,igrid)%edge,&
+!!               !!         shape=(/isize_stg(1)/))
+!!               !!      call mpi_isend_wrapper(sendbuffer_cc(ibuf_cc_send),isize_stg(1),&
+!!               !!         MPI_DOUBLE_PRECISION,ipe_neighbor,itag_cc,icomm,&
+!!               !!         cc_sendreq(isend_cc),ierrmpi)
+!!               !!      ibuf_cc_send=ibuf_cc_send_next
+!!               !!    end if
+!!               !!  end do
+!!               !!end if ! end if stagger grid
+!!
+!!             end if
+!!           end do
+!!        case (2)
+!!           do iside=1,2
+!!             i1=kr(1,2)*(2*iside-3);i2=kr(2,2)*(2*iside-3)
+!!             i3=kr(3,2)*(2*iside-3);
+!!
+!!             if (neighbor_pole(i1,i2,i3,igrid)/=0) cycle
+!!
+!!             if (neighbor_type(i1,i2,i3,igrid)==neighbor_coarse) then
+!!               ! send flux to coarser neighbor
+!!               ineighbor=neighbor(1,i1,i2,i3,igrid)
+!!               ipe_neighbor=neighbor(2,i1,i2,i3,igrid)
+!!               if (ipe_neighbor/=mype) then
+!!                 ic1=1+modulo(node(pig1_,igrid)-1,2)
+!!                 ic2=1+modulo(node(pig2_,igrid)-1,2)
+!!                 ic3=1+modulo(node(pig3_,igrid)-1,2);
+!!                 inc1=ic1;inc2=-2*i2+ic2;inc3=ic3;
+!!                 itag=4**3*(ineighbor-1)+inc1*4**(1-1)+inc2*4**(2-1)+&
+!!                    inc3*4**(3-1)
+!!                 isend=isend+1
+!!
+!!                 if(stagger_grid) then
+!!                 !!  ibuf_send_next=ibuf_send+isize(2)
+!!                 !!  sendbuffer(ibuf_send:ibuf_send_next-isize_stg(2)-&
+!!                 !!     1)=reshape(pflux(iside,2,igrid)%flux,&
+!!                 !!     (/isize(2)-isize_stg(2)/))
+!!
+!!                 !!  sendbuffer(ibuf_send_next-isize_stg(2):ibuf_send_next-&
+!!                 !!     1)=reshape(pflux(iside,2,igrid)%edge,(/isize_stg(2)/))
+!!                 !!  call mpi_isend_wrapper(sendbuffer(ibuf_send),isize(2),&
+!!                 !!      MPI_DOUBLE_PRECISION,ipe_neighbor,itag, icomm,&
+!!                 !!     fc_sendreq(isend),ierrmpi)
+!!                 !!  ibuf_send=ibuf_send_next
+!!                 else
+!!                   call mpi_isend_wrapper(pflux(iside,2,igrid)%flux,isize(2),&
+!!                       MPI_DOUBLE_PRECISION,ipe_neighbor,itag, icomm,&
+!!                      fc_sendreq(isend),ierrmpi)
+!!                 end if
+!!               end if
+!!
+!!               !!if(stagger_grid) then
+!!               !!  ! If we are in a fine block surrounded by coarse blocks
+!!               !!  do idir=idims+1,ndim
+!!               !!    pi1=i1+kr(idir,1);pi2=i2+kr(idir,2);pi3=i3+kr(idir,3);
+!!               !!    mi1=i1-kr(idir,1);mi2=i2-kr(idir,2);mi3=i3-kr(idir,3);
+!!               !!    ph1=pi1-kr(idims,1)*(2*iside-3)
+!!               !!    ph2=pi2-kr(idims,2)*(2*iside-3)
+!!               !!    ph3=pi3-kr(idims,3)*(2*iside-3);
+!!               !!    mh1=mi1-kr(idims,1)*(2*iside-3)
+!!               !!    mh2=mi2-kr(idims,2)*(2*iside-3)
+!!               !!    mh3=mi3-kr(idims,3)*(2*iside-3);
+!!
+!!               !!    if (neighbor_type(pi1,pi2,pi3,&
+!!               !!       igrid)==2.and.neighbor_type(ph1,ph2,ph3,&
+!!               !!       igrid)==2.and.mype/=neighbor(2,pi1,pi2,pi3,&
+!!               !!       igrid).and.neighbor_pole(pi1,pi2,pi3,igrid)==0) then
+!!               !!      ! Get relative position in the grid for tags
+!!               !!      ineighbor=neighbor(1,pi1,pi2,pi3,igrid)
+!!               !!      ipe_neighbor=neighbor(2,pi1,pi2,pi3,igrid)
+!!               !!      ic1=1+modulo(node(pig1_,igrid)-1,2)
+!!               !!      ic2=1+modulo(node(pig2_,igrid)-1,2)
+!!               !!      ic3=1+modulo(node(pig3_,igrid)-1,2);
+!!               !!      inc1=-2*pi1+ic1;inc2=-2*pi2+ic2;inc3=-2*pi3+ic3;
+!!               !!      itag_cc=4**3*(ineighbor-1)+inc1*4**(1-1)+inc2*4**(2-1)+&
+!!               !!         inc3*4**(3-1)
+!!               !!      ! Reshape to buffer and send
+!!               !!      isend_cc=isend_cc+1
+!!               !!      ibuf_cc_send_next=ibuf_cc_send+isize_stg(2)
+!!               !!      sendbuffer_cc(ibuf_cc_send:ibuf_cc_send_next-&
+!!               !!         1)=reshape(pflux(iside,2,igrid)%edge,&
+!!               !!         shape=(/isize_stg(2)/))
+!!               !!      call mpi_isend_wrapper(sendbuffer_cc(ibuf_cc_send),isize_stg(2),&
+!!               !!         MPI_DOUBLE_PRECISION,ipe_neighbor,itag_cc,icomm,&
+!!               !!         cc_sendreq(isend_cc),ierrmpi)
+!!               !!      ibuf_cc_send=ibuf_cc_send_next
+!!               !!    end if
+!!
+!!               !!    if (neighbor_type(mi1,mi2,mi3,&
+!!               !!       igrid)==2.and.neighbor_type(mh1,mh2,mh3,&
+!!               !!       igrid)==2.and.mype/=neighbor(2,mi1,mi2,mi3,&
+!!               !!       igrid).and.neighbor_pole(mi1,mi2,mi3,igrid)==0) then
+!!               !!      ! Get relative position in the grid for tags
+!!               !!      ineighbor=neighbor(1,mi1,mi2,mi3,igrid)
+!!               !!      ipe_neighbor=neighbor(2,mi1,mi2,mi3,igrid)
+!!               !!      ic1=1+modulo(node(pig1_,igrid)-1,2)
+!!               !!      ic2=1+modulo(node(pig2_,igrid)-1,2)
+!!               !!      ic3=1+modulo(node(pig3_,igrid)-1,2);
+!!               !!      inc1=-2*pi1+ic1;inc2=-2*pi2+ic2;inc3=-2*pi3+ic3;
+!!               !!      inc1=-2*mi1+ic1;inc2=-2*mi2+ic2;inc3=-2*mi3+ic3;
+!!               !!      itag_cc=4**3*(ineighbor-1)+inc1*4**(1-1)+inc2*4**(2-1)+&
+!!               !!         inc3*4**(3-1)
+!!               !!      ! Reshape to buffer and send
+!!               !!      isend_cc=isend_cc+1
+!!               !!      ibuf_cc_send_next=ibuf_cc_send+isize_stg(2)
+!!               !!      sendbuffer_cc(ibuf_cc_send:ibuf_cc_send_next-&
+!!               !!         1)=reshape(pflux(iside,2,igrid)%edge,&
+!!               !!         shape=(/isize_stg(2)/))
+!!               !!      call mpi_isend_wrapper(sendbuffer_cc(ibuf_cc_send),isize_stg(2),&
+!!               !!         MPI_DOUBLE_PRECISION,ipe_neighbor,itag_cc,icomm,&
+!!               !!         cc_sendreq(isend_cc),ierrmpi)
+!!               !!      ibuf_cc_send=ibuf_cc_send_next
+!!               !!    end if
+!!               !!  end do
+!!               !!end if ! end if stagger grid
+!!
+!!             end if
+!!           end do
+!!        case (3)
+!!           do iside=1,2
+!!             i1=kr(1,3)*(2*iside-3);i2=kr(2,3)*(2*iside-3)
+!!             i3=kr(3,3)*(2*iside-3);
+!!
+!!             if (neighbor_pole(i1,i2,i3,igrid)/=0) cycle
+!!
+!!             if (neighbor_type(i1,i2,i3,igrid)==neighbor_coarse) then
+!!               ! send flux to coarser neighbor
+!!               ineighbor=neighbor(1,i1,i2,i3,igrid)
+!!               ipe_neighbor=neighbor(2,i1,i2,i3,igrid)
+!!               if (ipe_neighbor/=mype) then
+!!                 ic1=1+modulo(node(pig1_,igrid)-1,2)
+!!                 ic2=1+modulo(node(pig2_,igrid)-1,2)
+!!                 ic3=1+modulo(node(pig3_,igrid)-1,2);
+!!                 inc1=ic1;inc2=ic2;inc3=-2*i3+ic3;
+!!                 itag=4**3*(ineighbor-1)+inc1*4**(1-1)+inc2*4**(2-1)+&
+!!                    inc3*4**(3-1)
+!!                 isend=isend+1
+!!
+!!                 if(stagger_grid) then
+!!                 !!  ibuf_send_next=ibuf_send+isize(3)
+!!                 !!  sendbuffer(ibuf_send:ibuf_send_next-isize_stg(3)-&
+!!                 !!     1)=reshape(pflux(iside,3,igrid)%flux,&
+!!                 !!     (/isize(3)-isize_stg(3)/))
+!!
+!!                 !!  sendbuffer(ibuf_send_next-isize_stg(3):ibuf_send_next-&
+!!                 !!     1)=reshape(pflux(iside,3,igrid)%edge,(/isize_stg(3)/))
+!!                 !!  call mpi_isend_wrapper(sendbuffer(ibuf_send),isize(3),&
+!!                 !!      MPI_DOUBLE_PRECISION,ipe_neighbor,itag, icomm,&
+!!                 !!     fc_sendreq(isend),ierrmpi)
+!!                 !!  ibuf_send=ibuf_send_next
+!!                 else
+!!                   call mpi_isend_wrapper(pflux(iside,3,igrid)%flux,isize(3),&
+!!                       MPI_DOUBLE_PRECISION,ipe_neighbor,itag, icomm,&
+!!                      fc_sendreq(isend),ierrmpi)
+!!                 end if
+!!               end if
+!!
+!!               !!if(stagger_grid) then
+!!               !!  ! If we are in a fine block surrounded by coarse blocks
+!!               !!  do idir=idims+1,ndim
+!!               !!    pi1=i1+kr(idir,1);pi2=i2+kr(idir,2);pi3=i3+kr(idir,3);
+!!               !!    mi1=i1-kr(idir,1);mi2=i2-kr(idir,2);mi3=i3-kr(idir,3);
+!!               !!    ph1=pi1-kr(idims,1)*(2*iside-3)
+!!               !!    ph2=pi2-kr(idims,2)*(2*iside-3)
+!!               !!    ph3=pi3-kr(idims,3)*(2*iside-3);
+!!               !!    mh1=mi1-kr(idims,1)*(2*iside-3)
+!!               !!    mh2=mi2-kr(idims,2)*(2*iside-3)
+!!               !!    mh3=mi3-kr(idims,3)*(2*iside-3);
+!!
+!!               !!    if (neighbor_type(pi1,pi2,pi3,&
+!!               !!       igrid)==2.and.neighbor_type(ph1,ph2,ph3,&
+!!               !!       igrid)==2.and.mype/=neighbor(2,pi1,pi2,pi3,&
+!!               !!       igrid).and.neighbor_pole(pi1,pi2,pi3,igrid)==0) then
+!!               !!      ! Get relative position in the grid for tags
+!!               !!      ineighbor=neighbor(1,pi1,pi2,pi3,igrid)
+!!               !!      ipe_neighbor=neighbor(2,pi1,pi2,pi3,igrid)
+!!               !!      ic1=1+modulo(node(pig1_,igrid)-1,2)
+!!               !!      ic2=1+modulo(node(pig2_,igrid)-1,2)
+!!               !!      ic3=1+modulo(node(pig3_,igrid)-1,2);
+!!               !!      inc1=-2*pi1+ic1;inc2=-2*pi2+ic2;inc3=-2*pi3+ic3;
+!!               !!      itag_cc=4**3*(ineighbor-1)+inc1*4**(1-1)+inc2*4**(2-1)+&
+!!               !!         inc3*4**(3-1)
+!!               !!      ! Reshape to buffer and send
+!!               !!      isend_cc=isend_cc+1
+!!               !!      ibuf_cc_send_next=ibuf_cc_send+isize_stg(3)
+!!               !!      sendbuffer_cc(ibuf_cc_send:ibuf_cc_send_next-&
+!!               !!         1)=reshape(pflux(iside,3,igrid)%edge,&
+!!               !!         shape=(/isize_stg(3)/))
+!!               !!      call mpi_isend_wrapper(sendbuffer_cc(ibuf_cc_send),isize_stg(3),&
+!!               !!         MPI_DOUBLE_PRECISION,ipe_neighbor,itag_cc,icomm,&
+!!               !!         cc_sendreq(isend_cc),ierrmpi)
+!!               !!      ibuf_cc_send=ibuf_cc_send_next
+!!               !!    end if
+!!
+!!               !!    if (neighbor_type(mi1,mi2,mi3,&
+!!               !!       igrid)==2.and.neighbor_type(mh1,mh2,mh3,&
+!!               !!       igrid)==2.and.mype/=neighbor(2,mi1,mi2,mi3,&
+!!               !!       igrid).and.neighbor_pole(mi1,mi2,mi3,igrid)==0) then
+!!               !!      ! Get relative position in the grid for tags
+!!               !!      ineighbor=neighbor(1,mi1,mi2,mi3,igrid)
+!!               !!      ipe_neighbor=neighbor(2,mi1,mi2,mi3,igrid)
+!!               !!      ic1=1+modulo(node(pig1_,igrid)-1,2)
+!!               !!      ic2=1+modulo(node(pig2_,igrid)-1,2)
+!!               !!      ic3=1+modulo(node(pig3_,igrid)-1,2);
+!!               !!      inc1=-2*pi1+ic1;inc2=-2*pi2+ic2;inc3=-2*pi3+ic3;
+!!               !!      inc1=-2*mi1+ic1;inc2=-2*mi2+ic2;inc3=-2*mi3+ic3;
+!!               !!      itag_cc=4**3*(ineighbor-1)+inc1*4**(1-1)+inc2*4**(2-1)+&
+!!               !!         inc3*4**(3-1)
+!!               !!      ! Reshape to buffer and send
+!!               !!      isend_cc=isend_cc+1
+!!               !!      ibuf_cc_send_next=ibuf_cc_send+isize_stg(3)
+!!               !!      sendbuffer_cc(ibuf_cc_send:ibuf_cc_send_next-&
+!!               !!         1)=reshape(pflux(iside,3,igrid)%edge,&
+!!               !!         shape=(/isize_stg(3)/))
+!!               !!      call mpi_isend_wrapper(sendbuffer_cc(ibuf_cc_send),isize_stg(3),&
+!!               !!         MPI_DOUBLE_PRECISION,ipe_neighbor,itag_cc,icomm,&
+!!               !!         cc_sendreq(isend_cc),ierrmpi)
+!!               !!      ibuf_cc_send=ibuf_cc_send_next
+!!               !!    end if
+!!               !!  end do
+!!               !!end if ! end if stagger grid
+!!
+!!             end if
+!!           end do
+!!         end select
+!!       end do
+!!     end do
    end subroutine sendflux
 
 !!! TODO: these should not be called anymore
@@ -955,7 +963,7 @@ module mod_fix_conserve
                   do ix2=ixMlo2,ixMhi2 
                     psb(igrid)%w(ix,ix2,ix3,nw0:nw1) = &
                       psb(igrid)%w(ix,ix2,ix3,nw0:nw1) - &
-                      pflux(iside,1,igrid)%flux(1,ix2-nghostcells,ix3-nghostcells,1:nwfluxin)
+                      pflux(iside,1)%flux(1,ix2-nghostcells,ix3-nghostcells,1:nwfluxin,igrid)
                       !TODO JESSE I suspect that the indexing
                       !of flux (ix1..ix3) is not correct
                       !yet...
@@ -1001,9 +1009,8 @@ module mod_fix_conserve
                         do ix2=1,nxCo2 
                            psb(igrid)%w(ix,ixmin2+ix2-1,ixmin3+ix3-1,nw0:nw1) = &
                             psb(igrid)%w(ix,ixmin2+ix2-1,ixmin3+ix3-1,nw0:nw1) + &
-                            pflux(iotherside,1,ineighbor&
-                            )%flux(1,ix2,ix3,1:nwfluxin)&
-                            * CoFiratio
+                            pflux(iotherside,1)%flux(1,ix2,ix3,1:nwfluxin,&
+                              ineighbor) * CoFiratio
                             !TODO JESSE I suspect that the indexing
                             !of flux (ix1..ix3) is not correct
                             !yet...
@@ -1105,7 +1112,8 @@ module mod_fix_conserve
                   do ix1=ixMlo1,ixMhi1 
                     psb(igrid)%w(ix1,ix,ix3,nw0:nw1) = &
                      psb(igrid)%w(ix1,ix,ix3,nw0:nw1) - &
-                     pflux(iside,2,igrid)%flux(ix1-nghostcells,1,ix3-nghostcells,1:nwfluxin)
+                     pflux(iside,2)%flux(ix1-nghostcells,1,ix3-nghostcells,&
+                                  1:nwfluxin,igrid)
                   end do
                 end do
              !  psb(igrid)%w(ixMlo1:ixMhi1,ix,ixMlo3:ixMhi3,&
@@ -1147,7 +1155,8 @@ module mod_fix_conserve
                      do ix1=1,nxCo1 
                        psb(igrid)%w(ixmin1+ix1-1,ix,ixmin3+ix3-1,nw0:nw1) = &
                          psb(igrid)%w(ixmin1+ix1-1,ix,ixmin3+ix3-1,nw0:nw1) + &
-                         pflux(iotherside,2,ineighbor)%flux(ix1,1,ix3,1:nwfluxin) * CoFiratio
+                         pflux(iotherside,2)%flux(ix1,1,ix3,&
+                            1:nwfluxin,ineighbor) * CoFiratio
                      end do
                    end do
 
@@ -1246,7 +1255,8 @@ module mod_fix_conserve
                  do ix1=ixMlo1,ixMhi1 
                    psb(igrid)%w(ix1,ix2,ix,nw0:nw1) = &
                      psb(igrid)%w(ix1,ix2,ix,nw0:nw1) - &
-                     pflux(iside,3,igrid)%flux(ix1-nghostcells,ix2-nghostcells,1,1:nwfluxin)
+                     pflux(iside,3)%flux(ix1-nghostcells,ix2-nghostcells,&
+                        1,1:nwfluxin,igrid)
                  end do
                end do
              !  psb(igrid)%w(ixMlo1:ixMhi1,ixMlo2:ixMhi2,ix,&
@@ -1286,8 +1296,8 @@ module mod_fix_conserve
                      do ix1=1,nxCo1 
                        psb(igrid)%w(ixmin1+ix1-1,ixmin2+ix2-1,ix,nw0:nw1) = &
                          psb(igrid)%w(ixmin1+ix1-1,ixmin2+ix2-1,ix,nw0:nw1) + &
-                         pflux(iotherside,3,ineighbor&
-                         )%flux(ix1,ix2,1,1:nwfluxin)* CoFiratio
+                         pflux(iotherside,3)%flux(ix1,ix2,1,1:nwfluxin,&
+                            ineighbor)* CoFiratio
                      end do
                    end do
                  !  psb(igrid)%w(ixmin1:ixmax1,ixmin2:ixmax2,ixmin3:ixmax3,&
